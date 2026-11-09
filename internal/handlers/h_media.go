@@ -1,0 +1,85 @@
+package handlers
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/gofiber/fiber/v2"
+
+	"upnp-player/internal/library"
+	"upnp-player/internal/services"
+	"upnp-player/internal/stream"
+)
+
+// MediaTrack handles GET/HEAD /media/track/:file (<id>.wav|.flac?ct=mime). The renderer fetches it.
+func MediaTrack(c *fiber.Ctx) error {
+	ext := filepath.Ext(c.Params("file"))
+	t := library.Get(strings.TrimSuffix(c.Params("file"), ext))
+	if t == nil {
+		return fiber.ErrNotFound
+	}
+	src := stream.ForTrack(t, ext == ".wav")
+	start, end, partial, err := services.ParseRange(c.Get(fiber.HeaderRange), src.Size)
+	if errors.Is(err, services.ErrRangeNotSatisfiable) {
+		c.Set(fiber.HeaderContentRange, fmt.Sprintf("bytes */%d", src.Size))
+		return c.SendStatus(fiber.StatusRequestedRangeNotSatisfiable)
+	}
+
+	ct := c.Query("ct")
+	if ct == "" {
+		ct = "application/octet-stream"
+	}
+	c.Set(fiber.HeaderContentType, ct)
+	c.Set(fiber.HeaderAcceptRanges, "bytes")
+	c.Set("transferMode.dlna.org", "Streaming")
+	c.Set("contentFeatures.dlna.org", services.DLNAFeatures)
+	length := end - start + 1
+	if partial {
+		c.Status(fiber.StatusPartialContent)
+		c.Set(fiber.HeaderContentRange, fmt.Sprintf("bytes %d-%d/%d", start, end, src.Size))
+	}
+	if c.Method() == fiber.MethodHead {
+		c.Response().Header.SetContentLength(int(length))
+		c.Response().SkipBody = true
+		return nil
+	}
+	r, err := src.Open(start)
+	if err != nil {
+		return err
+	}
+	c.Context().SetBodyStream(limitCloser{io.LimitReader(r, length), r}, int(length))
+	return nil
+}
+
+type limitCloser struct {
+	io.Reader
+	c io.Closer
+}
+
+func (l limitCloser) Close() error { return l.c.Close() }
+
+// MediaArt handles GET /media/art/:id: cover art for the renderer and the UI.
+func MediaArt(c *fiber.Ctx) error {
+	t := library.Get(c.Params("id"))
+	if t == nil {
+		return fiber.ErrNotFound
+	}
+	art := library.FindArt(t)
+	if art == nil {
+		return fiber.ErrNotFound
+	}
+	c.Set(fiber.HeaderCacheControl, "max-age=3600")
+	c.Set(fiber.HeaderContentType, art.Mime)
+	if art.Path != "" {
+		data, err := os.ReadFile(art.Path)
+		if err != nil {
+			return fiber.ErrNotFound
+		}
+		return c.Send(data)
+	}
+	return c.Send(art.Data)
+}
