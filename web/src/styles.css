@@ -100,3 +100,5 @@ body { overflow: hidden; font-size: 14px; }
 .tree-row.revealed { animation: reveal-flash 1.6s ease-out; }
 .btn.reveal-btn { line-height: 1; }
 
+
+.btn.theme-btn { line-height: 1; padding: .3rem .45rem; }

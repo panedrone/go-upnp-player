@@ -28,6 +28,18 @@ export default function App() {
   const [quitArmed, setQuitArmed] = useState(false)
   const [quitting, setQuitting] = useState(false)
 
+  // light/dark theme: Bootstrap's data-bs-theme on <html>; a per-browser
+  // convenience kept in localStorage (index.html applies it before the first paint)
+  const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-bs-theme') === 'light' ? 'light' : 'dark')
+  useEffect(() => {
+    document.documentElement.setAttribute('data-bs-theme', theme)
+    try {
+      localStorage.setItem('go-upnp-player.theme', theme)
+    } catch {
+      // no storage: the theme just is not remembered
+    }
+  }, [theme])
+
   // an "armed" Quit button disarms itself after 3 s
   useEffect(() => {
     if (!quitArmed) return
@@ -192,6 +204,25 @@ export default function App() {
           />
           <small className="text-body-secondary vol-num">{state && state.volume >= 0 ? volume : '–'}</small>
         </div>
+
+        <Button
+          size="sm" variant="outline-secondary" className="theme-btn"
+          title={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        >
+          {theme === 'dark' ? (
+            // sun: what a click switches to
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+              <circle cx="8" cy="8" r="3" />
+              <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3" />
+            </svg>
+          ) : (
+            // moon
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+              <path d="M13.5 10.2A6 6 0 0 1 5.8 2.5a6 6 0 1 0 7.7 7.7z" />
+            </svg>
+          )}
+        </Button>
 
         {/* two-click quit, no modal dialogs: the first click arms, the second shuts down */}
         <Button

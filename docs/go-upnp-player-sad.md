@@ -58,7 +58,9 @@ web/                    React + React-Bootstrap (Vite); web/dist is embedded wit
 ```
 
 The UI keeps only per-viewer conveniences in the browser's `localStorage`: expanded tree
-nodes (`go-upnp-player.tree.open`) and column widths (`react-resizable-panels:go-upnp-player.layout.*`).
+nodes (`go-upnp-player.tree.open`), column widths (`react-resizable-panels:go-upnp-player.layout.*`)
+and the light/dark theme (`go-upnp-player.theme`, toggled top right; `index.html` applies it before
+the first paint so a light page does not flash dark).
 The column splitters come from `react-resizable-panels`: Bootstrap/React-Bootstrap have no such
 component. On a narrow screen (≤ 900 px) the columns stack and the splitters become horizontal.
 Everything that must survive a browser change lives in `config.json` on the program side.
