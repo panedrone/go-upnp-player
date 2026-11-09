@@ -205,11 +205,12 @@ func TestTickRestartsRacingRenderer(t *testing.T) {
 	r.With(func(s *testkit.RendererState) { s.StopAllowed = true })
 	Tick() // baseline
 	race(r, 1)
-	race(r, 38)
+	race(r, 5) // ~5x, as seen live
+	race(r, 5)
 	if r.Count("Stop") != 0 {
-		t.Fatal("one jump may be a late seek: no restart yet")
+		t.Fatal("two jumps may be late seeks: no restart yet")
 	}
-	race(r, 38)
+	race(r, 5)
 	if r.Count("Stop") != 1 {
 		t.Fatalf("Stop sent %d times, want 1", r.Count("Stop"))
 	}
@@ -230,6 +231,7 @@ func TestTickRacingAgainSoonPausesAndReports(t *testing.T) {
 	Tick()
 	race(r, 38)
 	race(r, 38)
+	race(r, 38)
 	if r.Count("Stop") != 0 || r.Get().State != "PAUSED_PLAYBACK" || !paused {
 		t.Fatalf("Stop %d, state %s, paused %v", r.Count("Stop"), r.Get().State, paused)
 	}
@@ -244,10 +246,13 @@ func TestTickNormalPlaybackAndSeeksAreNotRacing(t *testing.T) {
 	Tick()
 	for range 5 {
 		race(r, 1)
+		race(r, 2) // RelTime rounding
 	}
 	race(r, 100) // a seek forward
 	race(r, 1)
-	race(r, 100) // and another, not in a row
+	race(r, 100) // two more, not three in a row
+	race(r, 100)
+	race(r, 1)
 	race(r, -150)
 	if r.Count("Stop") != 0 || racingTicks != 0 {
 		t.Fatalf("Stop %d, racing run %d", r.Count("Stop"), racingTicks)
@@ -546,6 +551,22 @@ func TestTickStartsNextWhenStopped(t *testing.T) {
 	Tick()
 	if index != 1 || !strings.Contains(r.Get().URI, "/b.wav") {
 		t.Fatalf("index %d uri %s", index, r.Get().URI)
+	}
+}
+
+func TestTickStartNextFailureIsNotRetriedEveryPoll(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"a", "b"}, 0, 10)
+	r.With(func(s *testkit.RendererState) { s.State, s.URI = "STOPPED", "" })
+	r.Fail("Play", true)
+	Tick()
+	Tick()
+	Tick()
+	if n := r.Count("Play"); n != 1 {
+		t.Fatalf("Play sent %d times, want 1", n)
+	}
+	if wantPlaying || Snapshot().Error == "" {
+		t.Fatalf("wantPlaying %v, error %q", wantPlaying, Snapshot().Error)
 	}
 }
 

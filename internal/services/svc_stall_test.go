@@ -13,11 +13,12 @@ func TestRacing(t *testing.T) {
 		elapsed  time.Duration
 		want     bool
 	}{
-		{"PLAYING", 1, sec, false},      // real time
-		{"PLAYING", 5, sec, false},      // a poll that came late, within the margin
-		{"PLAYING", 38, sec, true},      // the BeagleBone racing, as measured
-		{"PLAYING", 12, 3 * sec, false}, // three seconds between polls
-		{"PLAYING", -200, sec, false},   // a seek back or a track change
+		{"PLAYING", 1, sec, false},     // real time
+		{"PLAYING", 2, sec, false},     // RelTime rounding: 1 s of poll can show 2 s
+		{"PLAYING", 38, sec, true},     // the BeagleBone racing, as measured once
+		{"PLAYING", 4.5, sec, true},    // and another time, ~5x
+		{"PLAYING", 4, 3 * sec, false}, // three seconds between polls
+		{"PLAYING", -200, sec, false},  // a seek back or a track change
 		{"PAUSED_PLAYBACK", 38, sec, false},
 		{"PLAYING", 38, 0, false}, // no previous poll
 	}

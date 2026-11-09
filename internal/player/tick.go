@@ -2,6 +2,8 @@ package player
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/panedrone/go-upnp-player/internal/services"
 	"github.com/panedrone/go-upnp-player/internal/upnp"
 	"time"
@@ -91,7 +93,14 @@ func Tick() {
 		savePlaylist()
 		queueNext(d)
 	case services.TickPlayNext:
-		setErr(startLocked(currentIndex()+1, 0))
+		if err := startLocked(currentIndex()+1, 0); err != nil {
+			// Do not retry on every poll: a BeagleBone answering every Play with
+			// "501 Playing failed" got 108 of them in two minutes (2026-11-09).
+			mu.Lock()
+			wantPlaying = false
+			mu.Unlock()
+			setErr(err)
+		}
 	case services.TickFinished:
 		mu.Lock()
 		wantPlaying = false
@@ -131,6 +140,8 @@ func recoverRacing(d upnp.Device) {
 		setErr(fmt.Errorf("renderer %s runs through tracks with no sound even after a restart: restart the renderer", d.Name))
 		return
 	}
+	// a fault worth seeing in the log: the cause on the renderer side is still unknown
+	log.Printf("player: renderer %s plays ahead of the clock with no sound: restarting queue track %d at %.0f s", d.Name, i, pos)
 	if err := upnp.Stop(c, d); err != nil {
 		setErr(err)
 		return

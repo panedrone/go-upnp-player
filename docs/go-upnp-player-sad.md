@@ -260,10 +260,16 @@ type, so the track is restarted at the same position.
   a healthy device, did not cause it). Pause/Play does not cure it; Stop → SetAVTransportURI →
   Play does (that is what foobar2000 does on a new start, which is how the owner recovered it;
   ~~restart the renderer~~ was the wrong advice). The poll sees it as a position that grew more
-  than 3 s per second + 3 s within one track, on two polls in a row (one jump can be a seek that
-  landed late), and restarts the track that way from where the racing began. This is the one
+  than 1.5 s per second + 1.5 s within one track, on three polls in a row (a jump can be a seek
+  that landed late; RelTime's whole seconds make a 1 s poll show 2 s at most), and restarts the
+  track that way from where the racing began, with a line in the log. ~~3 s per second + 3 s, two
+  polls~~ — 2026-11-09: the racing speed is whatever the download allows, 30–40x once but ~5x the
+  next time, which went unnoticed in 1.0.4. This is the one
   place `Stop` is sent: the renderer plays nothing anyway. If it races again within 2 minutes,
   it is paused and reported instead of being stopped again.
+- In the same state the BeagleBone may answer every `Play` with `501 Playing failed`. The poll
+  used to start the next track again on every tick (108 attempts in two minutes); a failed
+  automatic start now clears the intent to play and shows the error.
 
 ## 9. Testing
 
