@@ -1,5 +1,7 @@
 # <img src="docs/img/gopher.svg" alt="Go gopher" height="44" align="absmiddle"> go-upnp-player
 
+[![coverage](https://codecov.io/gh/panedrone/go-upnp-player/branch/master/graph/badge.svg)](https://codecov.io/gh/panedrone/go-upnp-player)
+
 ![go-upnp-player: library tree, playlist, output devices and the 18-band equalizer](docs/img/screenshot.png)
 
 A player for a local FLAC/CUE library that plays to network UPnP/DLNA renderers

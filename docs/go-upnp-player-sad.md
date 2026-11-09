@@ -267,3 +267,7 @@ The handlers are covered by the endpoint scenario, which lives in another packag
 figures show them as 0%. For the real number use
 `go test -coverpkg=./cmd/...,./internal/... -coverprofile=c.out ./...`. Not covered: `main` itself,
 opening a browser, and the real SSDP multicast.
+
+CI (`.github/workflows/tests.yml`, Windows) runs that command on every push to `master` and sends
+the profile to Codecov, which feeds the README badge. `internal/testkit` is excluded from the
+figure. CI needs Go only; the UI bundle comes from the repository.
