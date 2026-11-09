@@ -6,23 +6,22 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/valyala/fasthttp"
+	"github.com/gofiber/fiber/v3"
 
 	"go-upnp-player/internal/player"
 )
 
 // State — GET /api/state
-func State(c *fiber.Ctx) error {
+func State(c fiber.Ctx) error {
 	return c.JSON(player.Snapshot())
 }
 
 // Events handles GET /api/events: SSE with state snapshots.
-func Events(c *fiber.Ctx) error {
+func Events(c fiber.Ctx) error {
 	c.Set(fiber.HeaderContentType, "text/event-stream")
 	c.Set(fiber.HeaderCacheControl, "no-cache")
 	c.Set(fiber.HeaderConnection, "keep-alive")
-	c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+	return c.SendStreamWriter(func(w *bufio.Writer) {
 		ch, cancel := player.Subscribe()
 		defer cancel()
 		keepalive := time.NewTicker(15 * time.Second)
@@ -49,8 +48,7 @@ func Events(c *fiber.Ctx) error {
 				}
 			}
 		}
-	}))
-	return nil
+	})
 }
 
 type queueDTO struct {
@@ -58,9 +56,9 @@ type queueDTO struct {
 }
 
 // SetQueue handles PUT /api/queue {ids}: builds the playlist without touching playback.
-func SetQueue(c *fiber.Ctx) error {
+func SetQueue(c fiber.Ctx) error {
 	var in queueDTO
-	if err := c.BodyParser(&in); err != nil {
+	if err := c.Bind().Body(&in); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	player.SetQueue(in.IDs)
@@ -68,7 +66,7 @@ func SetQueue(c *fiber.Ctx) error {
 }
 
 // Queue — GET /api/queue
-func Queue(c *fiber.Ctx) error {
+func Queue(c fiber.Ctx) error {
 	v, tracks := player.Queue()
 	return c.JSON(fiber.Map{"version": v, "tracks": tracks})
 }
@@ -80,9 +78,9 @@ type playDTO struct {
 
 // Play handles POST /api/player/play {ids, index}: a new queue.
 // Without ids it jumps within the current queue.
-func Play(c *fiber.Ctx) error {
+func Play(c fiber.Ctx) error {
 	var in playDTO
-	if err := c.BodyParser(&in); err != nil {
+	if err := c.Bind().Body(&in); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	if len(in.IDs) == 0 {
@@ -91,36 +89,36 @@ func Play(c *fiber.Ctx) error {
 	return result(c, player.PlayQueue(in.IDs, in.Index))
 }
 
-func Pause(c *fiber.Ctx) error  { return result(c, player.Pause()) }
-func Resume(c *fiber.Ctx) error { return result(c, player.Resume()) }
-func Stop(c *fiber.Ctx) error   { return result(c, player.Stop()) }
-func Next(c *fiber.Ctx) error   { return result(c, player.Next()) }
-func Prev(c *fiber.Ctx) error   { return result(c, player.Prev()) }
+func Pause(c fiber.Ctx) error  { return result(c, player.Pause()) }
+func Resume(c fiber.Ctx) error { return result(c, player.Resume()) }
+func Stop(c fiber.Ctx) error   { return result(c, player.Stop()) }
+func Next(c fiber.Ctx) error   { return result(c, player.Next()) }
+func Prev(c fiber.Ctx) error   { return result(c, player.Prev()) }
 
 type valueDTO struct {
 	Value float64 `json:"value"`
 }
 
 // Seek handles POST /api/player/seek {value: seconds}
-func Seek(c *fiber.Ctx) error {
+func Seek(c fiber.Ctx) error {
 	var in valueDTO
-	if err := c.BodyParser(&in); err != nil {
+	if err := c.Bind().Body(&in); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	return result(c, player.Seek(in.Value))
 }
 
 // Volume — POST /api/player/volume {value: 0..100}
-func Volume(c *fiber.Ctx) error {
+func Volume(c fiber.Ctx) error {
 	var in valueDTO
-	if err := c.BodyParser(&in); err != nil {
+	if err := c.Bind().Body(&in); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	return result(c, player.SetVolume(int(in.Value)))
 }
 
 // RefreshRenderers — POST /api/renderers/refresh
-func RefreshRenderers(c *fiber.Ctx) error {
+func RefreshRenderers(c fiber.Ctx) error {
 	go player.Discover()
 	return c.SendStatus(fiber.StatusAccepted)
 }
@@ -130,15 +128,15 @@ type selectDTO struct {
 }
 
 // SelectRenderer — POST /api/renderers/select {udn}
-func SelectRenderer(c *fiber.Ctx) error {
+func SelectRenderer(c fiber.Ctx) error {
 	var in selectDTO
-	if err := c.BodyParser(&in); err != nil {
+	if err := c.Bind().Body(&in); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	return result(c, player.Select(in.UDN))
 }
 
-func result(c *fiber.Ctx, err error) error {
+func result(c fiber.Ctx, err error) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
 	}

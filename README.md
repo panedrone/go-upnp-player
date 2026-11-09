@@ -4,7 +4,7 @@
 
 A player for a local FLAC/CUE library that plays to network UPnP/DLNA renderers
 (tested with gmrender-resurrect: a home-made streamer on a BeagleBone Green and a FiiO SR11).
-A single exe: a Go/Fiber backend with a React-Bootstrap UI embedded in it, opened in the browser.
+A single exe: a Go/Fiber v3 backend with a React-Bootstrap UI embedded in it, opened in the browser.
 
 - folder tree, search, tracks from `.cue` sheets (single-file image + cue) and plain track files;
 - renderer selection, play/pause/stop/seek/next/prev, renderer volume;

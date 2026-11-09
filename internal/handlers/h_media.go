@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 
 	"go-upnp-player/internal/library"
 	"go-upnp-player/internal/services"
@@ -16,7 +16,7 @@ import (
 )
 
 // MediaTrack handles GET/HEAD /media/track/:file (<id>.wav|.flac?ct=mime). The renderer fetches it.
-func MediaTrack(c *fiber.Ctx) error {
+func MediaTrack(c fiber.Ctx) error {
 	ext := filepath.Ext(c.Params("file"))
 	t := library.Get(strings.TrimSuffix(c.Params("file"), ext))
 	if t == nil {
@@ -51,7 +51,7 @@ func MediaTrack(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	c.Context().SetBodyStream(limitCloser{io.LimitReader(r, length), r}, int(length))
+	c.RequestCtx().SetBodyStream(limitCloser{io.LimitReader(r, length), r}, int(length))
 	return nil
 }
 
@@ -63,7 +63,7 @@ type limitCloser struct {
 func (l limitCloser) Close() error { return l.c.Close() }
 
 // MediaArt handles GET /media/art/:id: cover art for the renderer and the UI.
-func MediaArt(c *fiber.Ctx) error {
+func MediaArt(c fiber.Ctx) error {
 	t := library.Get(c.Params("id"))
 	if t == nil {
 		return fiber.ErrNotFound

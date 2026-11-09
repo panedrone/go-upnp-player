@@ -20,8 +20,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/filesystem"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/static"
 
 	"go-upnp-player/internal/bg_workers"
 	"go-upnp-player/internal/config"
@@ -83,7 +83,7 @@ func main() {
 	// the Quit button in the UI takes the same path as Ctrl+C
 	handlers.RequestShutdown = stop
 
-	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app := fiber.New()
 	initRoutes(app)
 
 	go func() {
@@ -99,7 +99,7 @@ func main() {
 	if !*noBrowser {
 		openBrowser(ui)
 	}
-	if err := app.Listener(ln); err != nil {
+	if err := app.Listener(ln, fiber.ListenConfig{DisableStartupMessage: true}); err != nil {
 		log.Fatalf("server: %v", err)
 	}
 }
@@ -146,14 +146,15 @@ func initRoutes(app *fiber.App) {
 	api.Get("/eq", handlers.GetEQ)
 	api.Put("/eq", handlers.PutEQ)
 
-	// Get in Fiber also registers HEAD; renderers send HEAD before GET
+	// Fiber v3 registers HEAD for GET routes automatically (DisableHeadAutoRegister
+	// is off); renderers send HEAD before GET
 	app.Get("/media/track/:file", handlers.MediaTrack)
 	app.Get("/media/art/:id", handlers.MediaArt)
 
-	app.Use("/", filesystem.New(filesystem.Config{
-		Root:         http.FS(web.Dist()),
-		Index:        "index.html",
-		NotFoundFile: "index.html",
+	// the embedded UI; the filesystem middleware of v2 is static in v3
+	app.Get("/*", static.New("", static.Config{
+		FS:         web.Dist(),
+		IndexNames: []string{"index.html"},
 	}))
 }
 

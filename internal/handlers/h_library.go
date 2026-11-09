@@ -1,14 +1,14 @@
 package handlers
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 
 	"go-upnp-player/internal/config"
 	"go-upnp-player/internal/library"
 )
 
 // Tree handles GET /api/tree?path= : children of a node ("" means the roots).
-func Tree(c *fiber.Ctx) error {
+func Tree(c fiber.Ctx) error {
 	nodes := library.Children(c.Query("path"))
 	if nodes == nil {
 		nodes = []library.Node{}
@@ -17,7 +17,7 @@ func Tree(c *fiber.Ctx) error {
 }
 
 // Tracks handles GET /api/tracks?path= : all tracks under a node.
-func Tracks(c *fiber.Ctx) error {
+func Tracks(c fiber.Ctx) error {
 	tracks := library.TracksUnder(c.Query("path"))
 	if tracks == nil {
 		tracks = []*library.Track{}
@@ -26,7 +26,7 @@ func Tracks(c *fiber.Ctx) error {
 }
 
 // Search — GET /api/search?q=
-func Search(c *fiber.Ctx) error {
+func Search(c fiber.Ctx) error {
 	tracks := library.Search(c.Query("q"), 2000)
 	if tracks == nil {
 		tracks = []*library.Track{}
@@ -35,7 +35,7 @@ func Search(c *fiber.Ctx) error {
 }
 
 // Rescan handles POST /api/library/rescan (runs in the background).
-func Rescan(c *fiber.Ctx) error {
+func Rescan(c fiber.Ctx) error {
 	go library.Scan(config.Get().Roots)
 	return c.SendStatus(fiber.StatusAccepted)
 }
@@ -45,7 +45,7 @@ type settingsDTO struct {
 }
 
 // GetSettings — GET /api/settings
-func GetSettings(c *fiber.Ctx) error {
+func GetSettings(c fiber.Ctx) error {
 	roots := config.Get().Roots
 	if roots == nil {
 		roots = []string{}
@@ -54,9 +54,9 @@ func GetSettings(c *fiber.Ctx) error {
 }
 
 // PutSettings handles PUT /api/settings: saves the folders and rescans.
-func PutSettings(c *fiber.Ctx) error {
+func PutSettings(c fiber.Ctx) error {
 	var in settingsDTO
-	if err := c.BodyParser(&in); err != nil {
+	if err := c.Bind().Body(&in); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	if err := config.Update(func(cfg *config.Config) { cfg.Roots = in.Roots }); err != nil {

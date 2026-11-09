@@ -44,7 +44,7 @@ pulls the track from the player over HTTP.
 ## 2. Components
 
 ```
-cmd/player              startup: Fiber, routes, embedded UI, background polling
+cmd/player              startup: Fiber v3, routes, embedded UI (static middleware), polling
 internal/handlers/h_*   transport: request parsing, responses
 internal/services/svc_* pure logic with tests: CUE, WAV geometry, Range, DIDL,
                         queue advance decision, equalizer, MIME choice
