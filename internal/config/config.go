@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"go-upnp-player/internal/services"
+	"github.com/panedrone/go-upnp-player/internal/services"
 )
 
 type Config struct {

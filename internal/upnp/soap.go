@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"go-upnp-player/internal/services"
+	"github.com/panedrone/go-upnp-player/internal/services"
 )
 
 // Arg is a SOAP action argument. Order matters: some renderers check it.

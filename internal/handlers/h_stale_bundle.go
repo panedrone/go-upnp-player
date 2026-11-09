@@ -3,7 +3,7 @@ package handlers
 import (
 	"github.com/gofiber/fiber/v3"
 
-	"go-upnp-player/internal/services"
+	"github.com/panedrone/go-upnp-player/internal/services"
 )
 
 // staleBundleJS refetches index.html past the browser cache (which also

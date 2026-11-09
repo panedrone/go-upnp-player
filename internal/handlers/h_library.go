@@ -3,8 +3,8 @@ package handlers
 import (
 	"github.com/gofiber/fiber/v3"
 
-	"go-upnp-player/internal/config"
-	"go-upnp-player/internal/library"
+	"github.com/panedrone/go-upnp-player/internal/config"
+	"github.com/panedrone/go-upnp-player/internal/library"
 )
 
 // Tree handles GET /api/tree?path= : children of a node ("" means the roots).

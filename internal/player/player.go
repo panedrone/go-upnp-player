@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"go-upnp-player/internal/config"
-	"go-upnp-player/internal/library"
-	"go-upnp-player/internal/services"
-	"go-upnp-player/internal/stream"
-	"go-upnp-player/internal/upnp"
+	"github.com/panedrone/go-upnp-player/internal/config"
+	"github.com/panedrone/go-upnp-player/internal/library"
+	"github.com/panedrone/go-upnp-player/internal/services"
+	"github.com/panedrone/go-upnp-player/internal/stream"
+	"github.com/panedrone/go-upnp-player/internal/upnp"
 )
 
 // State is a snapshot for the UI (SSE and /api/state).

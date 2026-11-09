@@ -3,9 +3,9 @@ package handlers
 import (
 	"github.com/gofiber/fiber/v3"
 
-	"go-upnp-player/internal/config"
-	"go-upnp-player/internal/player"
-	"go-upnp-player/internal/services"
+	"github.com/panedrone/go-upnp-player/internal/config"
+	"github.com/panedrone/go-upnp-player/internal/player"
+	"github.com/panedrone/go-upnp-player/internal/services"
 )
 
 type eqDTO struct {

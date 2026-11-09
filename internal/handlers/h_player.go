@@ -8,7 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"go-upnp-player/internal/player"
+	"github.com/panedrone/go-upnp-player/internal/player"
 )
 
 // State — GET /api/state

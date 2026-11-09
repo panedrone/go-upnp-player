@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go-upnp-player/internal/services"
+	"github.com/panedrone/go-upnp-player/internal/services"
 )
 
 var instance0 = Arg{"InstanceID", "0"}

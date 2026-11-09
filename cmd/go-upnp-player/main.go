@@ -26,14 +26,14 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/static"
 
-	"go-upnp-player/internal/bg_workers"
-	"go-upnp-player/internal/config"
-	"go-upnp-player/internal/handlers"
-	"go-upnp-player/internal/library"
-	"go-upnp-player/internal/player"
-	"go-upnp-player/internal/services"
-	"go-upnp-player/internal/stream"
-	"go-upnp-player/web"
+	"github.com/panedrone/go-upnp-player/internal/bg_workers"
+	"github.com/panedrone/go-upnp-player/internal/config"
+	"github.com/panedrone/go-upnp-player/internal/handlers"
+	"github.com/panedrone/go-upnp-player/internal/library"
+	"github.com/panedrone/go-upnp-player/internal/player"
+	"github.com/panedrone/go-upnp-player/internal/services"
+	"github.com/panedrone/go-upnp-player/internal/stream"
+	"github.com/panedrone/go-upnp-player/web"
 )
 
 func main() {
@@ -56,6 +56,7 @@ func main() {
 	// writes to the config.
 	build := buildID()
 	handlers.BuildID = build
+	handlers.AppVersion = Version
 	player.Build = build
 	addr := ":" + strconv.Itoa(*port)
 	ln, err := net.Listen("tcp4", addr)
@@ -106,7 +107,7 @@ func main() {
 	// the Quit button in the UI takes the same path as Ctrl+C
 	handlers.RequestShutdown = stop
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{AppName: "go-upnp-player v" + Version})
 	initRoutes(app)
 
 	go func() {
@@ -118,7 +119,7 @@ func main() {
 		_ = app.ShutdownWithTimeout(3 * time.Second)
 	}()
 
-	log.Printf("go-upnp-player: %s", ui)
+	log.Printf("go-upnp-player v%s: %s", Version, ui)
 	if !*noBrowser {
 		openBrowser(ui)
 	}

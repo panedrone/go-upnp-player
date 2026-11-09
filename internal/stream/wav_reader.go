@@ -12,7 +12,7 @@ import (
 	"github.com/mewkiz/flac"
 	"github.com/mewkiz/flac/frame"
 
-	"go-upnp-player/internal/services"
+	"github.com/panedrone/go-upnp-player/internal/services"
 )
 
 // eqSettings is read by serving streams in the background, hence atomic rather than a plain var.

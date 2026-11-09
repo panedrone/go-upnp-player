@@ -5,7 +5,7 @@ import (
 	"context"
 	"time"
 
-	"go-upnp-player/internal/player"
+	"github.com/panedrone/go-upnp-player/internal/player"
 )
 
 // RunPlayerPoll polls the renderer once a second; once a minute, if the selected

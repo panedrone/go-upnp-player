@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"go-upnp-player/internal/library"
+	"github.com/panedrone/go-upnp-player/internal/library"
 )
 
 // Source is a virtual track file: its size and opening from a byte offset.

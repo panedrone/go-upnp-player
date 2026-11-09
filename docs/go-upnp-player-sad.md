@@ -44,7 +44,7 @@ pulls the track from the player over HTTP.
 ## 2. Components
 
 ```
-cmd/player              startup: Fiber v3, routes, embedded UI (static middleware), polling
+cmd/go-upnp-player      startup: Fiber v3, routes, embedded UI (static middleware), polling
 internal/handlers/h_*   transport: request parsing, responses
 internal/services/svc_* pure logic with tests: CUE, WAV geometry, Range, DIDL,
                         queue advance decision, equalizer, MIME choice
@@ -54,7 +54,8 @@ internal/library        folder walk, cue, tags, cover art, metadata cache
 internal/player         queue and commands to the selected renderer (package-level state)
 internal/bg_workers     renderer poll every second, re-discovery every minute
 internal/config         settings in %AppData%\go-upnp-player\config.json
-web/                    React + React-Bootstrap (Vite); web/dist is embedded with go:embed
+web/                    React + React-Bootstrap (Vite); web/dist is built at design time,
+                        committed, and embedded with go:embed (so go install needs no Node)
 ```
 
 The UI keeps only per-viewer conveniences in the browser's `localStorage`: expanded tree

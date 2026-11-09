@@ -15,7 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"go-upnp-player/internal/services"
+	"github.com/panedrone/go-upnp-player/internal/services"
 )
 
 // Track is a playable unit: a track from a cue or a whole file.

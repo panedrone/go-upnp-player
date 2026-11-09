@@ -51,7 +51,8 @@ interface Props {
 // revealChain lists the tree paths to expand to show a track: every folder from
 // the library root down to the leaf's folder, plus the leaf itself for cue tracks.
 function revealChain(roots: TreeNode[], leaf: string, fromCue: boolean): string[] {
-  const sep = '\\'
+  // paths come from the server's OS: backslashes on Windows, slashes elsewhere
+  const sep = leaf.includes('\\') ? '\\' : '/'
   const low = leaf.toLowerCase()
   const root = roots.find((r) => low.startsWith(r.path.toLowerCase() + sep))
   if (!root) return []

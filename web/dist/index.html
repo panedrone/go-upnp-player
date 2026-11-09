@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>go-upnp-player</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <script>
+      // apply the saved theme before the page renders, so a light page does not flash dark
+      try {
+        var t = localStorage.getItem('go-upnp-player.theme')
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-bs-theme', t)
+      } catch (e) {}
+    </script>
+    <script type="module" crossorigin src="/assets/index-40USYBFX.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-FdkfXdCE.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
