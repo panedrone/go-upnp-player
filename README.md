@@ -10,7 +10,7 @@ A single exe: a Go/Fiber v3 backend with a React-Bootstrap UI embedded in it, op
 
 - folder tree, search, tracks from `.cue` sheets (single-file image + cue) and plain track files;
 - renderer selection, play/pause/stop/seek/next/prev, renderer volume;
-- 18-band equalizer: 55 Hz … 20 kHz, ±20 dB, presets; applied by the player itself, in the WAV stream;
+- 18-band equalizer: 55 Hz … 20 kHz, ±20 dB, presets, load/save foobar2000 `.feq` files; applied by the player itself, in the WAV stream;
 - the same page works as a remote control from a phone on the same Wi-Fi.
 
 How it works and why it was built this way: [docs/go-upnp-player-sad.md](docs/go-upnp-player-sad.md);

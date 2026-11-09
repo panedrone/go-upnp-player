@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button, ButtonGroup, Card, Form } from 'react-bootstrap'
 import { api, EQ } from './api'
 
@@ -31,10 +31,46 @@ const presets: Record<string, (hz: number) => number> = {
   // highs; the right wing is higher than the left (per a live listening test 2026-11-09:
   // a symmetric V gave "too much bass, too little treble")
   Rock: curve([[55, 4], [110, 4], [250, 1], [600, -2], [1000, -3], [2000, 0], [3500, 4], [6000, 7], [10000, 9], [14000, 10]]),
-  // harder: more low end, the 250–500 Hz "mud" cut, guitar attack at 2–4 kHz pushed forward
-  Hard: curve([[55, 6], [110, 5], [220, 1], [400, -3], [800, -1], [2000, 3], [3500, 4], [7000, 3], [14000, 5]]),
-  // soft: a little warmth at the bottom, harsh 3–8 kHz and the very top tamed
-  Soft: curve([[55, 2], [220, 1], [700, 0], [2000, -1], [4000, -3], [8000, -4], [14000, -5]]),
+}
+
+// foobar2000 .feq: one integer gain in dB per line, one line per band, CRLF.
+// foobar's 18 bands (55 Hz…20 kHz, half an octave apart, ±20 dB) are the same grid as ours,
+// so a file maps onto the sliders index by index. Some files lack the final line break.
+const parseFeq = (text: string, bands: number, maxGain: number): number[] => {
+  const lines = text.split(/\r?\n/).map((s) => s.trim()).filter((s) => s !== '')
+  if (lines.length !== bands) throw new Error(`not an equalizer preset: expected ${bands} values, got ${lines.length}`)
+  return lines.map((s) => {
+    const v = Number(s)
+    if (!Number.isFinite(v)) throw new Error(`not an equalizer preset: bad value "${s}"`)
+    return Math.round(Math.max(-maxGain, Math.min(maxGain, v)))
+  })
+}
+
+const formatFeq = (gains: number[]) => gains.map((g) => String(Math.round(g)) + '\r\n').join('')
+
+// saveFile: the browser's "Save as" where there is one (Chromium), otherwise a plain download.
+const saveFile = async (name: string, text: string) => {
+  const w = window as unknown as {
+    showSaveFilePicker?: (o: unknown) => Promise<{ createWritable: () => Promise<{ write: (d: Blob) => Promise<void>; close: () => Promise<void> }> }>
+  }
+  const blob = new Blob([text], { type: 'application/octet-stream' })
+  if (w.showSaveFilePicker) {
+    try {
+      const h = await w.showSaveFilePicker({ suggestedName: name, types: [{ description: 'foobar2000 EQ preset', accept: { 'application/octet-stream': ['.feq'] } }] })
+      const f = await h.createWritable()
+      await f.write(blob)
+      await f.close()
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return // cancelled by the user
+      throw e
+    }
+    return
+  }
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = name
+  a.click()
+  URL.revokeObjectURL(a.href)
 }
 
 // 1245 → 1.2k, 4978 → 5k, 19912 → 20k
@@ -51,6 +87,9 @@ interface Props {
 // The equalizer is applied on our side, in the WAV stream the renderer pulls.
 export default function Equalizer({ onError }: Props) {
   const [eq, setEq] = useState<EQ | null>(null)
+  // the name of the last loaded preset, offered back when saving
+  const [presetName, setPresetName] = useState('equalizer.feq')
+  const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     api.eq().then(setEq).catch((e) => onError(String(e)))
@@ -63,6 +102,17 @@ export default function Equalizer({ onError }: Props) {
     api.saveEq(next.enabled, next.gains).catch((e) => onError(e instanceof Error ? e.message : String(e)))
   }
   const setGain = (i: number, v: number) => setEq({ ...eq, gains: eq.gains.map((g, j) => (j === i ? v : g)) })
+  const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
+
+  const loadFeq = async (file: File) => {
+    try {
+      const gains = parseFeq(await file.text(), eq.bands.length, eq.maxGain)
+      setPresetName(file.name)
+      save({ ...eq, gains })
+    } catch (e) {
+      onError(errMsg(e))
+    }
+  }
 
   return (
     <Card>
@@ -96,7 +146,21 @@ export default function Equalizer({ onError }: Props) {
               {name}
             </Button>
           ))}
+          <Button variant="outline-secondary" disabled={!eq.enabled} title="Load a foobar2000 .feq preset" onClick={() => fileInput.current?.click()}>
+            Load…
+          </Button>
+          <Button variant="outline-secondary" disabled={!eq.enabled} title="Save as a foobar2000 .feq preset" onClick={() => saveFile(presetName, formatFeq(eq.gains)).catch((e) => onError(errMsg(e)))}>
+            Save…
+          </Button>
         </ButtonGroup>
+        <input
+          ref={fileInput} type="file" accept=".feq" hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            e.target.value = '' // the same file can be picked again
+            if (f) loadFeq(f)
+          }}
+        />
       </Card.Body>
     </Card>
   )

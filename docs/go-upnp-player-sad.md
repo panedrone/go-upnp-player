@@ -191,6 +191,12 @@ bands). A band is skipped only above 0.475·fs, so the top band works at 44.1 kH
 for a different band grid is not remapped but reset to zero. ~~10 bands 31 Hz … 16 kHz,
 ±12 dB~~ — 2026-11-09: not enough.
 
+The grid is exactly foobar2000's, so its `.feq` presets (one integer dB per line, 18 lines,
+CRLF) load and save index by index, entirely in the browser: Load reads the file picked in the
+file input, Save uses the browser's "Save as" where available (Chromium), otherwise a download.
+A file with a different number of values is refused, not remapped. ~~Built-in Hard and Soft
+presets~~ — replaced by `.feq` load/save 2026-11-09: the owner's own curves live in foobar2000.
+
 There is no overall attenuation: boosting a band raises that band and leaves the rest alone.
 Overload is handled by a soft limiter: linear up to −1 dBFS, above that peaks are rounded off
 with tanh and never exceed full scale. ~~Preamp = −(largest boost)~~ — rejected 2026-11-09:
