@@ -39,6 +39,9 @@ type Track struct {
 	FromCue    bool    `json:"fromCue"`
 	FileSize   int64   `json:"-"`
 	FileFrames uint64  `json:"-"` // full file length in samples
+	// Covered: a whole-file track whose file a cue sheet in the same folder refers
+	// to; folder playlists and search skip it in favour of the cue tracks.
+	Covered bool `json:"-"`
 }
 
 // Node is a tree element.
@@ -151,10 +154,16 @@ func scanDir(idx *index, dir string) int {
 		nodes = append(nodes, Node{Path: cuePath, Name: filepath.Base(cuePath), Kind: "cue", Count: len(tracks)})
 	}
 	for _, f := range flacs {
+		// FLAC files are always shown, like a folder view in foobar2000, even when
+		// a cue sheet refers to them (tracks+cue rips, image+cue). Such files are
+		// marked Covered: playlists built from a folder and search take the cue
+		// tracks instead, so the album does not appear twice.
+		var tracks []*Track
 		if covered[strings.ToLower(f)] {
-			continue
+			tracks = wholeFileTrack(f)
+		} else {
+			tracks = fileTracks(f)
 		}
-		tracks := fileTracks(f)
 		if len(tracks) == 0 {
 			continue
 		}
@@ -208,6 +217,18 @@ func cueTracks(cuePath string, flacs []string, exists func(string) bool, covered
 		}
 	}
 	return out
+}
+
+// wholeFileTrack is a FLAC file shown as one track regardless of any embedded
+// cue sheet, marked Covered (an external cue sheet already describes it).
+func wholeFileTrack(path string) []*Track {
+	m := fileMeta(path)
+	if m == nil {
+		return nil
+	}
+	t := newTrack(path, path, services.TaggedTrack(path, m.NSamples, m.Tags), m, false)
+	t.Covered = true
+	return []*Track{t}
 }
 
 func fileTracks(path string) []*Track {
@@ -369,7 +390,9 @@ func TracksUnder(path string) []*Track {
 	var out []*Track
 	for _, t := range cur.tracks {
 		ll := strings.ToLower(t.Leaf)
-		if ll == lp || strings.HasPrefix(ll, prefix) {
+		// the node itself always plays; under a folder, a file covered by a cue
+		// sheet is skipped — its cue tracks are already in the list
+		if ll == lp || (strings.HasPrefix(ll, prefix) && !t.Covered) {
 			out = append(out, t)
 		}
 	}
@@ -387,6 +410,9 @@ func Search(q string, limit int) []*Track {
 	defer mu.RUnlock()
 	var out []*Track
 	for _, t := range cur.tracks {
+		if t.Covered {
+			continue // found through its cue tracks
+		}
 		hay := strings.ToLower(t.Artist + " " + t.Album + " " + t.Title + " " + t.Leaf)
 		ok := true
 		for _, w := range words {
