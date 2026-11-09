@@ -135,7 +135,9 @@ Saved column widths are not carried over (they reset to the defaults once).
   are tolerated;
 - a cue sheet in the `CUESHEET` tag inside a FLAC file.
 
-Not supported: images other than FLAC (WAV, APE, WavPack), the binary CUESHEET block, DSD.
+Not supported: images other than FLAC (WAV, APE, WavPack), the binary CUESHEET block, DSD and other
+non-FLAC formats — planned in [ADR-001](adr-001-lossless-formats-beyond-flac.md) (proposed). Lossy formats
+(MP3, AAC, Ogg, Opus) are out of scope for good.
 
 ## 6. Equalizer
 

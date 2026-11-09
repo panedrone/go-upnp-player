@@ -11,7 +11,8 @@ A single exe: a Go/Fiber v3 backend with a React-Bootstrap UI embedded in it, op
 - 18-band equalizer: 55 Hz … 20 kHz, ±20 dB, presets; applied by the player itself, in the WAV stream;
 - the same page works as a remote control from a phone on the same Wi-Fi.
 
-How it works and why it was built this way: [docs/go-upnp-player-sad.md](docs/go-upnp-player-sad.md).
+How it works and why it was built this way: [docs/go-upnp-player-sad.md](docs/go-upnp-player-sad.md);
+decisions under discussion: [ADR-001 — lossless formats beyond FLAC](docs/adr-001-lossless-formats-beyond-flac.md).
 
 ## Build
 
