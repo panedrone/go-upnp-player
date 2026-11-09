@@ -144,3 +144,34 @@ func TestResolveCueFile(t *testing.T) {
 		t.Fatalf("ambiguous must be empty: %q", got)
 	}
 }
+
+// Non-UTF-8 cue sheets: Western titles in cp1252 must not come out as cp1251
+// ("Dan Swanö" read as cp1251 is "Dan Swan\u0446", seen live 2026-11-09), while
+// Russian titles in cp1251 stay Russian.
+func TestDecodeTextPicksCodePage(t *testing.T) {
+	cases := []struct {
+		name string
+		text string
+		cp   *charmap.Charmap
+	}{
+		{"cp1252 umlaut", "TITLE \"Dan Swanö / Melissa\"", charmap.Windows1252},
+		{"cp1252 band name", "PERFORMER \"Motörhead\"\nTITLE \"Ace of Spades\"", charmap.Windows1252},
+		{"cp1252 accents", "TITLE \"Café del Mar – Señorita\"", charmap.Windows1252},
+		// Russian word: "\u0410\u0440\u0438\u044f" is Aria in Cyrillic
+		{"cp1251 russian", "PERFORMER \"\u0410\u0440\u0438\u044f\"", charmap.Windows1251},
+		// Latin band name next to a Russian title: separate words, still cp1251
+		{"cp1251 mixed words", "TITLE \"Aria - \u0413\u0435\u0440\u043e\u0439 \u0430\u0441\u0444\u0430\u043b\u044c\u0442\u0430\"", charmap.Windows1251},
+		// Cyrillic look-alikes typed inside Latin words in a Russian rip stay cp1251
+		{"cp1251 look-alike typo", "TITLE \"Music For The Jilted Generation (\u0421D2)\"", charmap.Windows1251},
+		{"cp1251 look-alike typo 2", "TITLE \"Everbody In The Place (155 and \u041aising)\"", charmap.Windows1251},
+	}
+	for _, c := range cases {
+		raw, err := c.cp.NewEncoder().String(c.text)
+		if err != nil {
+			t.Fatalf("%s: encode: %v", c.name, err)
+		}
+		if got := DecodeText([]byte(raw)); got != c.text {
+			t.Errorf("%s: got %q, want %q", c.name, got, c.text)
+		}
+	}
+}

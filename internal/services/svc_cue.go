@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	stdunicode "unicode"
 	"unicode/utf8"
 
 	"golang.org/x/text/encoding/charmap"
@@ -44,8 +45,9 @@ type CueSpan struct {
 }
 
 // DecodeText converts the bytes of a text file (cue, tags) to UTF-8.
-// UTF-8 with or without BOM, UTF-16 with BOM; everything else is treated as cp1251:
-// old rips with Russian titles are almost always in it.
+// UTF-8 with or without BOM, UTF-16 with BOM; anything else is a single-byte
+// Windows code page, cp1251 (Russian) or cp1252 (Western European), see
+// pickCodePage.
 func DecodeText(data []byte) string {
 	switch {
 	case bytes.HasPrefix(data, []byte{0xEF, 0xBB, 0xBF}):
@@ -64,11 +66,87 @@ func DecodeText(data []byte) string {
 	if utf8.Valid(data) {
 		return string(data)
 	}
-	out, err := charmap.Windows1251.NewDecoder().Bytes(data)
-	if err != nil {
+	return pickCodePage(data)
+}
+
+// pickCodePage decodes non-UTF-8 text as cp1251 and as cp1252 and keeps the
+// more plausible result. Treating everything as cp1251 turned "Dan Swanö"
+// (cp1252, ö = 0xF6) into "Dan Swan\u0446" (2026-11-09). The tells:
+//   - cp1251 read of Western text gives words that mix Latin and Cyrillic
+//     letters ("Swan\u0446");
+//   - cp1252 read of Russian text gives words made mostly of accented Latin
+//     letters ("Ïåñíÿ").
+//
+// The variant with fewer such words wins; a tie keeps cp1251, the usual case
+// for old rips with Russian titles.
+func pickCodePage(data []byte) string {
+	ru, errRU := charmap.Windows1251.NewDecoder().Bytes(data)
+	we, errWE := charmap.Windows1252.NewDecoder().Bytes(data)
+	switch {
+	case errRU != nil && errWE != nil:
 		return string(data)
+	case errRU != nil:
+		return string(we)
+	case errWE != nil:
+		return string(ru)
 	}
-	return string(out)
+	suspectRU := mixedScriptWords(string(ru))
+	suspectWE := mixedScriptWords(string(we)) + accentHeavyWords(string(we))
+	if suspectWE < suspectRU {
+		return string(we)
+	}
+	return string(ru)
+}
+
+// words splits text into runs of letters.
+func words(s string) []string {
+	return strings.FieldsFunc(s, func(r rune) bool { return !stdunicode.IsLetter(r) })
+}
+
+// latinLookalikes are Cyrillic letters that look like Latin ones. Russian rips
+// often have them typed by mistake inside Latin words ("\u0421D2" for "CD2",
+// "\u041aising" for "Rising" — the same keys on the Russian layout); in cp1251
+// such text still reads right, so they do not count as mixed script.
+const latinLookalikes = "\u0410\u0412\u0415\u041a\u041c\u041d\u041e\u0420\u0421\u0422\u0425\u0430\u0435\u043e\u0440\u0441\u0443\u0445\u0406\u0456"
+
+// mixedScriptWords counts words that contain both Latin letters and Cyrillic
+// letters other than Latin look-alikes.
+func mixedScriptWords(s string) int {
+	n := 0
+	for _, w := range words(s) {
+		lat, cyr := false, false
+		for _, r := range w {
+			switch {
+			case r < 0x250 && stdunicode.IsLetter(r):
+				lat = true
+			case r >= 0x400 && r <= 0x4FF && !strings.ContainsRune(latinLookalikes, r):
+				cyr = true
+			}
+		}
+		if lat && cyr {
+			n++
+		}
+	}
+	return n
+}
+
+// accentHeavyWords counts words of 3+ letters where more than half the letters
+// are non-ASCII Latin (accented) ones.
+func accentHeavyWords(s string) int {
+	n := 0
+	for _, w := range words(s) {
+		total, accented := 0, 0
+		for _, r := range w {
+			total++
+			if r >= 0xC0 && r < 0x250 {
+				accented++
+			}
+		}
+		if total >= 3 && accented*2 > total {
+			n++
+		}
+	}
+	return n
 }
 
 // ParseCue parses the text of a cue sheet. Unknown commands are skipped.
