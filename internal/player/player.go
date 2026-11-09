@@ -13,7 +13,7 @@ import (
 	"github.com/panedrone/go-upnp-player/internal/upnp"
 )
 
-// State is a snapshot for the UI (SSE and /api/state).
+// State is a snapshot for the UI (/api/state, polled by the page).
 type State struct {
 	Renderers    []upnp.Device  `json:"renderers"`
 	Selected     string         `json:"selected"`
@@ -75,9 +75,6 @@ var (
 	Build string
 	// Version is the release version, shown in the status bar; set once in main.
 	Version string
-
-	subsMu sync.Mutex
-	subs   = map[chan struct{}]struct{}{}
 )
 
 // Init sets the port on which Fiber serves /media (it goes into the links).
@@ -101,30 +98,6 @@ func savePlaylist() {
 	mu.Unlock()
 	if err := config.Update(func(c *config.Config) { c.Playlist = p }); err != nil {
 		log.Printf("player: save playlist: %v", err)
-	}
-}
-
-// Subscribe returns a channel of state change notifications (for SSE).
-func Subscribe() (ch chan struct{}, cancel func()) {
-	ch = make(chan struct{}, 1)
-	subsMu.Lock()
-	subs[ch] = struct{}{}
-	subsMu.Unlock()
-	return ch, func() {
-		subsMu.Lock()
-		delete(subs, ch)
-		subsMu.Unlock()
-	}
-}
-
-func notify() {
-	subsMu.Lock()
-	defer subsMu.Unlock()
-	for ch := range subs {
-		select {
-		case ch <- struct{}{}:
-		default:
-		}
 	}
 }
 
@@ -168,7 +141,6 @@ func setErr(err error) {
 		lastErr = ""
 	}
 	mu.Unlock()
-	notify()
 }
 
 func device() (upnp.Device, bool) {

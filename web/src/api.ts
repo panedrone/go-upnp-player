@@ -71,6 +71,7 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
 const q = (path: string) => encodeURIComponent(path)
 
 export const api = {
+  state: () => req<PlayerState>('GET', '/api/state'),
   tree: (path = '') => req<TreeNode[]>('GET', `/api/tree?path=${q(path)}`),
   tracks: (path: string) => req<Track[]>('GET', `/api/tracks?path=${q(path)}`),
   search: (text: string) => req<Track[]>('GET', `/api/search?q=${q(text)}`),

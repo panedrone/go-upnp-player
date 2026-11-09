@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -446,40 +445,6 @@ func TestEndpointsScenario(t *testing.T) {
 			t.Fatal("shutdown was not requested")
 		}
 	})
-}
-
-// SSE needs a real connection: the handler never finishes.
-func TestEventsStreamsStateSnapshots(t *testing.T) {
-	app := fiber.New()
-	initRoutes(app)
-	ln, err := net.Listen("tcp4", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	go func() { _ = app.Listener(ln, fiber.ListenConfig{DisableStartupMessage: true}) }()
-	t.Cleanup(func() { _ = app.ShutdownWithTimeout(time.Second) })
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, "GET", "http://"+ln.Addr().String()+"/api/events", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if ct := resp.Header.Get("Content-Type"); ct != "text/event-stream" {
-		t.Fatal(ct)
-	}
-	line, err := bufio.NewReader(resp.Body).ReadString('\n')
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.HasPrefix(line, "data: {") || !strings.Contains(line, `"library"`) {
-		t.Fatal(line)
-	}
 }
 
 func TestRunningBuild(t *testing.T) {

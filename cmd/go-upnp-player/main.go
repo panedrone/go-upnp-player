@@ -107,7 +107,7 @@ func main() {
 	go func() {
 		<-ctx.Done()
 		// Graceful shutdown: pause the renderer (otherwise it plays out its buffer and
-		// hits a vanished server), then stop the server. SSE and track streaming
+		// hits a vanished server), then stop the server. Track streams
 		// are long-lived, so wait for them no longer than 3 s.
 		player.Shutdown()
 		_ = app.ShutdownWithTimeout(3 * time.Second)

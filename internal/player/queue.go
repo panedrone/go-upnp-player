@@ -50,7 +50,6 @@ func SetQueue(ids []string) {
 			queueNext(d)
 		}
 	}
-	notify()
 }
 
 // PlayIndex jumps to a track in the current queue.

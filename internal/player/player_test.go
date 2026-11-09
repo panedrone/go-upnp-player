@@ -711,27 +711,12 @@ func TestDiscover(t *testing.T) {
 	}
 }
 
-func TestSnapshotQueueSubscribe(t *testing.T) {
+func TestSnapshotQueue(t *testing.T) {
 	r := setup(t)
 	playingAt(r, []string{"a", "gone", "b"}, 0, 5)
 	Build = "x1"
 	Version = "1.2"
 	t.Cleanup(func() { Build, Version = "", "" })
-	ch, cancel := Subscribe()
-	notify()
-	notify() // a full channel must not block
-	select {
-	case <-ch:
-	default:
-		t.Fatal("no notification")
-	}
-	cancel()
-	notify()
-	select {
-	case <-ch:
-		t.Fatal("notified after cancel")
-	default:
-	}
 	s := Snapshot()
 	if s.Track == nil || s.Track.ID != "a" || s.QueueLen != 3 || s.Build != "x1" || s.Version != "1.2" {
 		t.Fatalf("%+v", s)

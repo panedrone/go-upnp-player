@@ -28,7 +28,6 @@ func Tick() {
 		transport = "OFFLINE"
 		stalled = false
 		mu.Unlock()
-		notify()
 		return
 	}
 	pi, piErr := upnp.GetPositionInfo(c, d)
@@ -80,7 +79,6 @@ func Tick() {
 	if racing {
 		// its position and track mean nothing now: no queue decisions on them
 		recoverRacing(d)
-		notify()
 		return
 	}
 	switch services.DecideTick(in) {
@@ -113,7 +111,6 @@ func Tick() {
 			mu.Unlock()
 		}
 	}
-	notify()
 }
 
 // racingRetry: a renderer that races again this soon after a restart is not cured by

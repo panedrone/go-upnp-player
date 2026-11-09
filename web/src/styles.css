@@ -29,13 +29,11 @@ body { overflow: hidden; font-size: 14px; }
   padding: 2px 8px; cursor: default; user-select: none; border-radius: var(--bs-border-radius-sm);
 }
 .tree-row:hover { background: var(--bs-tertiary-bg); }
-.tree-row.playing { background: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); }
 .tree-num { width: 22px; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
 .tree-dur { flex: none; font-variant-numeric: tabular-nums; padding-left: 8px; }
 /* row buttons: appear on row hover, placed right after the label */
 .btn.hover-btn { flex: none; padding: 0 .45rem; line-height: 1.35; font-size: 12px; margin-left: 6px; visibility: hidden; }
 .tree-row:hover .hover-btn, .track-table tr:hover .hover-btn, .renderer-row:hover .hover-btn { visibility: visible; }
-.renderer-row.selected { background: var(--bs-primary-bg-subtle); }
 .row-label { display: flex; align-items: center; min-width: 0; }
 .tree-toggle { width: 12px; text-align: center; flex: none; }
 .tree-icon { flex: none; font-size: 12px; }
@@ -72,13 +70,6 @@ body { overflow: hidden; font-size: 14px; }
   .btn.hover-btn { visibility: visible; }
 }
 
-/* the playing playlist row: the same muted dark blue as in the tree, instead of
-   Bootstrap's table-primary, which is a near-white band in the dark theme */
-.track-table tr.pl-playing > * {
-  --bs-table-bg-state: var(--bs-primary-bg-subtle);
-  --bs-table-color-state: var(--bs-primary-text-emphasis);
-}
-.track-table tr.pl-playing .text-body-secondary { color: inherit !important; }
 
 /* renderer IP before the name: monospace so addresses line up in a column */
 .renderer-ip { flex: none; margin-right: .5rem; font-size: .85em; min-width: 7.5em; }

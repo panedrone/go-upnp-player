@@ -65,7 +65,7 @@ export default function Playlist({ tracks, playingId, onPlay }: Props) {
                   return (
                     <tr
                       key={t.id}
-                      className={playing ? 'pl-playing' : t.id === sel ? 'table-active' : ''}
+                      className={playing ? 'table-active fw-bold' : t.id === sel ? 'table-active' : ''}
                       onClick={() => setSel(t.id)}
                     >
                       <td className="col-num text-end text-body-secondary">
@@ -74,7 +74,7 @@ export default function Playlist({ tracks, playingId, onPlay }: Props) {
                       <td>
                         {/* the button appears on row hover, right after the title */}
                         <div className="row-label">
-                          <span className="text-truncate">
+                          <span className={'text-truncate' + (playing ? '' : ' text-body-secondary')}>
                             {t.title}
                             {t.artist && t.artist !== g.artist ? <small className="text-body-secondary"> — {t.artist}</small> : null}
                           </span>

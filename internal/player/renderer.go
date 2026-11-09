@@ -15,7 +15,6 @@ func Discover() {
 	}
 	discovering = true
 	mu.Unlock()
-	notify()
 
 	c, cancel := ctx()
 	defer cancel()
@@ -69,7 +68,6 @@ func Select(udn string) error {
 			return err
 		}
 	}
-	notify()
 	return nil
 }
 
@@ -87,5 +85,4 @@ func refreshVolume() {
 	mu.Lock()
 	volume = v
 	mu.Unlock()
-	notify()
 }

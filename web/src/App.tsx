@@ -54,26 +54,55 @@ export default function App() {
   const seenBuild = useRef('')
   const wasScanning = useRef(false)
 
-  // player state via SSE; EventSource reconnects on its own
+  // player state: the page asks /api/state once a second (the backend polls the
+  // renderer at the same rate) and right after every command, so a click shows its
+  // result at once. No long-lived channel: every reading is a plain request.
+  const refresh = useRef<() => void>(() => {})
   useEffect(() => {
-    const es = new EventSource('/api/events')
-    es.onopen = () => setConnected(true)
-    es.onerror = () => setConnected(false)
-    es.onmessage = (e) => {
-      const st: PlayerState = JSON.parse(e.data)
-      // the player under the page was replaced by another build (an update):
-      // reload, otherwise the old UI keeps its stale state, e.g. tree folders
-      // expanded before the update never refetch (2026-11-09)
-      if (st.build) {
-        if (seenBuild.current && seenBuild.current !== st.build) {
-          window.location.reload()
-          return
-        }
-        seenBuild.current = st.build
+    let timer = 0
+    let stopped = false
+    let busy = false // one request at a time: a refresh during one asks for another after it
+    let again = false
+    const poll = async () => {
+      if (busy) {
+        again = true
+        return
       }
-      setState(st)
+      busy = true
+      clearTimeout(timer)
+      try {
+        const st = await api.state()
+        if (stopped) return
+        setConnected(true)
+        // the player under the page was replaced by another build (an update):
+        // reload, otherwise the old UI keeps its stale state, e.g. tree folders
+        // expanded before the update never refetch (2026-11-09)
+        if (st.build) {
+          if (seenBuild.current && seenBuild.current !== st.build) {
+            window.location.reload()
+            return
+          }
+          seenBuild.current = st.build
+        }
+        setState(st)
+      } catch {
+        if (!stopped) setConnected(false)
+      }
+      busy = false
+      if (stopped) return
+      if (again) {
+        again = false
+        void poll()
+      } else {
+        timer = window.setTimeout(poll, 1000)
+      }
     }
-    return () => es.close()
+    refresh.current = () => void poll()
+    void poll()
+    return () => {
+      stopped = true
+      clearTimeout(timer)
+    }
   }, [])
 
   useEffect(() => {
@@ -108,6 +137,7 @@ export default function App() {
     } catch (e) {
       setActionErr(e instanceof Error ? e.message : String(e))
     }
+    refresh.current()
   }, [])
   const showErr = useCallback((m: string) => setActionErr(m), [])
 
@@ -115,6 +145,7 @@ export default function App() {
 
   // "Select Opened File", as in JetBrains IDEs: show the playing track in the tree
   const [reveal, setReveal] = useState<RevealRequest | null>(null)
+  const [collapseSeq, setCollapseSeq] = useState(0)
   const revealPlaying = useCallback(() => {
     const t = state?.track
     if (!t) return
@@ -275,6 +306,19 @@ export default function App() {
                 <path d="M8 0.8v2.4M8 12.8v2.4M0.8 8h2.4M12.8 8h2.4" />
               </svg>
             </Button>
+            {/* "Collapse All", as in JetBrains IDEs: two chevrons folding towards a line */}
+            <Button
+              size="sm" variant="outline-secondary" className="py-0 px-1 reveal-btn ms-1"
+              title="Collapse all folders"
+              onClick={() => {
+                setFilter('') // the tree is hidden while search results are shown
+                setCollapseSeq((s) => s + 1)
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+                <path d="M4.5 2.5L8 5.5l3.5-3M4.5 13.5L8 10.5l3.5 3M2 8h12" />
+              </svg>
+            </Button>
           </Card.Header>
           <div className="p-2 border-bottom">
             <InputGroup size="sm">
@@ -288,7 +332,7 @@ export default function App() {
           <div className="flex-grow-1 overflow-auto min-h-0">
             {/* the tree is not unmounted during search, so expansion state is kept */}
             <div className={searchHits ? 'd-none' : ''}>
-              <Tree playingId={playingId} onMakePlaylist={makePlaylist} reloadKey={treeKey} reveal={reveal} />
+              <Tree playingId={playingId} onMakePlaylist={makePlaylist} reloadKey={treeKey} reveal={reveal} collapseSeq={collapseSeq} />
             </div>
             {searchHits && <SearchResults hits={searchHits} playingId={playingId} onMakePlaylist={(ids) => run(api.setQueue(ids))} />}
           </div>
@@ -327,12 +371,12 @@ export default function App() {
               {renderers.map((r) => {
                 const sel = r.udn === state?.selected
                 return (
-                  <ListGroup.Item key={r.udn} className={'renderer-row d-flex align-items-center gap-2' + (sel ? ' selected' : '')}>
+                  <ListGroup.Item key={r.udn} className={'renderer-row d-flex align-items-center gap-2' + (sel ? ' bg-body-secondary' : '')}>
                     <span className={sel ? 'text-primary' : 'text-body-secondary'}>{sel ? '●' : '○'}</span>
                     <div className="min-w-0">
                       <div className="row-label">
                         <span className="renderer-ip font-monospace text-body-secondary">{r.ip}</span>
-                        <span className={'text-truncate' + (sel ? ' fw-semibold' : '')}>{r.name}</span>
+                        <span className={'text-truncate' + (sel ? ' fw-bold' : ' text-body-secondary')}>{r.name}</span>
                         {!sel && (
                           <Button size="sm" variant="primary" className="hover-btn" title="Play on this device" onClick={() => run(api.selectRenderer(r.udn))}>
                             Use
@@ -380,7 +424,7 @@ function SearchResults({ hits, playingId, onMakePlaylist }: { hits: Track[]; pla
         </Button>
       </div>
       {hits.map((t) => (
-        <div key={t.id} className={'tree-row' + (t.id === playingId ? ' playing' : '')} title={t.leaf}>
+        <div key={t.id} className={'tree-row' + (t.id === playingId ? ' bg-body-secondary fw-bold' : ' text-body-secondary')} title={t.leaf}>
           <span className="tree-num text-body-secondary">{t.number || ''}</span>
           <span className="tree-name text-truncate">
             {t.title} <small className="text-body-secondary">— {[t.artist, t.album].filter(Boolean).join(' · ')}</small>

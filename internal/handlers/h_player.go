@@ -1,11 +1,6 @@
 package handlers
 
 import (
-	"bufio"
-	"encoding/json"
-	"fmt"
-	"time"
-
 	"github.com/gofiber/fiber/v3"
 
 	"github.com/panedrone/go-upnp-player/internal/player"
@@ -14,41 +9,6 @@ import (
 // State — GET /api/state
 func State(c fiber.Ctx) error {
 	return c.JSON(player.Snapshot())
-}
-
-// Events handles GET /api/events: SSE with state snapshots.
-func Events(c fiber.Ctx) error {
-	c.Set(fiber.HeaderContentType, "text/event-stream")
-	c.Set(fiber.HeaderCacheControl, "no-cache")
-	c.Set(fiber.HeaderConnection, "keep-alive")
-	return c.SendStreamWriter(func(w *bufio.Writer) {
-		ch, cancel := player.Subscribe()
-		defer cancel()
-		keepalive := time.NewTicker(15 * time.Second)
-		defer keepalive.Stop()
-		send := func() bool {
-			data, _ := json.Marshal(player.Snapshot())
-			if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
-				return false
-			}
-			return w.Flush() == nil
-		}
-		if !send() {
-			return
-		}
-		for {
-			select {
-			case <-ch:
-				if !send() {
-					return
-				}
-			case <-keepalive.C:
-				if _, err := w.WriteString(": ping\n\n"); err != nil || w.Flush() != nil {
-					return
-				}
-			}
-		}
-	})
 }
 
 type queueDTO struct {

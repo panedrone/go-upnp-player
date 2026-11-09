@@ -12,7 +12,7 @@ and decodes it on its own.
 flowchart LR
     UI["Browser UI<br/>(PC or phone)"]
     subgraph APP["go-upnp-player.exe"]
-        API["Fiber API + SSE"]
+        API["Fiber API"]
         PL["player<br/>queue, poll"]
         LIB["library<br/>tree, CUE, tags"]
         ST["stream<br/>FLAC → WAV + EQ"]
@@ -20,7 +20,7 @@ flowchart LR
     FILES[("FLAC / CUE<br/>files")]
     R["UPnP renderer<br/>(FiiO, BeagleBone)"]
 
-    UI -- "REST / SSE" --> API
+    UI -- "REST, /api/state polled every 1 s" --> API
     API --> PL
     API --> LIB
     LIB --> FILES
@@ -73,7 +73,7 @@ state (no `v` and no build id: the build id is for self-update only), and the Re
 **No console, quit from the UI.** The exe is built with `-H=windowsgui`; the log goes to
 `%LocalAppData%\go-upnp-player\go-upnp-player.log`. `POST /api/shutdown` (the ⏻ Quit button, two
 clicks) takes the same path as Ctrl+C: pause the renderer, then
-`app.ShutdownWithTimeout(3s)`. The timeout is needed because SSE and track streams never end
+`app.ShutdownWithTimeout(3s)`. The timeout is needed because track streams never end
 on their own. ~~A minimized console window as the way to stop it~~ — rejected 2026-11-09: the
 window sits on the taskbar and is awkward to close.
 
@@ -148,7 +148,7 @@ longer exists (`/assets/index-*.js`), the server answers with a tiny script inst
 refetches `index.html` with `cache: "reload"` (which replaces the cached copy) and reloads the
 page. If the old bundle is cached too, the old UI shows and only a hard reload (Ctrl+F5) helps.
 
-**The UI reloads itself after an update.** `/api/state` (and every SSE snapshot) carries the build
+**The UI reloads itself after an update.** `/api/state` carries the build
 id; when an open page sees a different build than the one it started with, it reloads. Otherwise a
 page left open across an update kept its stale state (expanded tree folders never refetched).
 
@@ -219,6 +219,11 @@ type, so the track is restarted at the same position.
   a power cycle (a live incident). The Stop button now sends `Pause` and clears the intent to
   play; the next Play starts the track over. When switching renderers, the old one also gets
   `Pause`.
+- **The page polls `GET /api/state` once a second**, and once more right after every command. The
+  backend polls the renderer at the same rate, so a faster poll would show nothing new.
+  ~~SSE (`/api/events`) pushing a snapshot on every change~~ — dropped 2026-11-09 at the owner's
+  request: a long-lived channel hides what the page is shown and when; a plain request per
+  reading is visible in the browser's network log and needs no keepalive.
 - **No modal dialogs**: everything is on one page (device, EQ and folders are cards on the right).
 - **Navigation is the folder tree only.** Folders with nothing playable inside are hidden. A cue
   sheet expands into its tracks; track files are leaves. Nothing plays from the tree: the arrow
@@ -229,7 +234,9 @@ type, so the track is restarted at the same position.
   Devices are a list in the Output card, selected with a Use button on hover.
   The crosshair button in the Library header (or Alt+F1), like "Select Opened File" in JetBrains
   IDEs, shows the playing track in the tree: it clears the search, expands the folders down to the
-  track (and its cue sheet), scrolls to it and flashes the row.
+  track (and its cue sheet), scrolls to it and flashes the row. The button next to it, like
+  "Collapse All", collapses everything below the library roots; the roots stay open, otherwise a
+  single library folder would leave one row.
   Rejected 2026-11-09: ~~double-click on a playlist track~~; ~~a dropdown for devices~~;
   ~~a central list of all tracks under the selected folder~~ (large folders produced thousands of
   rows to scroll); ~~double-click in the tree starts playback~~ (the tree is for navigation, the

@@ -103,7 +103,6 @@ func startLocked(i int, seek float64) error {
 	mu.Unlock()
 	savePlaylist()
 	queueNext(d)
-	notify()
 	return nil
 }
 
