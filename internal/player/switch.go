@@ -61,11 +61,13 @@ func startLocked(i int, seek float64) error {
 		// queued "next" into its buffer, our SetNext comes too late and it lands
 		// on that track instead (seen live 2026-11-09). The wrong track is then
 		// the current one and the next attempt goes through.
+		switched := false
 		for attempt := 0; attempt < 3 && plan.ViaNext; attempt++ {
 			if err := switchViaNext(d, plan, uri, meta); err != nil {
 				return err
 			}
 			if waitSwitched(d, t.Duration) {
+				switched = true
 				break
 			}
 			c2, cancel2 := ctx()
@@ -74,13 +76,18 @@ func startLocked(i int, seek float64) error {
 			cancel2()
 			plan = services.PlanSwitch(ti.State, pi.Duration)
 		}
-	} else {
-		if err := upnp.SetURI(c, d, uri, meta); err != nil {
-			return err
+		if !switched && plan.ViaNext {
+			// A hung gmrender accepts every command and moves nowhere; this used to be
+			// reported as a successful start (BeagleBone, 2026-11-09).
+			return fmt.Errorf("renderer %s did not switch to %q: it may be hung, restart it", d.Name, t.Title)
 		}
-		if err := upnp.Play(c, d); err != nil {
-			return err
+		if !switched { // it stopped in the meantime, so a plain start works now
+			if err := startDirect(d, uri, meta); err != nil {
+				return err
+			}
 		}
+	} else if err := startDirect(d, uri, meta); err != nil {
+		return err
 	}
 	if seek > 1 {
 		seekWhenReady(d, seek)
@@ -91,11 +98,22 @@ func startLocked(i int, seek float64) error {
 	lastCmd = time.Now()
 	nextURL = ""
 	position, duration = seek, t.Duration
+	frozenSince, stalled = time.Now(), false
 	mu.Unlock()
 	savePlaylist()
 	queueNext(d)
 	notify()
 	return nil
+}
+
+// startDirect starts a track on a renderer that is not busy.
+func startDirect(d upnp.Device, uri, meta string) error {
+	c, cancel := ctx()
+	defer cancel()
+	if err := upnp.SetURI(c, d, uri, meta); err != nil {
+		return err
+	}
+	return upnp.Play(c, d)
 }
 
 // waitSwitched waits (up to ~6 s) until the renderer reports the target track's

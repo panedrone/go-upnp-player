@@ -48,6 +48,7 @@ func Select(udn string) error {
 	wasPaused := wantPlaying && paused
 	pos := position
 	selected = udn
+	frozenSince, stalled = time.Time{}, false
 	nextURL = ""
 	if wasPaused && old.UDN != udn {
 		// the position must survive the switch: Play continues it on the new renderer

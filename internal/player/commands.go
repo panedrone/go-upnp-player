@@ -26,8 +26,8 @@ func Pause() error {
 
 func Resume() error {
 	mu.Lock()
-	idle := !wantPlaying
-	i := max(index, 0) // playlist built but not yet played: start from the first track
+	idle := !wantPlaying || stalled // a hung renderer ignores Play: go through a real start, which reports the failure
+	i := max(index, 0)              // playlist built but not yet played: start from the first track
 	n := len(queue)
 	at := resumeAt
 	mu.Unlock()

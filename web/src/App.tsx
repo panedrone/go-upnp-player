@@ -12,6 +12,7 @@ const transportVariant: Record<string, string> = {
   PAUSED_PLAYBACK: 'warning',
   TRANSITIONING: 'info',
   OFFLINE: 'danger',
+  STALLED: 'danger',
   'BACKEND OFFLINE': 'danger',
 }
 
@@ -133,15 +134,16 @@ export default function App() {
   const makePlaylist = (node: TreeNode) =>
     run(node.id ? api.setQueue([node.id]) : api.tracks(node.path).then((tracks) => api.setQueue(tracks.map((t) => t.id))))
 
-  const playing = state?.transport === 'PLAYING' && !state?.paused
+  const stalled = !!state?.stalled
+  const playing = state?.transport === 'PLAYING' && !state?.paused && !stalled
   const duration = state?.duration || state?.track?.duration || 0
   const position = seekDrag ?? state?.position ?? 0
   const volume = volDrag ?? (state && state.volume >= 0 ? state.volume : 0)
   const track = state?.track
   const renderers = state?.renderers ?? []
   const current = renderers.find((r) => r.udn === state?.selected)
-  const error = actionErr || state?.error
-  const transport = connected ? state?.transport || 'IDLE' : 'BACKEND OFFLINE'
+  const error = actionErr || state?.error || (stalled ? 'The renderer reports playing, but its position is not moving. It may be hung: restart it.' : '')
+  const transport = connected ? (stalled ? 'STALLED' : state?.transport || 'IDLE') : 'BACKEND OFFLINE'
 
   return (
     <div className="app d-flex flex-column vh-100">

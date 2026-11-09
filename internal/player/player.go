@@ -18,6 +18,7 @@ type State struct {
 	Renderers    []upnp.Device  `json:"renderers"`
 	Selected     string         `json:"selected"`
 	Transport    string         `json:"transport"` // PLAYING/PAUSED_PLAYBACK/STOPPED/...
+	Stalled      bool           `json:"stalled"`   // reports PLAYING, but the position does not move
 	WantPlaying  bool           `json:"wantPlaying"`
 	Paused       bool           `json:"paused"`
 	Position     float64        `json:"position"`
@@ -55,6 +56,8 @@ var (
 	discovering  bool
 	mediaPort    int
 	tickCount    int
+	frozenSince  time.Time // since when the reported position has not changed
+	stalled      bool
 	// resumeAt: the renderer was switched while paused; the new one has not got
 	// the track yet, so the next Play starts it there at this position (-1: none)
 	resumeAt = -1.0
@@ -119,7 +122,7 @@ func Snapshot() State {
 	mu.Lock()
 	defer mu.Unlock()
 	s := State{
-		Renderers: renderers, Selected: selected, Transport: transport,
+		Renderers: renderers, Selected: selected, Transport: transport, Stalled: stalled,
 		WantPlaying: wantPlaying, Paused: paused, Position: position, Duration: duration,
 		Volume: volume, Index: index, QueueVersion: queueVersion, QueueLen: len(queue),
 		Error: lastErr, Discovering: discovering, Library: library.GetStatus(), Build: Build,

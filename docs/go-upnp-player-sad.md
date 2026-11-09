@@ -236,6 +236,14 @@ type, so the track is restarted at the same position.
   `Stream.Close` closes nothing because the stream holds a `bufio.Reader`. The library now opens
   and closes the file itself and calls `flac.Parse`.
 
+- gmrender can hang in PLAYING with a frozen position (BeagleBone, 2026-11-09, trigger not
+  established) and then accepts every command without effect. The player cannot repair it: `Stop`
+  is ruled out (§7), so the device or `gmediarender` has to be restarted. What the player does:
+  a position unchanged for 8 s while PLAYING is reported as `stalled` (the UI shows STALLED and a
+  Play button instead of Pause), Play on such a renderer goes through a real track start, and a
+  switch that fails after three attempts is an error. ~~Report the start as successful anyway~~
+  and ~~trust the renderer's PLAYING~~ showed "playing" over silence.
+
 ## 9. Testing
 
 `go test -race ./...` needs no hardware, network or real user folders:

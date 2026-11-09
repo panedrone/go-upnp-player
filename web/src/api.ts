@@ -38,6 +38,7 @@ export interface PlayerState {
   renderers: Renderer[] | null
   selected: string
   transport: string
+  stalled: boolean
   wantPlaying: boolean
   paused: boolean
   position: number

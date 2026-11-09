@@ -23,11 +23,12 @@ func Tick() {
 	if err != nil {
 		mu.Lock()
 		transport = "OFFLINE"
+		stalled = false
 		mu.Unlock()
 		notify()
 		return
 	}
-	pi, _ := upnp.GetPositionInfo(c, d)
+	pi, piErr := upnp.GetPositionInfo(c, d)
 
 	mu.Lock()
 	transport = ti.State
@@ -36,6 +37,11 @@ func Tick() {
 	}
 	lastPos := position
 	position = pi.Position
+	now := time.Now()
+	if piErr != nil || pi.Position != lastPos || frozenSince.IsZero() {
+		frozenSince = now
+	}
+	stalled = piErr == nil && services.Stalled(ti.State, now.Sub(frozenSince))
 	in := services.TickInput{
 		WantPlaying:  wantPlaying && !paused,
 		State:        ti.State,

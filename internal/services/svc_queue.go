@@ -78,6 +78,16 @@ func reallyAdvanced(in TickInput) bool {
 	return near(in.CurDuration, in.NextDuration) && in.SinceCmd >= StartGrace && in.LastPosition-in.Position > 5
 }
 
+// StallAfter is how long a PLAYING renderer's position may stand still. Generous
+// enough for a stream that is still buffering.
+const StallAfter = 8 * time.Second
+
+// Stalled reports a renderer that claims to play while its position is frozen.
+// gmrender stays in PLAYING after its stream dies (BeagleBone, 2026-11-09).
+func Stalled(state string, frozenFor time.Duration) bool {
+	return state == "PLAYING" && frozenFor >= StallAfter
+}
+
 // SwitchPlan says how to move a renderer to another track.
 type SwitchPlan struct {
 	ViaNext bool    // SetNextAVTransportURI + seek to the end instead of SetAVTransportURI

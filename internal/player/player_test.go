@@ -61,6 +61,7 @@ func resetState() {
 	index, wantPlaying, paused, lastCmd, nextURL = -1, false, false, time.Time{}, ""
 	transport, position, duration, volume, lastErr = "", 0, 0, -1, ""
 	discovering, mediaPort, tickCount, resumeAt = false, 0, 0, -1
+	frozenSince, stalled = time.Time{}, false
 	_ = config.Update(func(c *config.Config) { *c = config.Config{} })
 }
 
@@ -139,16 +140,80 @@ func TestSameTrackRestartsInPlace(t *testing.T) {
 	}
 }
 
-func TestSwitchIsRetriedThreeTimes(t *testing.T) {
+func TestSwitchFailureIsReported(t *testing.T) {
 	r := setup(t)
 	playingAt(r, []string{"old", "a"}, 0, 20)
 	r.With(func(s *testkit.RendererState) { s.NoAdvance = true })
-	queue = []string{"old", "a"}
-	if err := PlayIndex(1); err != nil {
-		t.Fatal(err)
+	err := PlayIndex(1)
+	if err == nil || !strings.Contains(err.Error(), "did not switch") {
+		t.Fatalf("got %v", err)
 	}
 	if n := r.Count("SetNextAVTransportURI"); n != 3 {
 		t.Fatalf("%d attempts, want 3", n)
+	}
+	if index != 0 || lastErr == "" {
+		t.Fatalf("index %d lastErr %q: a failed switch must not look like a start", index, lastErr)
+	}
+}
+
+func TestSwitchFallsBackWhenRendererStops(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"old", "a"}, 0, 20)
+	r.With(func(s *testkit.RendererState) { s.NoAdvance = true })
+	sleep = func(time.Duration) { r.With(func(s *testkit.RendererState) { s.State = "STOPPED" }) }
+	if err := PlayIndex(1); err != nil {
+		t.Fatal(err)
+	}
+	if st := r.Get(); st.State != "PLAYING" || !strings.Contains(st.URI, "/a.flac") || index != 1 {
+		t.Fatalf("%+v index %d", st, index)
+	}
+}
+
+func TestTickDetectsStall(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"a"}, 0, 25)
+	Tick()
+	if stalled {
+		t.Fatal("stalled on the first poll")
+	}
+	frozenSince = time.Now().Add(-services.StallAfter)
+	Tick()
+	if !Snapshot().Stalled {
+		t.Fatal("a frozen position must be reported")
+	}
+	r.With(func(s *testkit.RendererState) { s.Pos = 26 })
+	Tick()
+	if stalled {
+		t.Fatal("the position moved: no longer stalled")
+	}
+}
+
+func TestStallIsClearedByPauseAndOffline(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"a"}, 0, 25)
+	Tick()
+	frozenSince = time.Now().Add(-services.StallAfter)
+	r.With(func(s *testkit.RendererState) { s.State = "PAUSED_PLAYBACK" })
+	Tick()
+	if stalled {
+		t.Fatal("paused is not stalled")
+	}
+	stalled = true
+	r.Close()
+	Tick()
+	if stalled {
+		t.Fatal("offline is reported as offline")
+	}
+}
+
+func TestResumeOnStalledRendererDoesARealStart(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"old", "a"}, 1, 25)
+	r.With(func(s *testkit.RendererState) { s.URI, s.NoAdvance = "http://x/old", true })
+	stalled = true
+	err := Resume()
+	if err == nil || r.Count("Play") != 0 {
+		t.Fatalf("err %v, plain Play sent %d times", err, r.Count("Play"))
 	}
 }
 
