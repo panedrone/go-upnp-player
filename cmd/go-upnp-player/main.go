@@ -101,7 +101,7 @@ func main() {
 	// the Quit button in the UI takes the same path as Ctrl+C
 	handlers.RequestShutdown = stop
 
-	app := fiber.New(fiber.Config{AppName: "go-upnp-player v" + Version})
+	app := fiber.New(fiber.Config{AppName: "go-upnp-player " + Version})
 	initRoutes(app)
 
 	go func() {
@@ -113,7 +113,7 @@ func main() {
 		_ = app.ShutdownWithTimeout(3 * time.Second)
 	}()
 
-	log.Printf("go-upnp-player v%s: %s", Version, ui)
+	log.Printf("go-upnp-player %s: %s", Version, ui)
 	if !*noBrowser {
 		openBrowser(ui)
 	}

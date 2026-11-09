@@ -67,8 +67,8 @@ The column splitters come from `react-resizable-panels`: Bootstrap/React-Bootstr
 component. On a narrow screen (≤ 900 px) the columns stack and the splitters become horizontal.
 Everything that must survive a browser change lives in `config.json` on the program side.
 
-The status bar at the bottom of the page shows the backend's version and build, taken from the
-player state, and the React and Vite versions the bundle was built with.
+The status bar at the bottom of the page shows the backend's version, taken from the player
+state (no `v` and no build id: the build id is for self-update only), and the React and Vite versions the bundle was built with.
 
 **No console, quit from the UI.** The exe is built with `-H=windowsgui`; the log goes to
 `%LocalAppData%\go-upnp-player\go-upnp-player.log`. `POST /api/shutdown` (the ⏻ Quit button, two

@@ -361,8 +361,7 @@ export default function App() {
         </Panel>
       </PanelGroup>
       <footer className="status-bar border-top bg-body-tertiary text-body-secondary">
-        {state?.version ? `go-upnp-player v${state.version}` : 'go-upnp-player'}
-        {state?.build && <span className="ms-2">build {state.build}</span>}
+        go-upnp-player {state?.version}
         <span className="ms-3">React {reactVersion}</span>
         <span className="ms-3">Vite {__VITE_VERSION__}</span>
       </footer>
