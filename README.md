@@ -1,4 +1,4 @@
-# <img src="docs/img/gopher.svg" alt="Go gopher" height="44"> go-upnp-player
+# <img src="docs/img/gopher.svg" alt="Go gopher" height="44" align="absmiddle"> go-upnp-player
 
 ![go-upnp-player: library tree, playlist, output devices and the 18-band equalizer](docs/img/screenshot.png)
 
