@@ -149,6 +149,12 @@ page left open across an update kept its stale state (expanded tree folders neve
   `[INDEX 01 of the track; INDEX 01 of the next one)`. The next track's pregap stays at the end of
   the previous one. The length is known exactly, so `Content-Length` is honest. A Range request is
   mapped to a sample number: the decoder seeks to the frame via SEEKTABLE and drops the excess.
+  Without a SEEKTABLE it bisects over frame headers (jump into the byte range, find the next
+  valid frame header by sync code and CRC-8, compare its sample number, narrow) instead of
+  decoding from the start: a 24/192 track went from 7.9 s to 0.23 s for a Range at 5 minutes,
+  and a track switch (which seeks to the end of the current track) from ~19 s to ~2 s
+  (2026-11-09). Bytes are identical to a sequential decode (covered by a test that encodes a
+  FLAC without a SEEKTABLE).
 - **A plain track file** — the FLAC file as is, with Range support. With the equalizer on it also
   goes through WAV.
 - The MIME type is picked from the renderer's list: the BeagleBone knows only `audio/x-wav`,
@@ -215,5 +221,5 @@ type, so the track is restarted at the same position.
 - The BeagleBone (gmrender) answers `Play` with `501 Playing failed` and does not even request the
   file (2026-11-09). The failure happens before any network access, inside GStreamer on the device:
   a busy ALSA output or a missing HTTP source element. Check the gmediarender log on the BeagleBone.
-- Without a SEEKTABLE in the FLAC file every Range request decodes the file from the start up to
-  the requested position.
+- ~~Without a SEEKTABLE every Range request decodes the file from the start~~ — fixed
+  2026-11-09 by bisection over frame headers (§4).

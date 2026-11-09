@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 
 	"github.com/mewkiz/flac"
+	"github.com/mewkiz/flac/frame"
 
 	"go-upnp-player/internal/services"
 )
@@ -62,6 +63,10 @@ type Reader struct {
 
 	eqSrc *services.EQSettings // settings the eq was built from
 	eq    *services.EQ
+
+	// frames, when set, reads frames from a position found by bisection
+	// (files without a SEEKTABLE) instead of stream
+	frames *bufio.Reader
 }
 
 // Open prepares reading from byte offset offset of the virtual WAV.
@@ -107,6 +112,18 @@ func Open(span Span, offset int64) (*Reader, error) {
 			return nil, fmt.Errorf("flac %s: %w", span.Path, err)
 		}
 		r.stream, r.pos = st, 0
+		// No SEEKTABLE: decoding from the start to a late position took seconds
+		// for hi-res files (a 24/192 track: ~6 s to reach 7 minutes), and every
+		// track switch seeks to the end of the current track (2026-11-09).
+		// Bisect over frame headers instead; on any failure keep the slow path.
+		if target > 0 {
+			if off, first, err := bisectFrame(f, st.Info, target); err == nil && off > 0 {
+				if size, err := fileSize(f); err == nil {
+					r.frames = bufio.NewReaderSize(io.NewSectionReader(f, off, size-off), 1<<16)
+					r.pos = first
+				}
+			}
+		}
 	}
 	r.cut = target
 	return r, nil
@@ -149,7 +166,13 @@ func (r *Reader) fill() error {
 		r.done = true
 		return nil
 	}
-	fr, err := r.stream.ParseNext()
+	var fr *frame.Frame
+	var err error
+	if r.frames != nil {
+		fr, err = frame.Parse(r.frames)
+	} else {
+		fr, err = r.stream.ParseNext()
+	}
 	if err != nil {
 		if errors.Is(err, io.EOF) {
 			r.done = true
