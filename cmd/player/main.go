@@ -42,10 +42,10 @@ func main() {
 	noBrowser := flag.Bool("no-browser", false, "do not open the UI in a browser on start")
 	flag.Parse()
 
-	// The exe is built without a console (-H=windowsgui): there is nowhere to see stderr,
-	// so the log goes to a file (overwritten on every start).
-	setupLogFile()
-
+	// The exe is built without a console (-H=windowsgui): there is nowhere to see
+	// stderr, so the log goes to a file, overwritten on start. It is opened only
+	// once this copy knows it will serve: a second copy that merely opens the
+	// browser used to truncate the running player's log (2026-11-09).
 	ui := fmt.Sprintf("http://localhost:%d/", *port)
 
 	// One instance per machine: if the port is taken by our own player of the same
@@ -62,6 +62,7 @@ func main() {
 	if err != nil {
 		running, theirs := runningBuild(ui)
 		if !running {
+			setupLogFile() // the port belongs to some other program: no log of ours to keep
 			log.Fatalf("listen: %v", err)
 		}
 		if !services.ShouldReplace(theirs, build) {
@@ -70,11 +71,14 @@ func main() {
 			}
 			return
 		}
+		setupLogFile()
 		log.Printf("replacing running build %q with %q", theirs, build)
 		ln, err = takeOver(ui, addr)
 		if err != nil {
 			log.Fatalf("listen after replacing the running player: %v", err)
 		}
+	} else {
+		setupLogFile()
 	}
 
 	if _, err := config.Load(); err != nil {
@@ -185,6 +189,7 @@ func initRoutes(app *fiber.App) {
 			}
 			return nil
 		},
+		NotFoundHandler: handlers.StaleBundle,
 	}))
 }
 

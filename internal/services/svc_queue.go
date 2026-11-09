@@ -2,6 +2,7 @@ package services
 
 import (
 	"math"
+	"strings"
 	"time"
 )
 
@@ -132,4 +133,10 @@ func IsIndexPath(p string) bool {
 // SameLength compares a renderer-reported length (whole seconds) with a library one.
 func SameLength(rendererDur, libDur float64) bool {
 	return rendererDur > 0 && math.Abs(rendererDur-libDur) <= durTolerance
+}
+
+// IsStaleBundlePath reports whether a missing static path looks like the UI
+// bundle of another build (Vite names it assets/index-<hash>.js).
+func IsStaleBundlePath(p string) bool {
+	return strings.HasPrefix(p, "/assets/index-") && strings.HasSuffix(p, ".js")
 }

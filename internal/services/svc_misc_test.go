@@ -229,3 +229,16 @@ func TestSameLength(t *testing.T) {
 		t.Fatal("SameLength")
 	}
 }
+
+func TestIsStaleBundlePath(t *testing.T) {
+	for p, want := range map[string]bool{
+		"/assets/index-sb86wlm3.js":  true,
+		"/assets/index-DDY2Rj_K.css": false,
+		"/nope.txt":                  false,
+		"/assets/other.js":           false,
+	} {
+		if got := IsStaleBundlePath(p); got != want {
+			t.Errorf("%q: got %v", p, got)
+		}
+	}
+}

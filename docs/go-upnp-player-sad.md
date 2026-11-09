@@ -134,7 +134,10 @@ track on the new renderer there. Stop clears it ("start over").
 **The UI's `index.html` is served with `Cache-Control: no-cache`.** Embedded files have a zero
 modification time, and the browser kept a stale `index.html` pointing at the previous build's
 hashed bundle: after an update the page came up blank (2026-11-09). An `index.html` cached before
-this fix still needs one hard reload (Ctrl+F5): the browser does not ask the server about it.
+this fix is never revalidated by the browser; when it asks for the bundle of a build that no
+longer exists (`/assets/index-*.js`), the server answers with a tiny script instead of a 404: it
+refetches `index.html` with `cache: "reload"` (which replaces the cached copy) and reloads the
+page. If the old bundle is cached too, the old UI shows and only a hard reload (Ctrl+F5) helps.
 
 **The UI reloads itself after an update.** `/api/state` (and every SSE snapshot) carries the build
 id; when an open page sees a different build than the one it started with, it reloads. Otherwise a
