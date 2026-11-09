@@ -313,14 +313,38 @@ func startLocked(i int, seek float64) error {
 	uri, meta := media(d, t)
 	c, cancel := ctx()
 	defer cancel()
-	// No Stop before changing the URI: on the FiiO SR11 (gmrender), Stop during
-	// playback hangs control dead until a reboot (2026-11-09).
-	// gmrender handles SetAVTransportURI during playback on its own.
-	if err := upnp.SetURI(c, d, uri, meta); err != nil {
-		return err
-	}
-	if err := upnp.Play(c, d); err != nil {
-		return err
+
+	// How to switch (2026-11-09, both renderers run gmrender):
+	//   - gmrender takes a new SetAVTransportURI only from STOPPED; while playing
+	//     or paused, Play keeps the old song going;
+	//   - Stop is not an option: on the FiiO SR11 it hangs control until a power
+	//     cycle, both during playback and from pause.
+	// So a busy renderer is switched through its gapless path: the target goes
+	// in as the "next" URI and the current track is seeked to its last second;
+	// the renderer moves on by itself.
+	ti, _ := upnp.GetTransportInfo(c, d)
+	pi, _ := upnp.GetPositionInfo(c, d)
+	plan := services.PlanSwitch(ti.State, pi.Duration)
+	if plan.ViaNext {
+		if err := upnp.SetNextURI(c, d, uri, meta); err != nil {
+			return err
+		}
+		if err := upnp.Seek(c, d, plan.SeekTo); err != nil {
+			return err
+		}
+		if plan.Resume {
+			if err := upnp.Play(c, d); err != nil {
+				return err
+			}
+		}
+		waitSwitched(d, t.Duration)
+	} else {
+		if err := upnp.SetURI(c, d, uri, meta); err != nil {
+			return err
+		}
+		if err := upnp.Play(c, d); err != nil {
+			return err
+		}
 	}
 	if seek > 1 {
 		waitPlaying(d)
@@ -336,6 +360,21 @@ func startLocked(i int, seek float64) error {
 	queueNext(d)
 	notify()
 	return nil
+}
+
+// waitSwitched waits (up to ~6 s) until the renderer reports the target track's
+// length, i.e. the gapless switch has happened. Only then may the next "next"
+// URI be queued, otherwise it would replace the target before the switch.
+func waitSwitched(d upnp.Device, targetDur float64) {
+	for range 30 {
+		c, cancel := ctx()
+		pi, err := upnp.GetPositionInfo(c, d)
+		cancel()
+		if err == nil && services.SwitchDone(pi.Duration, targetDur) {
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
 }
 
 func waitPlaying(d upnp.Device) {

@@ -93,7 +93,16 @@ Saved column widths are not carried over (they reset to the defaults once).
    `GetProtocolInfo` (which MIME types the renderer accepts).
 2. For each renderer the local IP that routes to it is determined (UDP dial). That address goes
    into the track URLs, so VPN, Hyper-V and WSL adapters do not get in the way.
-3. `SetAVTransportURI(http://<ip>:8090/media/track/<id>.wav|.flac?ct=<mime>, DIDL)` → `Play`.
+3. Starting a track depends on the renderer state (`PlanSwitch`):
+   - STOPPED / no media: `SetAVTransportURI(http://<ip>:8090/media/track/<id>.wav|.flac?ct=<mime>, DIDL)` → `Play`;
+   - PLAYING or PAUSED: `SetNextAVTransportURI(target)` → `Seek` to the last second of the current
+     track (→ `Play` if paused); the renderer moves to the target through its gapless path, and the
+     player waits until `TrackDuration` matches the target before queuing the following track.
+     Reason (2026-11-09, both renderers run gmrender): gmrender applies `SetAVTransportURI` only
+     from STOPPED — while playing or paused it keeps the old song — and `Stop` hangs the FiiO SR11
+     until a power cycle, from pause too. ~~SetAVTransportURI while playing~~,
+     ~~Play to resume, then SetAVTransportURI~~ and ~~Pause → Stop → SetAVTransportURI~~ were
+     tried live and rejected for those reasons.
 4. Right after a track starts, `SetNextAVTransportURI` is sent for the next one (gapless).
    If the renderer does not support it, the poll performs the transition.
 5. Poll every second: `GetTransportInfo` + `GetPositionInfo` → `DecideTick`:

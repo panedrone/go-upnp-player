@@ -76,3 +76,33 @@ func reallyAdvanced(in TickInput) bool {
 	// A rollback right after our own backward seek is not a transition either.
 	return near(in.CurDuration, in.NextDuration) && in.SinceCmd >= StartGrace && in.LastPosition-in.Position > 5
 }
+
+// SwitchPlan says how to move a renderer to another track.
+type SwitchPlan struct {
+	ViaNext bool    // SetNextAVTransportURI + seek to the end instead of SetAVTransportURI
+	SeekTo  float64 // where to seek the current track, seconds
+	Resume  bool    // the renderer is paused: send Play after the seek
+}
+
+// PlanSwitch picks the switching method from the renderer state and the length
+// of what it is playing. gmrender ignores SetAVTransportURI unless STOPPED, and
+// Stop hangs the FiiO SR11, so a playing or paused renderer goes through its
+// gapless path. Without a known length there is nowhere to seek: fall back to
+// SetAVTransportURI.
+func PlanSwitch(state string, curDuration float64) SwitchPlan {
+	busy := state == "PLAYING" || state == "PAUSED_PLAYBACK"
+	if !busy || curDuration < 3 {
+		return SwitchPlan{}
+	}
+	return SwitchPlan{
+		ViaNext: true,
+		SeekTo:  curDuration - 1,
+		Resume:  state == "PAUSED_PLAYBACK",
+	}
+}
+
+// SwitchDone reports whether the renderer now plays the target track, judged by
+// the length it reports (it rounds to whole seconds).
+func SwitchDone(rendererDur, targetDur float64) bool {
+	return rendererDur > 0 && math.Abs(rendererDur-targetDur) <= durTolerance
+}

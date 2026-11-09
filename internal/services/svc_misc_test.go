@@ -142,3 +142,29 @@ func TestTaggedTrack(t *testing.T) {
 		t.Fatalf("%+v", ti)
 	}
 }
+
+func TestPlanSwitch(t *testing.T) {
+	cases := []struct {
+		state string
+		dur   float64
+		want  SwitchPlan
+	}{
+		{"STOPPED", 230, SwitchPlan{}},
+		{"NO_MEDIA_PRESENT", 0, SwitchPlan{}},
+		{"PLAYING", 230, SwitchPlan{ViaNext: true, SeekTo: 229}},
+		{"PAUSED_PLAYBACK", 402, SwitchPlan{ViaNext: true, SeekTo: 401, Resume: true}},
+		{"PLAYING", 0, SwitchPlan{}}, // unknown length: nowhere to seek
+		{"TRANSITIONING", 230, SwitchPlan{}},
+	}
+	for _, c := range cases {
+		if got := PlanSwitch(c.state, c.dur); got != c.want {
+			t.Errorf("%s/%v: got %+v want %+v", c.state, c.dur, got, c.want)
+		}
+	}
+}
+
+func TestSwitchDone(t *testing.T) {
+	if !SwitchDone(402, 402.41) || SwitchDone(230, 402.41) || SwitchDone(0, 0) {
+		t.Fatal("SwitchDone")
+	}
+}
