@@ -1,4 +1,4 @@
-module upnp-player
+module go-upnp-player
 
 go 1.26.8
 

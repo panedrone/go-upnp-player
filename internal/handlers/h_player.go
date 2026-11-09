@@ -9,7 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/valyala/fasthttp"
 
-	"upnp-player/internal/player"
+	"go-upnp-player/internal/player"
 )
 
 // State — GET /api/state

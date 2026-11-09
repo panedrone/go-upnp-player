@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"upnp-player/internal/services"
+	"go-upnp-player/internal/services"
 )
 
 var instance0 = Arg{"InstanceID", "0"}

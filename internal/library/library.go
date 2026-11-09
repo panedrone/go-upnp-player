@@ -15,7 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"upnp-player/internal/services"
+	"go-upnp-player/internal/services"
 )
 
 // Track is a playable unit: a track from a cue or a whole file.
@@ -273,12 +273,18 @@ func fileMeta(path string) *FileMeta {
 
 // --- on-disk metadata cache: a rescan does not reread unchanged files ---
 
-func cachePath() string {
+func cachePath() string { return cacheFile("go-upnp-player") }
+
+// legacyCachePath is the cache from before the project rename (2026-11-09);
+// reading it once spares a full rescan of a large library.
+func legacyCachePath() string { return cacheFile("upnp-player") }
+
+func cacheFile(appDir string) string {
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "upnp-player", "meta-cache.json")
+	return filepath.Join(dir, appDir, "meta-cache.json")
 }
 
 var cacheLoaded bool
@@ -290,6 +296,10 @@ func loadMetaCache() {
 	cacheLoaded = true
 	p := cachePath()
 	data, err := os.ReadFile(p)
+	if os.IsNotExist(err) {
+		p = legacyCachePath()
+		data, err = os.ReadFile(p)
+	}
 	if err != nil {
 		return
 	}

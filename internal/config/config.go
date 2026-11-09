@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"upnp-player/internal/services"
+	"go-upnp-player/internal/services"
 )
 
 type Config struct {
@@ -30,19 +30,40 @@ var (
 	cur Config
 )
 
+// appDir is the folder name under the user config/cache directories.
+// legacyAppDir is the name used before the project was renamed (2026-11-09);
+// files are still read from there once, so settings are not lost.
+const (
+	appDir       = "go-upnp-player"
+	legacyAppDir = "upnp-player"
+)
+
 func path() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
-		return "upnp-player.json"
+		return appDir + ".json"
 	}
-	return filepath.Join(dir, "upnp-player", "config.json")
+	return filepath.Join(dir, appDir, "config.json")
+}
+
+func legacyPath() string {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, legacyAppDir, "config.json")
 }
 
 // Load reads the file; a missing file is not an error but an empty config.
+// If only the pre-rename file exists, it is read instead; the next Update
+// writes the new location.
 func Load() (Config, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	data, err := os.ReadFile(path())
+	if os.IsNotExist(err) && legacyPath() != "" {
+		data, err = os.ReadFile(legacyPath())
+	}
 	if os.IsNotExist(err) {
 		return cur, nil
 	}

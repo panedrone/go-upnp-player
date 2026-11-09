@@ -10,9 +10,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"upnp-player/internal/library"
-	"upnp-player/internal/services"
-	"upnp-player/internal/stream"
+	"go-upnp-player/internal/library"
+	"go-upnp-player/internal/services"
+	"go-upnp-player/internal/stream"
 )
 
 // MediaTrack handles GET/HEAD /media/track/:file (<id>.wav|.flac?ct=mime). The renderer fetches it.

@@ -5,12 +5,14 @@ import { api, fmtTime, TreeNode } from './api'
 // Expanded tree nodes live in the browser localStorage, so they survive a page
 // reload and an app restart. Storage may be unavailable (private window,
 // site data blocked); then we just work without persistence.
-const OPEN_KEY = 'upnp-player.tree.open'
+const OPEN_KEY = 'go-upnp-player.tree.open'
+// key used before the project rename (2026-11-09); read once as a fallback
+const LEGACY_OPEN_KEY = 'upnp-player.tree.open'
 
 // hadSavedState: the key already exists (even if empty: the user collapsed everything)
 const [openPaths, hadSavedState] = ((): [Set<string>, boolean] => {
   try {
-    const raw = localStorage.getItem(OPEN_KEY)
+    const raw = localStorage.getItem(OPEN_KEY) ?? localStorage.getItem(LEGACY_OPEN_KEY)
     return [new Set<string>(raw ? JSON.parse(raw) : []), raw !== null]
   } catch {
     return [new Set<string>(), false]

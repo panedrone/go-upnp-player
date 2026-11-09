@@ -187,7 +187,7 @@ export default function App() {
       {/* columns with splitters; the library persists widths (localStorage, autoSaveId) */}
       <PanelGroup
         direction={narrow ? 'vertical' : 'horizontal'}
-        autoSaveId={narrow ? 'upnp-player.layout.v' : 'upnp-player.layout.h'}
+        autoSaveId={narrow ? 'go-upnp-player.layout.v' : 'go-upnp-player.layout.h'}
         className="flex-grow-1 min-h-0 p-2"
       >
         <Panel defaultSize={38} minSize={18} order={1}>

@@ -1,4 +1,4 @@
-# upnp-player — Software Architecture Document (SAD)
+# go-upnp-player — Software Architecture Document (SAD)
 
 A living document: how the system is built right now. It is updated in the same commit as the code.
 
@@ -20,18 +20,18 @@ internal/stream         FLAC → WAV for a sample range (+ equalizer), raw FLAC
 internal/library        folder walk, cue, tags, cover art, metadata cache
 internal/player         queue and commands to the selected renderer (package-level state)
 internal/bg_workers     renderer poll every second, re-discovery every minute
-internal/config         settings in %AppData%\upnp-player\config.json
+internal/config         settings in %AppData%\go-upnp-player\config.json
 web/                    React + React-Bootstrap (Vite); web/dist is embedded with go:embed
 ```
 
 The UI keeps only per-viewer conveniences in the browser's `localStorage`: expanded tree
-nodes (`upnp-player.tree.open`) and column widths (`react-resizable-panels:upnp-player.layout.*`).
+nodes (`go-upnp-player.tree.open`) and column widths (`react-resizable-panels:go-upnp-player.layout.*`).
 The column splitters come from `react-resizable-panels`: Bootstrap/React-Bootstrap have no such
 component. On a narrow screen (≤ 900 px) the columns stack and the splitters become horizontal.
 Everything that must survive a browser change lives in `config.json` on the program side.
 
 **No console, quit from the UI.** The exe is built with `-H=windowsgui`; the log goes to
-`%LocalAppData%\upnp-player\upnp-player.log`. `POST /api/shutdown` (the ⏻ Quit button, two
+`%LocalAppData%\go-upnp-player\go-upnp-player.log`. `POST /api/shutdown` (the ⏻ Quit button, two
 clicks) takes the same path as Ctrl+C: pause the renderer, then
 `app.ShutdownWithTimeout(3s)`. The timeout is needed because SSE and track streams never end
 on their own. ~~A minimized console window as the way to stop it~~ — rejected 2026-11-09: the
@@ -44,9 +44,15 @@ is restored but not played: Play resumes from the same track. The UI re-reads th
 the library scan finishes, because IDs do not resolve to tracks until then.
 
 **Single instance.** On start the process first binds the port (8090). If the port is busy and
-`/api/state` of upnp-player answers on it, the process opens the browser on the running player
+`/api/state` of go-upnp-player answers on it, the process opens the browser on the running player
 and exits with code 0; if something else answers, it is an error. A named mutex is not needed:
 a busy port would stop a second copy from working anyway.
+
+**Rename from upnp-player (2026-11-09).** The project, module, exe and data folders are now
+`go-upnp-player`. Files from the old folders are read once as a fallback, so nothing is lost on
+upgrade: `config.json` from `%AppData%\upnp-player` (the next save writes the new folder), the
+metadata cache from `%LocalAppData%\upnp-player`, and the `upnp-player.tree.open` localStorage key.
+Saved column widths are not carried over (they reset to the defaults once).
 
 ## 3. Playback flow
 

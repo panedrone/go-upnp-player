@@ -5,7 +5,7 @@ import (
 	"context"
 	"time"
 
-	"upnp-player/internal/player"
+	"go-upnp-player/internal/player"
 )
 
 // RunPlayerPoll polls the renderer once a second; once a minute, if the selected

@@ -1,6 +1,6 @@
 # Build: frontend (Vite) -> web/dist, then a single exe with the frontend embedded.
 # -H=windowsgui: no console window; shut down via the Quit button on the page,
-# the log is written to %LocalAppData%\upnp-player\upnp-player.log.
+# the log is written to %LocalAppData%\go-upnp-player\go-upnp-player.log.
 $ErrorActionPreference = 'Stop'
 Push-Location "$PSScriptRoot\web"
 try {
@@ -9,6 +9,6 @@ try {
 } finally { Pop-Location }
 Push-Location $PSScriptRoot
 try {
-    go build -ldflags "-s -w -H=windowsgui" -o bin\upnp-player.exe .\cmd\player
+    go build -ldflags "-s -w -H=windowsgui" -o bin\go-upnp-player.exe .\cmd\player
 } finally { Pop-Location }
-Write-Host "bin\upnp-player.exe"
+Write-Host "bin\go-upnp-player.exe"

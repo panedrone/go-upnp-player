@@ -1,6 +1,6 @@
-# upnp-player
+# go-upnp-player
 
-![upnp-player: library tree, playlist, output devices and the 18-band equalizer](docs/img/screenshot.png)
+![go-upnp-player: library tree, playlist, output devices and the 18-band equalizer](docs/img/screenshot.png)
 
 A player for a local FLAC/CUE library that plays to network UPnP/DLNA renderers
 (tested with gmrender-resurrect: a home-made streamer on a BeagleBone Green and a FiiO SR11).
@@ -11,7 +11,7 @@ A single exe: a Go/Fiber backend with a React-Bootstrap UI embedded in it, opene
 - 18-band equalizer: 55 Hz … 20 kHz, ±20 dB, presets; applied by the player itself, in the WAV stream;
 - the same page works as a remote control from a phone on the same Wi-Fi.
 
-How it works and why it was built this way: [docs/upnp-player-sad.md](docs/upnp-player-sad.md).
+How it works and why it was built this way: [docs/go-upnp-player-sad.md](docs/go-upnp-player-sad.md).
 
 ## Build
 
@@ -21,12 +21,12 @@ Requires Go 1.25+ and Node 20+.
 .\build.ps1
 ```
 
-The result is `bin\upnp-player.exe`.
+The result is `bin\go-upnp-player.exe`.
 
 ## Run
 
 ```powershell
-bin\upnp-player.exe -root "D:\Music"
+bin\go-upnp-player.exe -root "D:\Music"
 ```
 
 - `-root` — library folders separated by `;` (remembered; can be changed later on the page);
@@ -34,10 +34,10 @@ bin\upnp-player.exe -root "D:\Music"
 - `-no-browser` — do not open the browser.
 
 Only one copy runs per machine: if the player is already running, starting it again just
-opens its page in the browser and exits. A desktop shortcut to `bin/upnp-player.exe` is
+opens its page in the browser and exits. A desktop shortcut to `bin/go-upnp-player.exe` is
 handy. The program has no window: stop it with the **⏻ Quit** button on the page (two
 clicks). It pauses the renderer first, then exits. The log goes to
-`%LocalAppData%\upnp-player\upnp-player.log`.
+`%LocalAppData%\go-upnp-player\go-upnp-player.log`.
 
 On the first start Windows asks about the firewall — **allow it for private networks**:
 renderers download tracks from this port themselves, and without the rule you get

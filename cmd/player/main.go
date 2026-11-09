@@ -1,4 +1,4 @@
-// upnp-player plays a FLAC/CUE library on UPnP renderers.
+// go-upnp-player plays a FLAC/CUE library on UPnP renderers.
 // One exe: Fiber serves the UI (React, embedded), the API, and the tracks themselves to renderers.
 package main
 
@@ -23,13 +23,13 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 
-	"upnp-player/internal/bg_workers"
-	"upnp-player/internal/config"
-	"upnp-player/internal/handlers"
-	"upnp-player/internal/library"
-	"upnp-player/internal/player"
-	"upnp-player/internal/stream"
-	"upnp-player/web"
+	"go-upnp-player/internal/bg_workers"
+	"go-upnp-player/internal/config"
+	"go-upnp-player/internal/handlers"
+	"go-upnp-player/internal/library"
+	"go-upnp-player/internal/player"
+	"go-upnp-player/internal/stream"
+	"go-upnp-player/web"
 )
 
 func main() {
@@ -95,7 +95,7 @@ func main() {
 		_ = app.ShutdownWithTimeout(3 * time.Second)
 	}()
 
-	log.Printf("upnp-player: %s", ui)
+	log.Printf("go-upnp-player: %s", ui)
 	if !*noBrowser {
 		openBrowser(ui)
 	}
@@ -109,11 +109,11 @@ func setupLogFile() {
 	if err != nil {
 		return
 	}
-	dir = filepath.Join(dir, "upnp-player")
+	dir = filepath.Join(dir, "go-upnp-player")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return
 	}
-	f, err := os.Create(filepath.Join(dir, "upnp-player.log"))
+	f, err := os.Create(filepath.Join(dir, "go-upnp-player.log"))
 	if err != nil {
 		return
 	}
@@ -157,7 +157,7 @@ func initRoutes(app *fiber.App) {
 	}))
 }
 
-// alreadyRunning reports whether the port is answered by upnp-player itself (its /api/state).
+// alreadyRunning reports whether the port is answered by go-upnp-player itself (its /api/state).
 func alreadyRunning(ui string) bool {
 	c := http.Client{Timeout: 2 * time.Second}
 	resp, err := c.Get(ui + "api/state")

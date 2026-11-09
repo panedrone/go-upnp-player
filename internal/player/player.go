@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"upnp-player/internal/config"
-	"upnp-player/internal/library"
-	"upnp-player/internal/services"
-	"upnp-player/internal/stream"
-	"upnp-player/internal/upnp"
+	"go-upnp-player/internal/config"
+	"go-upnp-player/internal/library"
+	"go-upnp-player/internal/services"
+	"go-upnp-player/internal/stream"
+	"go-upnp-player/internal/upnp"
 )
 
 // State is a snapshot for the UI (SSE and /api/state).
