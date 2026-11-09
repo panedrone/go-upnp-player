@@ -211,6 +211,9 @@ type, so the track is restarted at the same position.
   plays: the ▶ button on a track or Play in the top bar. Row buttons (→ in the tree, ▶ in the
   playlist) pop up on hover right after the label and are always visible on touch screens.
   Devices are a list in the Output card, selected with a Use button on hover.
+  The crosshair button in the Library header (or Alt+F1), like "Select Opened File" in JetBrains
+  IDEs, shows the playing track in the tree: it clears the search, expands the folders down to the
+  track (and its cue sheet), scrolls to it and flashes the row.
   Rejected 2026-11-09: ~~double-click on a playlist track~~; ~~a dropdown for devices~~;
   ~~a central list of all tracks under the selected folder~~ (large folders produced thousands of
   rows to scroll); ~~double-click in the tree starts playback~~ (the tree is for navigation, the

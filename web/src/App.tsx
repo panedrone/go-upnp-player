@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Badge, Button, ButtonGroup, Card, Form, Image, InputGroup, ListGroup, Navbar, Spinner } from 'react-bootstrap'
 import { api, artUrl, fmtTime, PlayerState, Track, TreeNode } from './api'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import Tree from './Tree'
+import Tree, { RevealRequest } from './Tree'
 import Playlist from './Playlist'
 import Equalizer from './Equalizer'
 import Settings from './Settings'
@@ -97,6 +97,25 @@ export default function App() {
   const showErr = useCallback((m: string) => setActionErr(m), [])
 
   const playingId = state?.track?.id ?? null
+
+  // "Select Opened File", as in JetBrains IDEs: show the playing track in the tree
+  const [reveal, setReveal] = useState<RevealRequest | null>(null)
+  const revealPlaying = useCallback(() => {
+    const t = state?.track
+    if (!t) return
+    setFilter('') // the tree is hidden while search results are shown
+    setReveal((r) => ({ id: t.id, leaf: t.leaf, fromCue: t.fromCue, seq: (r?.seq ?? 0) + 1 }))
+  }, [state?.track])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === 'F1') {
+        e.preventDefault()
+        revealPlaying()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [revealPlaying])
 
   // arrow button in the tree: build the playlist from the node; playback is left alone
   const makePlaylist = (node: TreeNode) =>
@@ -209,7 +228,18 @@ export default function App() {
         <Card className="col-library h-100">
           <Card.Header className="d-flex align-items-center">
             <span className="me-auto">Library</span>
-            {state?.library.scanning && <Spinner size="sm" />}
+            {state?.library.scanning && <Spinner size="sm" className="me-2" />}
+            <Button
+              size="sm" variant="outline-secondary" className="py-0 px-1 reveal-btn"
+              title="Show the playing track in the tree (Alt+F1)"
+              disabled={!state?.track} onClick={revealPlaying}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+                <circle cx="8" cy="8" r="5.2" />
+                <circle cx="8" cy="8" r="1.4" fill="currentColor" />
+                <path d="M8 0.8v2.4M8 12.8v2.4M0.8 8h2.4M12.8 8h2.4" />
+              </svg>
+            </Button>
           </Card.Header>
           <div className="p-2 border-bottom">
             <InputGroup size="sm">
@@ -223,7 +253,7 @@ export default function App() {
           <div className="flex-grow-1 overflow-auto min-h-0">
             {/* the tree is not unmounted during search, so expansion state is kept */}
             <div className={searchHits ? 'd-none' : ''}>
-              <Tree playingId={playingId} onMakePlaylist={makePlaylist} reloadKey={treeKey} />
+              <Tree playingId={playingId} onMakePlaylist={makePlaylist} reloadKey={treeKey} reveal={reveal} />
             </div>
             {searchHits && <SearchResults hits={searchHits} playingId={playingId} onMakePlaylist={(ids) => run(api.setQueue(ids))} />}
           </div>
