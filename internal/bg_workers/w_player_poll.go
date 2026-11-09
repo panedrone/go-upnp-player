@@ -22,14 +22,18 @@ func RunPlayerPoll(ctx context.Context) {
 		case <-tick.C:
 			player.Tick()
 		case <-rediscover.C:
-			s := player.Snapshot()
-			found := false
-			for _, r := range s.Renderers {
-				found = found || r.UDN == s.Selected
-			}
-			if !found {
+			if selectedMissing(player.Snapshot()) {
 				player.Discover()
 			}
 		}
 	}
+}
+
+func selectedMissing(s player.State) bool {
+	for _, r := range s.Renderers {
+		if r.UDN == s.Selected {
+			return false
+		}
+	}
+	return true
 }

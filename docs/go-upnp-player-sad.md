@@ -54,6 +54,7 @@ internal/library        folder walk, cue, tags, cover art, metadata cache
 internal/player         queue and commands to the selected renderer (package-level state)
 internal/bg_workers     renderer poll every second, re-discovery every minute
 internal/config         settings in %AppData%\go-upnp-player\config.json
+internal/testkit        for tests only: generated FLAC files, a fake gmrender renderer
 web/                    React + React-Bootstrap (Vite); web/dist is built at design time,
                         committed, and embedded with go:embed (so go install needs no Node)
 ```
@@ -165,7 +166,8 @@ page left open across an update kept its stale state (expanded tree folders neve
 
 ## 5. CUE parsing — supported
 
-- encodings: UTF-8 (with and without BOM), UTF-16 with BOM, otherwise cp1251;
+- encodings: UTF-8 (with and without BOM), UTF-16 with BOM, otherwise cp1251 or cp1252, picked
+  by decoding as both and comparing the results (`pickCodePage`);
 - `FILE "x.wav"` with `x.flac` next to it; the only FLAC in the folder;
 - several `FILE` entries in one cue; EAC "gaps appended" layout (INDEX 01 under the next FILE);
 - a track without INDEX 01 is dropped, not the whole sheet; frame numbers ≥ 75 from broken rips
@@ -229,3 +231,26 @@ type, so the track is restarted at the same position.
   a busy ALSA output or a missing HTTP source element. Check the gmediarender log on the BeagleBone.
 - ~~Without a SEEKTABLE every Range request decodes the file from the start~~ — fixed
   2026-11-09 by bisection over frame headers (§4).
+- ~~Every scanned FLAC stayed open until a garbage collection~~ — fixed 2026-11-09, found by a
+  test that could not delete its temporary file on Windows. `flac.ParseFile` opens the file, but
+  `Stream.Close` closes nothing because the stream holds a `bufio.Reader`. The library now opens
+  and closes the file itself and calls `flac.Parse`.
+
+## 9. Testing
+
+`go test -race ./...` needs no hardware, network or real user folders:
+
+- `cmd/go-upnp-player/endpoints_test.go` walks the whole API through the real route table. Only
+  the outside world is fake: a local HTTP server acts as the renderer, the music is FLAC generated
+  into a temporary folder. Player and library are one per process, so it is one ordered scenario.
+- `testkit.Renderer` reproduces the gmrender behaviour from §3: `SetAVTransportURI` applies only
+  from STOPPED, a seek to the end moves to the queued next URI, early Seeks can be dropped. A
+  `Stop` fails the test, which keeps the FiiO SR11 rule (§7) enforced.
+- `testkit.IsolateUserDirs` points the config and cache directories at a temporary folder.
+- Replaceable dependencies are package-level function variables (`player/seams.go`,
+  `upnp.listLocalIPv4s`, `library.readFlacMeta`).
+
+The handlers are covered by the endpoint scenario, which lives in another package, so per-package
+figures show them as 0%. For the real number use
+`go test -coverpkg=./cmd/...,./internal/... -coverprofile=c.out ./...`. Not covered: `main` itself,
+opening a browser, and the real SSDP multicast.

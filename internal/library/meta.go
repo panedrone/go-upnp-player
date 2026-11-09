@@ -22,14 +22,25 @@ type FileMeta struct {
 	Tags       map[string]string `json:"t,omitempty"`
 }
 
-// readFlacMeta parses metadata; flac.ParseFile reads only the metadata
-// blocks and does not touch the audio.
+// parseBlocks reads only the metadata blocks and does not touch the audio. The
+// file is opened here because flac.ParseFile leaks it: Stream.Close does nothing
+// (the stream holds a bufio.Reader, not the file), so every scanned file stayed
+// open, and locked on Windows, until the garbage collector got to it (2026-11-09).
+func parseBlocks(path string) (*flac.Stream, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	return flac.Parse(f)
+}
+
+// readFlacMeta parses the metadata of a FLAC file.
 var readFlacMeta = func(path string, st os.FileInfo) (*FileMeta, error) {
-	s, err := flac.ParseFile(path)
+	s, err := parseBlocks(path)
 	if err != nil {
 		return nil, fmt.Errorf("flac %s: %w", path, err)
 	}
-	defer func() { _ = s.Close() }()
 	m := &FileMeta{
 		ModTime:    st.ModTime().UnixNano(),
 		Size:       st.Size(),
@@ -59,11 +70,10 @@ var readFlacMeta = func(path string, st os.FileInfo) (*FileMeta, error) {
 
 // readEmbeddedPicture returns the cover from a PICTURE block (preferably "Cover (front)").
 var readEmbeddedPicture = func(path string) (data []byte, mime string, err error) {
-	s, err := flac.ParseFile(path)
+	s, err := parseBlocks(path)
 	if err != nil {
 		return nil, "", err
 	}
-	defer func() { _ = s.Close() }()
 	var best *meta.Picture
 	for _, b := range s.Blocks {
 		if p, ok := b.Body.(*meta.Picture); ok && p.MIME != "-->" {

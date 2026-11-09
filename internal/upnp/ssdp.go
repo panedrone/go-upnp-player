@@ -14,6 +14,9 @@ import (
 
 var ssdpAddr = &net.UDPAddr{IP: net.IPv4(239, 255, 255, 250), Port: 1900}
 
+// listLocalIPv4s is replaceable so that tests search over the loopback only.
+var listLocalIPv4s = localIPv4s
+
 // searchTargets are what we search for. Some renderers respond only to their own type,
 // others only to ssdp:all, so we send both.
 var searchTargets = []string{
@@ -28,7 +31,7 @@ func Discover(ctx context.Context, timeout time.Duration) ([]Device, error) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	for _, ip := range localIPv4s() {
+	for _, ip := range listLocalIPv4s() {
 		wg.Add(1)
 		go func(ip net.IP) {
 			defer wg.Done()
