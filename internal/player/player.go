@@ -59,6 +59,14 @@ var (
 	tickCount    int
 	frozenSince  time.Time // since when the reported position has not changed
 	stalled      bool
+	// racing detection (services.Racing): the previous poll, the run of racing polls,
+	// where the run started and when the renderer was last restarted because of it
+	lastPollAt   time.Time
+	lastTrackURI string
+	racingTicks  int
+	racingIndex  int
+	racingFrom   float64
+	racingFixAt  time.Time
 	// resumeAt: the renderer was switched while paused; the new one has not got
 	// the track yet, so the next Play starts it there at this position (-1: none)
 	resumeAt = -1.0

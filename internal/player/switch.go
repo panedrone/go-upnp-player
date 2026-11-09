@@ -99,6 +99,7 @@ func startLocked(i int, seek float64) error {
 	nextURL = ""
 	position, duration = seek, t.Duration
 	frozenSince, stalled = time.Now(), false
+	lastTrackURI, racingTicks = "", 0 // the first poll after a start is the new baseline
 	mu.Unlock()
 	savePlaylist()
 	queueNext(d)

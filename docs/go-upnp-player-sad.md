@@ -254,6 +254,16 @@ type, so the track is restarted at the same position.
   Play button instead of Pause), Play on such a renderer goes through a real track start, and a
   switch that fails after three attempts is an error. ~~Report the start as successful anyway~~
   and ~~trust the renderer's PLAYING~~ showed "playing" over silence.
+- gmrender can also *race*: PLAYING, no sound, the position running at 30–40x and the queue
+  flying by (BeagleBone, switching back to it from the FiiO, 2026-11-09; trigger not
+  established — a 60 s pause, a restart of the player and the switch path itself, all tried on
+  a healthy device, did not cause it). Pause/Play does not cure it; Stop → SetAVTransportURI →
+  Play does (that is what foobar2000 does on a new start, which is how the owner recovered it;
+  ~~restart the renderer~~ was the wrong advice). The poll sees it as a position that grew more
+  than 3 s per second + 3 s within one track, on two polls in a row (one jump can be a seek that
+  landed late), and restarts the track that way from where the racing began. This is the one
+  place `Stop` is sent: the renderer plays nothing anyway. If it races again within 2 minutes,
+  it is paused and reported instead of being stopped again.
 
 ## 9. Testing
 
@@ -264,7 +274,8 @@ type, so the track is restarted at the same position.
   into a temporary folder. Player and library are one per process, so it is one ordered scenario.
 - `testkit.Renderer` reproduces the gmrender behaviour from §3: `SetAVTransportURI` applies only
   from STOPPED, a seek to the end moves to the queued next URI, early Seeks can be dropped. A
-  `Stop` fails the test, which keeps the FiiO SR11 rule (§7) enforced.
+  `Stop` fails the test, which keeps the FiiO SR11 rule (§7) enforced; only the racing-renderer
+  tests (§8) allow it explicitly.
 - `testkit.IsolateUserDirs` points the config and cache directories at a temporary folder.
 - Replaceable dependencies are package-level function variables (`player/seams.go`,
   `upnp.listLocalIPv4s`, `library.readFlacMeta`).

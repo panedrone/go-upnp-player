@@ -24,7 +24,7 @@ type Call struct {
 // Renderer is a fake gmrender on a local HTTP server: it takes
 // SetAVTransportURI only from STOPPED, moves to the queued next URI when seeked
 // to the end of the current track, and fails the test on AVTransport.Stop,
-// which hangs the real FiiO SR11.
+// which hangs the real FiiO SR11, unless the test allows it (StopAllowed).
 type Renderer struct {
 	Device upnp.Device
 
@@ -42,6 +42,7 @@ type Renderer struct {
 	fail       map[string]bool
 	ignoreSeek int
 	noAdvance  bool
+	stopOK     bool
 }
 
 // NewRenderer starts a fake renderer; it stops with the test.
@@ -67,9 +68,9 @@ func (r *Renderer) Close() { r.srv.Close() }
 func (r *Renderer) With(fn func(s *RendererState)) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	s := RendererState{State: r.state, URI: r.uri, Next: r.next, Pos: r.pos, Volume: r.volume, IgnoreSeeks: r.ignoreSeek, NoAdvance: r.noAdvance}
+	s := RendererState{State: r.state, URI: r.uri, Next: r.next, Pos: r.pos, Volume: r.volume, IgnoreSeeks: r.ignoreSeek, NoAdvance: r.noAdvance, StopAllowed: r.stopOK}
 	fn(&s)
-	r.state, r.uri, r.next, r.pos, r.volume, r.ignoreSeek, r.noAdvance = s.State, s.URI, s.Next, s.Pos, s.Volume, s.IgnoreSeeks, s.NoAdvance
+	r.state, r.uri, r.next, r.pos, r.volume, r.ignoreSeek, r.noAdvance, r.stopOK = s.State, s.URI, s.Next, s.Pos, s.Volume, s.IgnoreSeeks, s.NoAdvance, s.StopAllowed
 }
 
 // RendererState is the part of the fake a test may set or read.
@@ -79,6 +80,9 @@ type RendererState struct {
 	Volume           int
 	IgnoreSeeks      int  // this many Seeks are silently dropped, like gmrender on a fresh stream
 	NoAdvance        bool // a seek to the end does not move to the next URI
+	// StopAllowed: the test expects Stop (a racing renderer is restarted with it);
+	// otherwise Stop fails the test
+	StopAllowed bool
 }
 
 // Get returns the current state.
@@ -159,7 +163,11 @@ func (r *Renderer) serve(w http.ResponseWriter, req *http.Request) {
 	case "Pause":
 		r.state = "PAUSED_PLAYBACK"
 	case "Stop":
-		r.t.Errorf("AVTransport.Stop sent: it hangs the FiiO SR11 until a power cycle")
+		if !r.stopOK {
+			r.t.Errorf("AVTransport.Stop sent: it hangs the FiiO SR11 until a power cycle")
+			break
+		}
+		r.state, r.next = "STOPPED", ""
 	case "Seek":
 		if r.ignoreSeek > 0 {
 			r.ignoreSeek--

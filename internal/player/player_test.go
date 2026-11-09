@@ -62,6 +62,7 @@ func resetState() {
 	transport, position, duration, volume, lastErr = "", 0, 0, -1, ""
 	discovering, mediaPort, tickCount, resumeAt = false, 0, 0, -1
 	frozenSince, stalled = time.Time{}, false
+	lastPollAt, lastTrackURI, racingTicks, racingIndex, racingFrom, racingFixAt = time.Time{}, "", 0, 0, 0, time.Time{}
 	_ = config.Update(func(c *config.Config) { *c = config.Config{} })
 }
 
@@ -185,6 +186,78 @@ func TestTickDetectsStall(t *testing.T) {
 	Tick()
 	if stalled {
 		t.Fatal("the position moved: no longer stalled")
+	}
+}
+
+// race moves the fake renderer's position ahead by sec and polls it a second after
+// the previous poll (the polls themselves run back to back, too fast for the clock).
+func race(r *testkit.Renderer, sec float64) {
+	r.With(func(s *testkit.RendererState) { s.Pos += sec })
+	mu.Lock()
+	lastPollAt = time.Now().Add(-time.Second)
+	mu.Unlock()
+	Tick()
+}
+
+func TestTickRestartsRacingRenderer(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"old", "a", "b"}, 1, 25)
+	r.With(func(s *testkit.RendererState) { s.StopAllowed = true })
+	Tick() // baseline
+	race(r, 1)
+	race(r, 38)
+	if r.Count("Stop") != 0 {
+		t.Fatal("one jump may be a late seek: no restart yet")
+	}
+	race(r, 38)
+	if r.Count("Stop") != 1 {
+		t.Fatalf("Stop sent %d times, want 1", r.Count("Stop"))
+	}
+	st := r.Get()
+	if st.State != "PLAYING" || !strings.Contains(st.URI, "/a.flac") || st.Pos != 26 || index != 1 {
+		t.Fatalf("restarted as %+v, index %d; want a at 26 s", st, index)
+	}
+	if Snapshot().Error != "" {
+		t.Fatalf("a successful restart is not an error: %q", Snapshot().Error)
+	}
+}
+
+func TestTickRacingAgainSoonPausesAndReports(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"a"}, 0, 25)
+	r.With(func(s *testkit.RendererState) { s.StopAllowed = true })
+	racingFixAt = time.Now()
+	Tick()
+	race(r, 38)
+	race(r, 38)
+	if r.Count("Stop") != 0 || r.Get().State != "PAUSED_PLAYBACK" || !paused {
+		t.Fatalf("Stop %d, state %s, paused %v", r.Count("Stop"), r.Get().State, paused)
+	}
+	if !strings.Contains(Snapshot().Error, "restart the renderer") {
+		t.Fatalf("error %q", Snapshot().Error)
+	}
+}
+
+func TestTickNormalPlaybackAndSeeksAreNotRacing(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"a", "b"}, 0, 25)
+	Tick()
+	for range 5 {
+		race(r, 1)
+	}
+	race(r, 100) // a seek forward
+	race(r, 1)
+	race(r, 100) // and another, not in a row
+	race(r, -150)
+	if r.Count("Stop") != 0 || racingTicks != 0 {
+		t.Fatalf("Stop %d, racing run %d", r.Count("Stop"), racingTicks)
+	}
+	wantPlaying, paused = true, true
+	r.With(func(s *testkit.RendererState) { s.State = "PAUSED_PLAYBACK" })
+	race(r, 50)
+	race(r, 50)
+	if r.Count("Stop") != 0 {
+		t.Fatal("a paused renderer is left alone")
 	}
 }
 

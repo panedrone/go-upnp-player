@@ -88,6 +88,19 @@ func Stalled(state string, frozenFor time.Duration) bool {
 	return state == "PLAYING" && frozenFor >= StallAfter
 }
 
+// RacingTicks is how many polls in a row must see a racing position before the
+// renderer is restarted: a single jump can be a seek that landed late.
+const RacingTicks = 2
+
+// Racing reports a renderer whose position within one track runs far ahead of the
+// clock. gmrender gets into this with nothing pacing it: it reports PLAYING, races
+// through the queue at 30–40x and plays no sound; Pause/Play does not cure it, only
+// Stop + SetAVTransportURI + Play does (BeagleBone, 2026-11-09). Normal playback,
+// a buffering stall or gmrender's early RelTime rollback never get anywhere near.
+func Racing(state string, advanced float64, elapsed time.Duration) bool {
+	return state == "PLAYING" && elapsed > 0 && advanced > 3*elapsed.Seconds()+3
+}
+
 // SwitchPlan says how to move a renderer to another track.
 type SwitchPlan struct {
 	ViaNext bool    // SetNextAVTransportURI + seek to the end instead of SetAVTransportURI
