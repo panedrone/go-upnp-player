@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Badge, Button, Image, Table } from 'react-bootstrap'
+import { Badge, Button, Image, Spinner, Table } from 'react-bootstrap'
 import { artUrl, fmtTime, Track } from './api'
 
 interface Props {
   tracks: Track[]
   playingId: string | null
+  pendingIndex: number | null // the track whose start is still in progress
   onPlay: (index: number) => void
 }
 
@@ -18,7 +19,7 @@ interface Group {
 }
 
 // Track list grouped by album (cue or folder).
-export default function Playlist({ tracks, playingId, onPlay }: Props) {
+export default function Playlist({ tracks, playingId, pendingIndex, onPlay }: Props) {
   const [sel, setSel] = useState<string | null>(null)
   const groups = useMemo(() => {
     const out: Group[] = []
@@ -46,7 +47,7 @@ export default function Playlist({ tracks, playingId, onPlay }: Props) {
             <div className="album-head d-flex align-items-center gap-2 px-2 py-2" title={g.key}>
               <Image
                 src={artUrl(g.items[0].t.id)} alt="" rounded loading="lazy" className="album-thumb"
-                onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')}
+                onError={(e) => (e.target as HTMLImageElement).classList.add('d-none')}
               />
               <div className="min-w-0">
                 <div className="fw-semibold text-truncate">{g.album}</div>
@@ -78,15 +79,19 @@ export default function Playlist({ tracks, playingId, onPlay }: Props) {
                             {t.title}
                             {t.artist && t.artist !== g.artist ? <small className="text-body-secondary"> — {t.artist}</small> : null}
                           </span>
-                          <Button
-                            size="sm" variant="primary" className="hover-btn" title="Play"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onPlay(i)
-                            }}
-                          >
-                            ▶
-                          </Button>
+                          {pendingIndex === i ? (
+                            <Spinner size="sm" className="ms-2 flex-shrink-0 text-body-secondary" />
+                          ) : (
+                            <Button
+                              size="sm" variant="secondary" className="hover-btn" title="Play"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onPlay(i)
+                              }}
+                            >
+                              ▶
+                            </Button>
+                          )}
                         </div>
                       </td>
                       <td className="col-dur text-end text-body-secondary">{fmtTime(t.duration)}</td>

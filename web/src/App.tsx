@@ -141,6 +141,20 @@ export default function App() {
   }, [])
   const showErr = useCallback((m: string) => setActionErr(m), [])
 
+  // spinners: these requests return only when the renderer has really switched,
+  // which takes seconds. A later click owns the spinner; an earlier request ending
+  // does not take it away.
+  const [pendingPlay, setPendingPlay] = useState<number | null>(null)
+  const [pendingRenderer, setPendingRenderer] = useState<string | null>(null)
+  const playTrack = (i: number) => {
+    setPendingPlay(i)
+    void run(api.playIndex(i)).finally(() => setPendingPlay((p) => (p === i ? null : p)))
+  }
+  const useRenderer = (udn: string) => {
+    setPendingRenderer(udn)
+    void run(api.selectRenderer(udn)).finally(() => setPendingRenderer((p) => (p === udn ? null : p)))
+  }
+
   const playingId = state?.track?.id ?? null
 
   // "Select Opened File", as in JetBrains IDEs: show the playing track in the tree
@@ -205,9 +219,9 @@ export default function App() {
         <ButtonGroup>
           <Button variant="outline-secondary" title="Previous" onClick={() => run(api.prev())}>⏮</Button>
           {playing ? (
-            <Button variant="primary" title="Pause" onClick={() => run(api.pause())}>❚❚</Button>
+            <Button variant="secondary" title="Pause" onClick={() => run(api.pause())}>❚❚</Button>
           ) : (
-            <Button variant="primary" title="Play" onClick={() => run(api.resume())}>▶</Button>
+            <Button variant="secondary" title="Play" onClick={() => run(api.resume())}>▶</Button>
           )}
           <Button variant="outline-secondary" title="Stop" onClick={() => run(api.stop())}>■</Button>
           <Button variant="outline-secondary" title="Next" onClick={() => run(api.next())}>⏭</Button>
@@ -261,7 +275,7 @@ export default function App() {
 
         {/* two-click quit, no modal dialogs: the first click arms, the second shuts down */}
         <Button
-          size="sm" variant={quitArmed ? 'danger' : 'outline-secondary'} className="text-nowrap"
+          size="sm" variant={quitArmed ? 'secondary' : 'outline-secondary'} className="text-nowrap"
           title="Stop the player program (the renderer is paused first)"
           disabled={quitting}
           onClick={() => {
@@ -347,7 +361,7 @@ export default function App() {
             <Badge bg="secondary" pill>{queue.length}</Badge>
           </Card.Header>
           <div className="flex-grow-1 overflow-auto min-h-0">
-            <Playlist tracks={queue} playingId={playingId} onPlay={(i) => run(api.playIndex(i))} />
+            <Playlist tracks={queue} playingId={playingId} pendingIndex={pendingPlay} onPlay={playTrack} />
           </div>
         </Card>
         </Panel>
@@ -377,8 +391,10 @@ export default function App() {
                       <div className="row-label">
                         <span className="renderer-ip font-monospace text-body-secondary">{r.ip}</span>
                         <span className={'text-truncate' + (sel ? ' fw-bold' : ' text-body-secondary')}>{r.name}</span>
-                        {!sel && (
-                          <Button size="sm" variant="primary" className="hover-btn" title="Play on this device" onClick={() => run(api.selectRenderer(r.udn))}>
+                        {pendingRenderer === r.udn ? (
+                          <Spinner size="sm" className="ms-2 flex-shrink-0 text-body-secondary" />
+                        ) : !sel && (
+                          <Button size="sm" variant="secondary" className="hover-btn" title="Play on this device" onClick={() => useRenderer(r.udn)}>
                             Use
                           </Button>
                         )}
@@ -419,7 +435,7 @@ function SearchResults({ hits, playingId, onMakePlaylist }: { hits: Track[]; pla
   return (
     <div className="py-1">
       <div className="px-2 pb-1">
-        <Button size="sm" variant="outline-primary" onClick={() => onMakePlaylist(hits.map((t) => t.id))}>
+        <Button size="sm" variant="outline-secondary" onClick={() => onMakePlaylist(hits.map((t) => t.id))}>
           → Make a playlist of all {hits.length} results
         </Button>
       </div>
@@ -429,7 +445,7 @@ function SearchResults({ hits, playingId, onMakePlaylist }: { hits: Track[]; pla
           <span className="tree-name text-truncate">
             {t.title} <small className="text-body-secondary">— {[t.artist, t.album].filter(Boolean).join(' · ')}</small>
           </span>
-          <Button size="sm" variant="primary" className="hover-btn" title="Make a playlist of this track" onClick={() => onMakePlaylist([t.id])}>
+          <Button size="sm" variant="secondary" className="hover-btn" title="Make a playlist of this track" onClick={() => onMakePlaylist([t.id])}>
             →
           </Button>
           <span className="ms-auto text-body-secondary tree-dur">{fmtTime(t.duration)}</span>

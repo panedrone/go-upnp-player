@@ -242,7 +242,7 @@ function TreeItem({ node, depth, playingId, onMakePlaylist, initiallyOpen, reloa
         <span className="tree-name text-truncate">{node.name}</span>
         {/* the button appears on hover, right after the label */}
         <Button
-          size="sm" variant="primary" className="hover-btn"
+          size="sm" variant="secondary" className="hover-btn"
           title={expandable ? 'Make a playlist of everything inside' : 'Make a playlist of this track'}
           onClick={(e) => {
             e.stopPropagation()

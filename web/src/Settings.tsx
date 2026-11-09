@@ -40,7 +40,7 @@ export default function Settings({ scanning, tracks }: Props) {
         />
         <Form.Text>One folder per line.</Form.Text>
         <Stack direction="horizontal" gap={2} className="mt-2">
-          <Button size="sm" variant="primary" onClick={() => act(api.saveSettings(roots()), 'Saved, rescanning.')}>Save</Button>
+          <Button size="sm" variant="secondary" onClick={() => act(api.saveSettings(roots()), 'Saved, rescanning.')}>Save</Button>
           <Button size="sm" variant="outline-secondary" onClick={() => act(api.rescan(), 'Rescanning.')} disabled={scanning}>Rescan</Button>
           {msg && <small className={'ms-auto ' + (msg.ok ? 'text-success' : 'text-danger')}>{msg.text}</small>}
         </Stack>

@@ -224,6 +224,14 @@ type, so the track is restarted at the same position.
   ~~SSE (`/api/events`) pushing a snapshot on every change~~ — dropped 2026-11-09 at the owner's
   request: a long-lived channel hides what the page is shown and when; a plain request per
   reading is visible in the browser's network log and needs no keepalive.
+- **A spinner replaces the ▶ and Use buttons while the request runs.** `POST /api/player/play` and
+  `/api/renderers/select` answer only after the renderer has really switched, which takes seconds,
+  so the request's own duration is the honest measure; nothing is guessed from the polled state.
+- **Stock Bootstrap look, no blue.** The playing track and the selected device are a gray band with
+  bold text (`table-active` or `bg-body-secondary`, `fw-bold`); other rows are
+  `text-body-secondary`; all buttons are `secondary` or `outline-secondary`. Custom CSS remains
+  only for the slider thumbs, which Bootstrap colors at build time, and for `font-variant-emoji`,
+  because Windows draws the transport symbols as blue emoji otherwise.
 - **No modal dialogs**: everything is on one page (device, EQ and folders are cards on the right).
 - **Navigation is the folder tree only.** Folders with nothing playable inside are hidden. A cue
   sheet expands into its tracks; track files are leaves. Nothing plays from the tree: the arrow
