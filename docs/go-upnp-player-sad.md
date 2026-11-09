@@ -8,6 +8,39 @@ A UPnP control point and a media server in one process. The program does not pla
 itself: it tells a renderer "play this URL", and the renderer downloads the track over HTTP
 and decodes it on its own.
 
+```mermaid
+flowchart LR
+    UI["Browser UI<br/>(PC or phone)"]
+    subgraph APP["go-upnp-player.exe"]
+        API["Fiber API + SSE"]
+        PL["player<br/>queue, poll"]
+        LIB["library<br/>tree, CUE, tags"]
+        ST["stream<br/>FLAC → WAV + EQ"]
+    end
+    FILES[("FLAC / CUE<br/>files")]
+    R["UPnP renderer<br/>(FiiO, BeagleBone)"]
+
+    UI -- "REST / SSE" --> API
+    API --> PL
+    API --> LIB
+    LIB --> FILES
+    ST --> FILES
+    PL -- "SOAP: SetURI, Play, Pause, Seek" --> R
+    R -- "HTTP GET /media/track (Range)" --> ST
+
+    classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef app fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef data fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef dev fill:#fce7f3,stroke:#db2777,color:#831843
+    class UI ui
+    class API,PL,LIB,ST app
+    class FILES data
+    class R dev
+```
+
+Control goes from the player to the renderer (SOAP); audio goes the other way: the renderer
+pulls the track from the player over HTTP.
+
 ## 2. Components
 
 ```
