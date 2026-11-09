@@ -56,6 +56,7 @@ func main() {
 	// writes to the config.
 	build := buildID()
 	handlers.BuildID = build
+	player.Build = build
 	addr := ":" + strconv.Itoa(*port)
 	ln, err := net.Listen("tcp4", addr)
 	if err != nil {

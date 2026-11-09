@@ -36,6 +36,7 @@ export default function App() {
   }, [quitArmed])
   const narrow = useNarrow()
   const queueVersion = useRef(-1)
+  const seenBuild = useRef('')
   const wasScanning = useRef(false)
 
   // player state via SSE; EventSource reconnects on its own
@@ -43,7 +44,20 @@ export default function App() {
     const es = new EventSource('/api/events')
     es.onopen = () => setConnected(true)
     es.onerror = () => setConnected(false)
-    es.onmessage = (e) => setState(JSON.parse(e.data))
+    es.onmessage = (e) => {
+      const st: PlayerState = JSON.parse(e.data)
+      // the player under the page was replaced by another build (an update):
+      // reload, otherwise the old UI keeps its stale state, e.g. tree folders
+      // expanded before the update never refetch (2026-11-09)
+      if (st.build) {
+        if (seenBuild.current && seenBuild.current !== st.build) {
+          window.location.reload()
+          return
+        }
+        seenBuild.current = st.build
+      }
+      setState(st)
+    }
     return () => es.close()
   }, [])
 

@@ -133,7 +133,12 @@ track on the new renderer there. Stop clears it ("start over").
 
 **The UI's `index.html` is served with `Cache-Control: no-cache`.** Embedded files have a zero
 modification time, and the browser kept a stale `index.html` pointing at the previous build's
-hashed bundle: after an update the page came up blank (2026-11-09).
+hashed bundle: after an update the page came up blank (2026-11-09). An `index.html` cached before
+this fix still needs one hard reload (Ctrl+F5): the browser does not ask the server about it.
+
+**The UI reloads itself after an update.** `/api/state` (and every SSE snapshot) carries the build
+id; when an open page sees a different build than the one it started with, it reloads. Otherwise a
+page left open across an update kept its stale state (expanded tree folders never refetched).
 
 ## 4. Serving tracks
 
