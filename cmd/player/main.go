@@ -122,7 +122,9 @@ func main() {
 	if !*noBrowser {
 		openBrowser(ui)
 	}
-	if err := app.Listener(ln, fiber.ListenConfig{DisableStartupMessage: true}); err != nil {
+	// Fiber's startup banner for those who start the player from a console; a
+	// shortcut start has no console, so there is nothing to print it to.
+	if err := app.Listener(ln, fiber.ListenConfig{DisableStartupMessage: !hasConsole()}); err != nil {
 		log.Fatalf("server: %v", err)
 	}
 }

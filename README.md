@@ -40,10 +40,18 @@ update), the new exe stops it gracefully and takes over. A desktop shortcut to `
 handy. The program has no window: stop it with the **⏻ Quit** button on the page (two
 clicks). It pauses the renderer first, then exits. The log goes to
 `%LocalAppData%\go-upnp-player\go-upnp-player.log`.
+Started from cmd or PowerShell, it attaches to that console and prints Fiber's startup banner.
 
 On the first start Windows asks about the firewall — **allow it for private networks**:
 renderers download tracks from this port themselves, and without the rule you get
 "the command went through, but silence".
+
+## Icon
+
+`web/public/favicon.svg` is the source (an original drawing: a streamer box with a play badge).
+`web/public/favicon-32.png`, `assets/icon-256.png` and `assets/icon.ico` are rendered from it; the
+`.ico` is meant for a desktop shortcut. The exe itself has no embedded icon yet: that needs a
+Windows resource (`.syso`), e.g. `go-winres simply --icon assets/icon-256.png` in `cmd/player`.
 
 ## UI development
 
