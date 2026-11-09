@@ -69,9 +69,13 @@ body { overflow: hidden; font-size: 14px; }
   .btn.hover-btn { visibility: visible; }
 }
 
-/* playing playlist row: Bootstrap gives it a light background, and the muted
-   light text (duration, number) disappeared on it */
-.track-table tr.table-primary .text-body-secondary { color: inherit !important; }
+/* the playing playlist row: the same muted dark blue as in the tree, instead of
+   Bootstrap's table-primary, which is a near-white band in the dark theme */
+.track-table tr.pl-playing > * {
+  --bs-table-bg-state: var(--bs-primary-bg-subtle);
+  --bs-table-color-state: var(--bs-primary-text-emphasis);
+}
+.track-table tr.pl-playing .text-body-secondary { color: inherit !important; }
 
 /* renderer IP before the name: monospace so addresses line up in a column */
 .renderer-ip { flex: none; margin-right: .5rem; font-size: .85em; min-width: 7.5em; }

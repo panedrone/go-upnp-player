@@ -297,7 +297,7 @@ function SearchResults({ hits, playingId, onMakePlaylist }: { hits: Track[]; pla
       </div>
       {hits.map((t) => (
         <div key={t.id} className={'tree-row' + (t.id === playingId ? ' playing' : '')} title={t.leaf}>
-          <span className="tree-num text-body-secondary">{t.id === playingId ? '▶' : t.number || ''}</span>
+          <span className="tree-num text-body-secondary">{t.number || ''}</span>
           <span className="tree-name text-truncate">
             {t.title} <small className="text-body-secondary">— {[t.artist, t.album].filter(Boolean).join(' · ')}</small>
           </span>

@@ -65,11 +65,11 @@ export default function Playlist({ tracks, playingId, onPlay }: Props) {
                   return (
                     <tr
                       key={t.id}
-                      className={playing ? 'table-primary' : t.id === sel ? 'table-active' : ''}
+                      className={playing ? 'pl-playing' : t.id === sel ? 'table-active' : ''}
                       onClick={() => setSel(t.id)}
                     >
                       <td className="col-num text-end text-body-secondary">
-                        {playing ? <span className="text-primary">▶</span> : t.number > 0 ? t.number : ''}
+                        {t.number > 0 ? t.number : ''}
                       </td>
                       <td>
                         {/* the button appears on row hover, right after the title */}

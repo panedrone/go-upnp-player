@@ -88,7 +88,36 @@ interface ItemProps extends Props {
   initiallyOpen?: boolean
 }
 
-const icons: Record<TreeNode['kind'], string> = { dir: '📁', cue: '💿', file: '♪', track: '' }
+// Monochrome outline icons drawn in the muted text colour (currentColor): colour
+// emoji (yellow folders, a rainbow disc) were too loud for the tree.
+function NodeIcon({ kind }: { kind: TreeNode['kind'] }) {
+  const common = { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.3 }
+  switch (kind) {
+    case 'dir':
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M1.5 4.5v8a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1H8L6.5 3h-4a1 1 0 0 0-1 1.5z" />
+        </svg>
+      )
+    case 'cue':
+      return (
+        <svg {...common} aria-hidden="true">
+          <circle cx="8" cy="8" r="6.3" />
+          <circle cx="8" cy="8" r="1.6" />
+        </svg>
+      )
+    case 'file':
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M6 12.5V3.5l7-1.5v9" />
+          <circle cx="4.3" cy="12.5" r="1.7" />
+          <circle cx="11.3" cy="11" r="1.7" />
+        </svg>
+      )
+    default:
+      return null
+  }
+}
 
 function TreeItem({ node, depth, playingId, onMakePlaylist, initiallyOpen, reloadKey }: ItemProps) {
   const expandable = node.kind === 'dir' || node.kind === 'cue'
@@ -129,10 +158,11 @@ function TreeItem({ node, depth, playingId, onMakePlaylist, initiallyOpen, reloa
         >
           {expandable ? (open ? '▾' : '▸') : ''}
         </span>
+        {/* the playing node is marked by its row highlight only; the number stays */}
         {node.kind === 'track' ? (
-          <span className="tree-num text-body-secondary">{playing ? '▶' : node.number > 0 ? node.number : ''}</span>
+          <span className="tree-num text-body-secondary">{node.number > 0 ? node.number : ''}</span>
         ) : (
-          <span className="tree-icon">{playing ? '▶' : icons[node.kind]}</span>
+          <span className="tree-icon text-body-secondary"><NodeIcon kind={node.kind} /></span>
         )}
         <span className="tree-name text-truncate">{node.name}</span>
         {/* the button appears on hover, right after the label */}
