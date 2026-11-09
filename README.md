@@ -1,4 +1,4 @@
-# go-upnp-player
+# <img src="docs/img/gopher.svg" alt="Go gopher" height="44"> go-upnp-player
 
 ![go-upnp-player: library tree, playlist, output devices and the 18-band equalizer](docs/img/screenshot.png)
 
@@ -121,3 +121,7 @@ cd web; npm run dev               # Vite proxying /api and /media to :8090
 `web/public/favicon-32.png`, `assets/icon-256.png` and `assets/icon.ico` are rendered from it; the
 `.ico` is meant for a desktop shortcut. The exe itself has no embedded icon yet: that needs a
 Windows resource (`.syso`), e.g. `go-winres simply --icon assets/icon-256.png` in `cmd/go-upnp-player`.
+
+The Go gopher in the title (`docs/img/gopher.svg`) was designed by Renee French and is licensed
+under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the file is taken unchanged from
+[golang/website](https://github.com/golang/website/tree/master/_content/images/gophers).
