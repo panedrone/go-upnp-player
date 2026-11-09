@@ -418,6 +418,12 @@ func TestEndpointsScenario(t *testing.T) {
 		if resp.StatusCode != 200 || resp.Header.Get("Cache-Control") != "no-cache" || !strings.Contains(string(body), "<div") {
 			t.Fatalf("%d %q", resp.StatusCode, resp.Header.Get("Cache-Control"))
 		}
+		// embedded files have a zero modification time: a conditional request
+		// must still get the current page, or an update never reaches the browser
+		resp, cond := c.do("GET", "/", "", "If-Modified-Since", "Mon, 09 Nov 2026 01:00:00 GMT")
+		if resp.StatusCode != 200 || !bytes.Equal(cond, body) {
+			t.Fatalf("%d, %d bytes", resp.StatusCode, len(cond))
+		}
 		resp, body = c.do("GET", "/assets/index-oldbuild.js", "")
 		if resp.StatusCode != 200 || !strings.Contains(string(body), "location.reload") || resp.Header.Get("Cache-Control") != "no-store" {
 			t.Fatalf("%d %s", resp.StatusCode, body)

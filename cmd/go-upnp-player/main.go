@@ -51,6 +51,7 @@ func main() {
 	handlers.BuildID = build
 	handlers.AppVersion = Version
 	player.Build = build
+	player.Version = Version
 	addr := ":" + strconv.Itoa(*port)
 	ln, err := net.Listen("tcp4", addr)
 	if err != nil {

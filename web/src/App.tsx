@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, version as reactVersion } from 'react'
 import { Badge, Button, ButtonGroup, Card, Form, Image, InputGroup, ListGroup, Navbar, Spinner } from 'react-bootstrap'
 import { api, artUrl, fmtTime, PlayerState, Track, TreeNode } from './api'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
@@ -6,6 +6,8 @@ import Tree, { RevealRequest } from './Tree'
 import Playlist from './Playlist'
 import Equalizer from './Equalizer'
 import Settings from './Settings'
+
+declare const __VITE_VERSION__: string // set in vite.config.ts
 
 const transportVariant: Record<string, string> = {
   PLAYING: 'success',
@@ -358,6 +360,12 @@ export default function App() {
         </div>
         </Panel>
       </PanelGroup>
+      <footer className="status-bar border-top bg-body-tertiary text-body-secondary">
+        {state?.version ? `go-upnp-player v${state.version}` : 'go-upnp-player'}
+        {state?.build && <span className="ms-2">build {state.build}</span>}
+        <span className="ms-3">React {reactVersion}</span>
+        <span className="ms-3">Vite {__VITE_VERSION__}</span>
+      </footer>
     </div>
   )
 }

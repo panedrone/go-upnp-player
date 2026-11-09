@@ -32,7 +32,8 @@ type State struct {
 	Discovering  bool           `json:"discovering"`
 	Library      library.Status `json:"library"`
 	// Build of the running exe: the UI reloads itself when it changes (after an update)
-	Build string `json:"build"`
+	Build   string `json:"build"`
+	Version string `json:"version"`
 }
 
 var (
@@ -64,6 +65,8 @@ var (
 
 	// Build identifies the running exe; set once in main before serving.
 	Build string
+	// Version is the release version, shown in the status bar; set once in main.
+	Version string
 
 	subsMu sync.Mutex
 	subs   = map[chan struct{}]struct{}{}
@@ -125,7 +128,7 @@ func Snapshot() State {
 		Renderers: renderers, Selected: selected, Transport: transport, Stalled: stalled,
 		WantPlaying: wantPlaying, Paused: paused, Position: position, Duration: duration,
 		Volume: volume, Index: index, QueueVersion: queueVersion, QueueLen: len(queue),
-		Error: lastErr, Discovering: discovering, Library: library.GetStatus(), Build: Build,
+		Error: lastErr, Discovering: discovering, Library: library.GetStatus(), Build: Build, Version: Version,
 	}
 	if index >= 0 && index < len(queue) {
 		s.Track = lookupTrack(queue[index])

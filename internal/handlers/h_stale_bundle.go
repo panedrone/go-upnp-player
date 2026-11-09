@@ -6,6 +6,17 @@ import (
 	"github.com/panedrone/go-upnp-player/internal/services"
 )
 
+// FreshIndex drops the validator from a request for index.html. Embedded files
+// have a zero modification time, so the static middleware answered every
+// conditional request with 304 and the browser kept the previous build's page
+// forever, Cache-Control: no-cache or not (2026-11-09).
+func FreshIndex(c fiber.Ctx) error {
+	if services.IsIndexPath(c.Path()) {
+		c.Request().Header.Del(fiber.HeaderIfModifiedSince)
+	}
+	return c.Next()
+}
+
 // staleBundleJS refetches index.html past the browser cache (which also
 // replaces the cached copy) and reloads the page.
 const staleBundleJS = `fetch("/", { cache: "reload" }).finally(() => location.reload())`

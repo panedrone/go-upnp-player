@@ -621,7 +621,8 @@ func TestSnapshotQueueSubscribe(t *testing.T) {
 	r := setup(t)
 	playingAt(r, []string{"a", "gone", "b"}, 0, 5)
 	Build = "x1"
-	t.Cleanup(func() { Build = "" })
+	Version = "1.2"
+	t.Cleanup(func() { Build, Version = "", "" })
 	ch, cancel := Subscribe()
 	notify()
 	notify() // a full channel must not block
@@ -638,7 +639,7 @@ func TestSnapshotQueueSubscribe(t *testing.T) {
 	default:
 	}
 	s := Snapshot()
-	if s.Track == nil || s.Track.ID != "a" || s.QueueLen != 3 || s.Build != "x1" {
+	if s.Track == nil || s.Track.ID != "a" || s.QueueLen != 3 || s.Build != "x1" || s.Version != "1.2" {
 		t.Fatalf("%+v", s)
 	}
 	_, list := Queue()

@@ -67,6 +67,9 @@ The column splitters come from `react-resizable-panels`: Bootstrap/React-Bootstr
 component. On a narrow screen (≤ 900 px) the columns stack and the splitters become horizontal.
 Everything that must survive a browser change lives in `config.json` on the program side.
 
+The status bar at the bottom of the page shows the backend's version and build, taken from the
+player state, and the React and Vite versions the bundle was built with.
+
 **No console, quit from the UI.** The exe is built with `-H=windowsgui`; the log goes to
 `%LocalAppData%\go-upnp-player\go-upnp-player.log`. `POST /api/shutdown` (the ⏻ Quit button, two
 clicks) takes the same path as Ctrl+C: pause the renderer, then
@@ -138,7 +141,9 @@ track on the new renderer there. Stop clears it ("start over").
 **The UI's `index.html` is served with `Cache-Control: no-cache`.** Embedded files have a zero
 modification time, and the browser kept a stale `index.html` pointing at the previous build's
 hashed bundle: after an update the page came up blank (2026-11-09). An `index.html` cached before
-this fix is never revalidated by the browser; when it asks for the bundle of a build that no
+this fix is never revalidated by the browser. `no-cache` alone was not enough: with a zero
+modification time every conditional request got a 304, so `If-Modified-Since` is now dropped for
+`index.html` (2026-11-09). When an old copy asks for the bundle of a build that no
 longer exists (`/assets/index-*.js`), the server answers with a tiny script instead of a 404: it
 refetches `index.html` with `cache: "reload"` (which replaces the cached copy) and reloads the
 page. If the old bundle is cached too, the old UI shows and only a hard reload (Ctrl+F5) helps.

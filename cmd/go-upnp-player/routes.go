@@ -45,7 +45,7 @@ func initRoutes(app *fiber.App) {
 	// modification time, the browser kept a stale index.html that pointed at the
 	// previous build's hashed bundle, and after an update the page came up blank
 	// (2026-11-09). The hashed bundles themselves may be cached.
-	app.Get("/*", static.New("", static.Config{
+	app.Get("/*", handlers.FreshIndex, static.New("", static.Config{
 		FS:         web.Dist(),
 		IndexNames: []string{"index.html"},
 		ModifyResponse: func(c fiber.Ctx) error {

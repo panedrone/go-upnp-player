@@ -12,6 +12,9 @@ body { overflow: hidden; font-size: 14px; }
 .vol .form-range { width: 110px; }
 .vol-num { width: 24px; }
 
+/* status bar at the bottom of the window */
+.status-bar { flex: none; padding: 1px 12px; font-size: 12px; white-space: nowrap; }
+
 /* columns and splitters */
 .col-library, .col-tracks { display: flex; flex-direction: column; }
 .split-handle { flex: 0 0 8px; display: flex; align-items: center; justify-content: center; }

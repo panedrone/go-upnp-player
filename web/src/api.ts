@@ -52,6 +52,7 @@ export interface PlayerState {
   discovering: boolean
   library: { scanning: boolean; tracks: number }
   build?: string
+  version?: string
 }
 
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
