@@ -164,7 +164,68 @@ func TestPlanSwitch(t *testing.T) {
 }
 
 func TestSwitchDone(t *testing.T) {
-	if !SwitchDone(402, 402.41) || SwitchDone(230, 402.41) || SwitchDone(0, 0) {
-		t.Fatal("SwitchDone")
+	cases := []struct {
+		dur, pos, target float64
+		want             bool
+	}{
+		{402, 2, 402.41, true},
+		{230, 2, 402.41, false},  // another track
+		{316, 315, 316.8, false}, // same track still at its last second
+		{0, 0, 0, false},         // nothing reported
+		{316, 1, 316.8, true},    // the same track restarted
+	}
+	for _, c := range cases {
+		if got := SwitchDone(c.dur, c.pos, c.target); got != c.want {
+			t.Errorf("%+v: got %v", c, got)
+		}
+	}
+}
+
+func TestShouldReplace(t *testing.T) {
+	cases := []struct {
+		running, ours string
+		want          bool
+	}{
+		{"abc", "abc", false}, // same build: just open the page
+		{"abc", "def", true},  // updated exe
+		{"", "def", true},     // a build from before /api/version
+		{"abc", "", false},    // own id unknown: do not kill anything
+	}
+	for _, c := range cases {
+		if got := ShouldReplace(c.running, c.ours); got != c.want {
+			t.Errorf("%q/%q: got %v", c.running, c.ours, got)
+		}
+	}
+}
+
+func TestSeekLanded(t *testing.T) {
+	cases := []struct {
+		pos, target float64
+		want        bool
+	}{
+		{269, 269, true},
+		{271, 269, true}, // a second or two of playback after the seek
+		{0, 269, false},  // the seek was ignored: track restarted from the top
+		{3, 269, false},
+		{280, 269, false},
+	}
+	for _, c := range cases {
+		if got := SeekLanded(c.pos, c.target); got != c.want {
+			t.Errorf("%v/%v: got %v", c.pos, c.target, got)
+		}
+	}
+}
+
+func TestIsIndexPath(t *testing.T) {
+	for p, want := range map[string]bool{"/": true, "": true, "/index.html": true, "/assets/index-x.js": false, "/api/state": false} {
+		if got := IsIndexPath(p); got != want {
+			t.Errorf("%q: got %v", p, got)
+		}
+	}
+}
+
+func TestSameLength(t *testing.T) {
+	if !SameLength(316, 316.8) || SameLength(322, 316.8) || SameLength(0, 0) {
+		t.Fatal("SameLength")
 	}
 }

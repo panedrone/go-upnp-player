@@ -35,7 +35,8 @@ bin\go-upnp-player.exe -root "D:\Music"
 - `-no-browser` — do not open the browser.
 
 Only one copy runs per machine: if the player is already running, starting it again just
-opens its page in the browser and exits. A desktop shortcut to `bin/go-upnp-player.exe` is
+opens its page in the browser and exits. If the running copy is a different build (after an
+update), the new exe stops it gracefully and takes over. A desktop shortcut to `bin/go-upnp-player.exe` is
 handy. The program has no window: stop it with the **⏻ Quit** button on the page (two
 clicks). It pauses the renderer first, then exits. The log goes to
 `%LocalAppData%\go-upnp-player\go-upnp-player.log`.

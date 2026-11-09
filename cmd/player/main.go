@@ -4,9 +4,12 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -28,6 +31,7 @@ import (
 	"go-upnp-player/internal/handlers"
 	"go-upnp-player/internal/library"
 	"go-upnp-player/internal/player"
+	"go-upnp-player/internal/services"
 	"go-upnp-player/internal/stream"
 	"go-upnp-player/web"
 )
@@ -44,18 +48,32 @@ func main() {
 
 	ui := fmt.Sprintf("http://localhost:%d/", *port)
 
-	// One instance per machine: if the port is taken by our own player, just open its
-	// UI and exit (so the shortcut also works as "show the player"). Taken by something else:
-	// error. The check runs before any writes to the config.
-	ln, err := net.Listen("tcp4", ":"+strconv.Itoa(*port))
+	// One instance per machine: if the port is taken by our own player of the same
+	// build, just open its UI and exit (so the shortcut also works as "show the
+	// player"). A different build (an older exe still running after an update) is
+	// shut down gracefully and replaced; otherwise the shortcut kept opening the old
+	// UI (2026-11-09). Taken by something else: error. The check runs before any
+	// writes to the config.
+	build := buildID()
+	handlers.BuildID = build
+	addr := ":" + strconv.Itoa(*port)
+	ln, err := net.Listen("tcp4", addr)
 	if err != nil {
-		if alreadyRunning(ui) {
+		running, theirs := runningBuild(ui)
+		if !running {
+			log.Fatalf("listen: %v", err)
+		}
+		if !services.ShouldReplace(theirs, build) {
 			if !*noBrowser {
 				openBrowser(ui)
 			}
 			return
 		}
-		log.Fatalf("listen: %v", err)
+		log.Printf("replacing running build %q with %q", theirs, build)
+		ln, err = takeOver(ui, addr)
+		if err != nil {
+			log.Fatalf("listen after replacing the running player: %v", err)
+		}
 	}
 
 	if _, err := config.Load(); err != nil {
@@ -123,6 +141,7 @@ func setupLogFile() {
 func initRoutes(app *fiber.App) {
 	api := app.Group("/api")
 	api.Get("/state", handlers.State)
+	api.Get("/version", handlers.Version)
 	api.Get("/events", handlers.Events)
 	api.Get("/queue", handlers.Queue)
 	api.Put("/queue", handlers.SetQueue)
@@ -151,11 +170,80 @@ func initRoutes(app *fiber.App) {
 	app.Get("/media/track/:file", handlers.MediaTrack)
 	app.Get("/media/art/:id", handlers.MediaArt)
 
-	// the embedded UI; the filesystem middleware of v2 is static in v3
+	// the embedded UI; the filesystem middleware of v2 is static in v3.
+	// index.html must be revalidated on every load: embedded files carry a zero
+	// modification time, the browser kept a stale index.html that pointed at the
+	// previous build's hashed bundle, and after an update the page came up blank
+	// (2026-11-09). The hashed bundles themselves may be cached.
 	app.Get("/*", static.New("", static.Config{
 		FS:         web.Dist(),
 		IndexNames: []string{"index.html"},
+		ModifyResponse: func(c fiber.Ctx) error {
+			if services.IsIndexPath(c.Path()) {
+				c.Set(fiber.HeaderCacheControl, "no-cache")
+			}
+			return nil
+		},
 	}))
+}
+
+// buildID identifies this exe: a short hash of the executable file, so every
+// build differs and copies of the same build match.
+func buildID() string {
+	p, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = f.Close() }()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(h.Sum(nil))[:12]
+}
+
+// runningBuild reports whether the port is answered by go-upnp-player and which
+// build it is ("" for builds before /api/version existed).
+func runningBuild(ui string) (running bool, build string) {
+	if !alreadyRunning(ui) {
+		return false, ""
+	}
+	c := http.Client{Timeout: 2 * time.Second}
+	resp, err := c.Get(ui + "api/version")
+	if err != nil {
+		return true, ""
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var v struct {
+		Build string `json:"build"`
+	}
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&v) != nil {
+		return true, ""
+	}
+	return true, v.Build
+}
+
+// takeOver asks the running player to quit (the same graceful path as the Quit
+// button: renderer paused first) and binds the port once it is free.
+func takeOver(ui, addr string) (net.Listener, error) {
+	c := http.Client{Timeout: 3 * time.Second}
+	if resp, err := c.Post(ui+"api/shutdown", "application/json", nil); err == nil {
+		_ = resp.Body.Close()
+	}
+	var lastErr error
+	for range 40 { // up to ~10 s: its shutdown waits up to 3 s for open streams
+		ln, err := net.Listen("tcp4", addr)
+		if err == nil {
+			return ln, nil
+		}
+		lastErr = err
+		time.Sleep(250 * time.Millisecond)
+	}
+	return nil, lastErr
 }
 
 // alreadyRunning reports whether the port is answered by go-upnp-player itself (its /api/state).

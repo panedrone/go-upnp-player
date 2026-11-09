@@ -76,10 +76,16 @@ button, when a track starts and when playback advances to the next track. On sta
 is restored but not played: Play resumes from the same track. The UI re-reads the playlist when
 the library scan finishes, because IDs do not resolve to tracks until then.
 
-**Single instance.** On start the process first binds the port (8090). If the port is busy and
-`/api/state` of go-upnp-player answers on it, the process opens the browser on the running player
-and exits with code 0; if something else answers, it is an error. A named mutex is not needed:
-a busy port would stop a second copy from working anyway.
+**Single instance, replaced on update.** On start the process first binds the port (8090). If the
+port is busy and `/api/state` of go-upnp-player answers on it, the process compares builds via
+`/api/version` (a short SHA-256 of the exe file):
+- same build: it opens the browser on the running player and exits with code 0;
+- different build, or no `/api/version` (older builds): it calls `/api/shutdown` on the running
+  player (renderer paused first) and binds the port as soon as it is free. Without this, a shortcut
+  click after an update kept opening the old running player and its old UI (2026-11-09).
+
+If something else answers on the port, it is an error. A named mutex is not needed: a busy port
+would stop a second copy from working anyway.
 
 **Rename from upnp-player (2026-11-09).** The project, module, exe and data folders are now
 `go-upnp-player`. Files from the old folders are read once as a fallback, so nothing is lost on
@@ -97,7 +103,11 @@ Saved column widths are not carried over (they reset to the defaults once).
    - STOPPED / no media: `SetAVTransportURI(http://<ip>:8090/media/track/<id>.wav|.flac?ct=<mime>, DIDL)` → `Play`;
    - PLAYING or PAUSED: `SetNextAVTransportURI(target)` → `Seek` to the last second of the current
      track (→ `Play` if paused); the renderer moves to the target through its gapless path, and the
-     player waits until `TrackDuration` matches the target before queuing the following track.
+     player waits until the renderer reports the target's length near position 0 before queuing
+     the following track. If the renderer had already pulled a previously queued "next" into its
+     buffer, it lands on that track instead; the switch is then repeated (up to three attempts);
+   - the renderer already has the requested track (same URI and same audible length): it is
+     restarted in place with `Seek(0)` (+ `Play` if paused).
      Reason (2026-11-09, both renderers run gmrender): gmrender applies `SetAVTransportURI` only
      from STOPPED — while playing or paused it keeps the old song — and `Stop` hangs the FiiO SR11
      until a power cycle, from pause too. ~~SetAVTransportURI while playing~~,
@@ -114,6 +124,16 @@ Saved column widths are not carried over (they reset to the defaults once).
      both tracks have the same length;
    - STOPPED later than 4 s after our command — start the next track;
    - end of the queue — stop.
+
+**Switching renderers keeps the position.** While playing, the track is started on the new
+renderer and seeked to the old position; the seek is repeated until the renderer reports that
+position, because gmrender silently ignores a Seek in the first moments of a stream (it used to
+restart the track from 0). While paused, the position is remembered and the next Play starts the
+track on the new renderer there. Stop clears it ("start over").
+
+**The UI's `index.html` is served with `Cache-Control: no-cache`.** Embedded files have a zero
+modification time, and the browser kept a stale `index.html` pointing at the previous build's
+hashed bundle: after an update the page came up blank (2026-11-09).
 
 ## 4. Serving tracks
 

@@ -58,6 +58,9 @@ var (
 	discovering  bool
 	mediaPort    int
 	tickCount    int
+	// resumeAt: the renderer was switched while paused; the new one has not got
+	// the track yet, so the next Play starts it there at this position (-1: none)
+	resumeAt = -1.0
 
 	subsMu sync.Mutex
 	subs   = map[chan struct{}]struct{}{}
@@ -208,9 +211,14 @@ func Select(udn string) error {
 	old, hadOld := device()
 	mu.Lock()
 	was := wantPlaying && !paused
+	wasPaused := wantPlaying && paused
 	pos := position
 	selected = udn
 	nextURL = ""
+	if wasPaused && old.UDN != udn {
+		// the position must survive the switch: Play continues it on the new renderer
+		resumeAt = pos
+	}
 	mu.Unlock()
 	_ = config.Update(func(c *config.Config) { c.Renderer = udn })
 	if hadOld && old.UDN != udn {
@@ -325,11 +333,11 @@ func startLocked(i int, seek float64) error {
 	ti, _ := upnp.GetTransportInfo(c, d)
 	pi, _ := upnp.GetPositionInfo(c, d)
 	plan := services.PlanSwitch(ti.State, pi.Duration)
-	if plan.ViaNext {
-		if err := upnp.SetNextURI(c, d, uri, meta); err != nil {
-			return err
-		}
-		if err := upnp.Seek(c, d, plan.SeekTo); err != nil {
+	if plan.ViaNext && pi.TrackURI == uri && services.SameLength(pi.Duration, t.Duration) {
+		// the renderer already has this very track: restart it in place. The URI
+		// alone is not proof — gmrender reports the queued next URI early — so the
+		// audible length must match too.
+		if err := upnp.Seek(c, d, 0); err != nil {
 			return err
 		}
 		if plan.Resume {
@@ -337,7 +345,25 @@ func startLocked(i int, seek float64) error {
 				return err
 			}
 		}
-		waitSwitched(d, t.Duration)
+		plan.ViaNext = false
+	} else if plan.ViaNext {
+		// Up to three attempts: if the renderer had already pulled a previously
+		// queued "next" into its buffer, our SetNext comes too late and it lands
+		// on that track instead (seen live 2026-11-09). The wrong track is then
+		// the current one and the next attempt goes through.
+		for attempt := 0; attempt < 3 && plan.ViaNext; attempt++ {
+			if err := switchViaNext(d, plan, uri, meta); err != nil {
+				return err
+			}
+			if waitSwitched(d, t.Duration) {
+				break
+			}
+			c2, cancel2 := ctx()
+			ti, _ = upnp.GetTransportInfo(c2, d)
+			pi, _ = upnp.GetPositionInfo(c2, d)
+			cancel2()
+			plan = services.PlanSwitch(ti.State, pi.Duration)
+		}
 	} else {
 		if err := upnp.SetURI(c, d, uri, meta); err != nil {
 			return err
@@ -347,10 +373,10 @@ func startLocked(i int, seek float64) error {
 		}
 	}
 	if seek > 1 {
-		waitPlaying(d)
-		_ = upnp.Seek(c, d, seek)
+		seekWhenReady(d, seek)
 	}
 	mu.Lock()
+	resumeAt = -1
 	index, wantPlaying, paused = i, true, false
 	lastCmd = time.Now()
 	nextURL = ""
@@ -365,15 +391,54 @@ func startLocked(i int, seek float64) error {
 // waitSwitched waits (up to ~6 s) until the renderer reports the target track's
 // length, i.e. the gapless switch has happened. Only then may the next "next"
 // URI be queued, otherwise it would replace the target before the switch.
-func waitSwitched(d upnp.Device, targetDur float64) {
+func waitSwitched(d upnp.Device, targetDur float64) bool {
 	for range 30 {
 		c, cancel := ctx()
 		pi, err := upnp.GetPositionInfo(c, d)
 		cancel()
-		if err == nil && services.SwitchDone(pi.Duration, targetDur) {
-			return
+		if err == nil && services.SwitchDone(pi.Duration, pi.Position, targetDur) {
+			return true
 		}
 		time.Sleep(200 * time.Millisecond)
+	}
+	return false
+}
+
+// switchViaNext: the target as the "next" URI, the current track seeked to its
+// last second, Play if paused — the renderer moves on by itself.
+func switchViaNext(d upnp.Device, plan services.SwitchPlan, uri, meta string) error {
+	c, cancel := ctx()
+	defer cancel()
+	if err := upnp.SetNextURI(c, d, uri, meta); err != nil {
+		return err
+	}
+	if err := upnp.Seek(c, d, plan.SeekTo); err != nil {
+		return err
+	}
+	if plan.Resume {
+		return upnp.Play(c, d)
+	}
+	return nil
+}
+
+// seekWhenReady seeks the freshly started track to pos and checks that it
+// landed: gmrender silently ignores a Seek sent in the first moments after a
+// stream starts, so a device switch used to restart the track from 0
+// (2026-11-09). Retries for up to ~6 s.
+func seekWhenReady(d upnp.Device, pos float64) {
+	waitPlaying(d)
+	for range 6 {
+		c, cancel := ctx()
+		_ = upnp.Seek(c, d, pos)
+		cancel()
+		time.Sleep(700 * time.Millisecond)
+		c, cancel = ctx()
+		pi, err := upnp.GetPositionInfo(c, d)
+		cancel()
+		if err == nil && services.SeekLanded(pi.Position, pos) {
+			return
+		}
+		time.Sleep(300 * time.Millisecond)
 	}
 }
 
@@ -458,7 +523,17 @@ func Resume() error {
 	idle := !wantPlaying
 	i := max(index, 0) // playlist built but not yet played: start from the first track
 	n := len(queue)
+	at := resumeAt
 	mu.Unlock()
+	if at >= 0 && n > 0 {
+		// paused, then the renderer was switched: start the track on the new one
+		// at the position it was paused at
+		cmdMu.Lock()
+		defer cmdMu.Unlock()
+		err := startLocked(i, at)
+		setErr(err)
+		return err
+	}
 	if idle {
 		if n == 0 {
 			return fmt.Errorf("playlist is empty")
@@ -485,6 +560,7 @@ func Stop() error {
 	return do(func(c context.Context, d upnp.Device) error {
 		mu.Lock()
 		wantPlaying, paused = false, false
+		resumeAt = -1 // Stop means "start the track over" next time
 		nextURL = ""
 		mu.Unlock()
 		return upnp.Pause(c, d)

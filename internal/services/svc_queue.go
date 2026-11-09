@@ -101,8 +101,35 @@ func PlanSwitch(state string, curDuration float64) SwitchPlan {
 	}
 }
 
-// SwitchDone reports whether the renderer now plays the target track, judged by
-// the length it reports (it rounds to whole seconds).
-func SwitchDone(rendererDur, targetDur float64) bool {
-	return rendererDur > 0 && math.Abs(rendererDur-targetDur) <= durTolerance
+// SwitchDone reports whether the renderer now plays the target track: the length
+// it reports matches (it rounds to whole seconds) and playback is near the start.
+// The length alone is not enough: replaying the current track, or a track of the
+// same length, matched at once while the old track still sat at its last second
+// (seen live 2026-11-09).
+func SwitchDone(rendererDur, rendererPos, targetDur float64) bool {
+	return rendererDur > 0 && math.Abs(rendererDur-targetDur) <= durTolerance && rendererPos < 10
+}
+
+// ShouldReplace decides whether a newly started exe replaces the player that is
+// already running: yes when the builds differ (an older one has no build id at
+// all), no when they are the same build or our own id is unknown.
+func ShouldReplace(running, ours string) bool {
+	return ours != "" && running != ours
+}
+
+// SeekLanded reports whether the renderer's position is where we seeked to.
+// The window allows for the time between the Seek and the position query and
+// for renderers that seek to the nearest frame or keyframe.
+func SeekLanded(pos, target float64) bool {
+	return pos >= target-2 && pos <= target+5
+}
+
+// IsIndexPath reports whether a request path serves the UI's index.html.
+func IsIndexPath(p string) bool {
+	return p == "" || p == "/" || p == "/index.html"
+}
+
+// SameLength compares a renderer-reported length (whole seconds) with a library one.
+func SameLength(rendererDur, libDur float64) bool {
+	return rendererDur > 0 && math.Abs(rendererDur-libDur) <= durTolerance
 }
