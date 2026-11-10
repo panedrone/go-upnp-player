@@ -29,18 +29,18 @@ function rememberOpen(path: string, open: boolean) {
   }
 }
 
-// RevealRequest asks the tree to show a track ("Select Opened File" in JetBrains
+// RevealRequest asks the tree to show a node ("Select Opened File" in JetBrains
 // IDEs): expand the folders down to it, scroll to it and flash the row. seq makes
-// a repeated request for the same track fire again.
+// a repeated request for the same node fire again.
 export interface RevealRequest {
-  id: string // track id, matches data-id on the row
-  leaf: string // the cue sheet or the file that holds the track
-  fromCue: boolean // the track sits inside leaf, which must be expanded too
+  path: string // a folder, a cue sheet or a file; matches data-path on the row
   seq: number
 }
 
 interface Props {
-  playingId: string | null
+  // the node the playlist was built from: its row stays highlighted, as the
+  // selection in foobar2000's album list shows what the playlist came from
+  selectedPath: string
   // arrow button: build a playlist from the node (folder, cue, file, track)
   onMakePlaylist: (node: TreeNode) => void
   reloadKey: number
@@ -51,29 +51,29 @@ interface Props {
   syncTick?: number // internal: bumped after openPaths was changed from outside the items
 }
 
-// revealChain lists the tree paths to expand to show a track: every folder from
-// the library root down to the leaf's folder, plus the leaf itself for cue tracks.
-function revealChain(roots: TreeNode[], leaf: string, fromCue: boolean): string[] {
+// revealChain lists the tree paths to expand to show a node: every folder from the
+// library root down to the node's parent. The node itself stays as it is.
+function revealChain(roots: TreeNode[], path: string): string[] {
   // paths come from the server's OS: backslashes on Windows, slashes elsewhere
-  const sep = leaf.includes('\\') ? '\\' : '/'
-  const low = leaf.toLowerCase()
+  const sep = path.includes('\\') ? '\\' : '/'
+  const low = path.toLowerCase()
   const root = roots.find((r) => low.startsWith(r.path.toLowerCase() + sep))
   if (!root) return []
-  const parts = leaf.slice(root.path.length + 1).split(sep)
+  const parts = path.slice(root.path.length + 1).split(sep)
   const chain = [root.path]
   let cur = root.path
   for (const p of parts.slice(0, -1)) {
     cur = cur + sep + p
     chain.push(cur)
   }
-  if (fromCue) chain.push(leaf)
   return chain
 }
 
-// Tree following the folder structure: only what has something playable. A cue expands
-// into its tracks, track files are leaves. Nothing plays from the tree: the arrow button
-// on a row builds a playlist from the node, and the playlist is what plays.
-export default function Tree({ playingId, onMakePlaylist, reloadKey, reveal, collapseSeq }: Props) {
+// Tree following the folder structure: only what has something playable. Cue sheets and
+// track files are leaves: their tracks are what the playlist shows, listing them here too
+// only repeated it. Nothing plays from the tree: the arrow button on a row builds a
+// playlist from the node, and the playlist is what plays.
+export default function Tree({ selectedPath, onMakePlaylist, reloadKey, reveal, collapseSeq }: Props) {
   const [roots, setRoots] = useState<TreeNode[] | null>(null)
   const [syncTick, setSyncTick] = useState(0)
   const top = useRef<HTMLDivElement>(null)
@@ -88,12 +88,12 @@ export default function Tree({ playingId, onMakePlaylist, reloadKey, reveal, col
 
   useEffect(() => {
     if (!reveal || !roots) return
-    for (const p of revealChain(roots, reveal.leaf, reveal.fromCue)) rememberOpen(p, true)
+    for (const p of revealChain(roots, reveal.path)) rememberOpen(p, true)
     setSyncTick((t) => t + 1)
     // folders load lazily, one level per request: wait for the row to appear
     let tries = 0
     const timer = setInterval(() => {
-      const row = document.querySelector<HTMLElement>(`.tree-row[data-id="${reveal.id}"]`)
+      const row = [...document.querySelectorAll<HTMLElement>('.tree-row')].find((r) => r.dataset.path === reveal.path) ?? null
       // wait until it is laid out too: the tree may still be hidden behind search results
       const ready = row !== null && row.offsetParent !== null
       if (ready || ++tries > 40) {
@@ -129,7 +129,7 @@ export default function Tree({ playingId, onMakePlaylist, reloadKey, reveal, col
   }
   return (
     <div className="tree py-1" ref={top}>
-      <Level nodes={roots} depth={0} playingId={playingId} onMakePlaylist={onMakePlaylist} reloadKey={reloadKey} syncTick={syncTick} rootLevel />
+      <Level nodes={roots} depth={0} selectedPath={selectedPath} onMakePlaylist={onMakePlaylist} reloadKey={reloadKey} syncTick={syncTick} rootLevel />
     </div>
   )
 }
@@ -187,8 +187,8 @@ function NodeIcon({ kind }: { kind: TreeNode['kind'] }) {
   }
 }
 
-function TreeItem({ node, depth, playingId, onMakePlaylist, initiallyOpen, reloadKey, syncTick }: ItemProps) {
-  const expandable = node.kind === 'dir' || node.kind === 'cue'
+function TreeItem({ node, depth, selectedPath, onMakePlaylist, initiallyOpen, reloadKey, syncTick }: ItemProps) {
+  const expandable = node.kind === 'dir'
   // roots are expanded by default until the user has saved anything
   const [open, setOpenState] = useState(openPaths.has(node.path) || (!!initiallyOpen && !hadSavedState))
   const setOpen = (v: boolean) => {
@@ -197,9 +197,13 @@ function TreeItem({ node, depth, playingId, onMakePlaylist, initiallyOpen, reloa
   }
   const [children, setChildren] = useState<TreeNode[] | null>(null)
 
+  // after a rescan an open node refetches in place: dropping its children first would
+  // fold the rows away for a moment and lose the scroll position
   useEffect(() => {
-    setChildren(null)
-  }, [reloadKey])
+    if (!reloadKey) return
+    if (open && expandable) api.tree(node.path).then(setChildren).catch(() => {})
+    else setChildren(null)
+  }, [reloadKey]) // only on a new rescan
 
   // reveal or collapse changed openPaths: follow it (not on mount: the initial state
   // already came from openPaths, and roots may be open before anything is saved)
@@ -213,13 +217,13 @@ function TreeItem({ node, depth, playingId, onMakePlaylist, initiallyOpen, reloa
     }
   }, [open, expandable, children, node.path])
 
-  const playing = !!node.id && node.id === playingId
+  const selected = !!selectedPath && node.path === selectedPath
 
   return (
     <>
       <div
-        className={'tree-row' + (playing ? ' bg-body-secondary fw-bold' : ' text-body-secondary')}
-        data-id={node.id}
+        className={'tree-row' + (selected ? ' bg-body-secondary fw-bold' : ' text-body-secondary')}
+        data-path={node.path}
         style={{ paddingLeft: 6 + depth * 16 }}
         onDoubleClick={() => expandable && setOpen(!open)}
         title={node.kind === 'track' ? node.name : node.path}
@@ -233,7 +237,6 @@ function TreeItem({ node, depth, playingId, onMakePlaylist, initiallyOpen, reloa
         >
           {expandable ? (open ? '▾' : '▸') : ''}
         </span>
-        {/* the playing node is marked by its row highlight only; the number stays */}
         {node.kind === 'track' ? (
           <span className="tree-num text-body-secondary">{node.number > 0 ? node.number : ''}</span>
         ) : (
@@ -254,7 +257,7 @@ function TreeItem({ node, depth, playingId, onMakePlaylist, initiallyOpen, reloa
         <span className="ms-auto text-body-secondary tree-dur">{node.duration ? fmtTime(node.duration) : ''}</span>
       </div>
       {open && children && (
-        <Level nodes={children} depth={depth + 1} playingId={playingId} onMakePlaylist={onMakePlaylist} reloadKey={reloadKey} syncTick={syncTick} />
+        <Level nodes={children} depth={depth + 1} selectedPath={selectedPath} onMakePlaylist={onMakePlaylist} reloadKey={reloadKey} syncTick={syncTick} />
       )}
     </>
   )

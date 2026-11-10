@@ -107,8 +107,15 @@ func TestScanBuildsTree(t *testing.T) {
 	if names(tr) != "track:One track:Two" || tr[1].Number != 2 || tr[1].Duration != 40 {
 		t.Fatalf("%+v", tr)
 	}
-	if st := GetStatus(); st.Tracks != 5 || st.Scanning {
+	st := GetStatus()
+	if st.Tracks != 5 || st.Scanning {
 		t.Fatalf("%+v", st)
+	}
+	// every completed scan is counted, even one that changed nothing: the page
+	// reloads the tree on a new count
+	Scan([]string{root})
+	if got := GetStatus().Scans; got != st.Scans+1 {
+		t.Fatalf("scans %d after %d", got, st.Scans)
 	}
 	if Children(filepath.Join(root, "nowhere")) != nil {
 		t.Fatal("an unknown node has no children")

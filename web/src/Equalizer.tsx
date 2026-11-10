@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, ButtonGroup, Card, Form } from 'react-bootstrap'
+import { Button, ButtonGroup, Card, Collapse, Form } from 'react-bootstrap'
 import { api, EQ } from './api'
 
 // Presets are frequency curves, not arrays tied to a specific band grid:
@@ -80,6 +80,8 @@ const fmtBand = (hz: number) => {
   return (k < 10 ? (Math.round(k * 10) / 10).toString() : Math.round(k).toString()) + 'k'
 }
 
+const openKey = 'go-upnp-player.eq-open'
+
 interface Props {
   onError: (msg: string) => void
 }
@@ -90,6 +92,22 @@ export default function Equalizer({ onError }: Props) {
   // the name of the last loaded preset, offered back when saving
   const [presetName, setPresetName] = useState('equalizer.feq')
   const fileInput = useRef<HTMLInputElement>(null)
+  // whether the panel is shown: a per-browser convenience, like the theme; hiding it
+  // changes nothing in the sound
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(openKey) !== '0'
+    } catch {
+      return true // no storage: the panel is just not remembered
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem(openKey, open ? '1' : '0')
+    } catch {
+      // no storage: the panel is just not remembered
+    }
+  }, [open])
 
   useEffect(() => {
     api.eq().then(setEq).catch((e) => onError(String(e)))
@@ -122,46 +140,57 @@ export default function Equalizer({ onError }: Props) {
           type="switch" id="eq-enabled" label={eq.enabled ? 'On' : 'Off'}
           checked={eq.enabled} onChange={(e) => save({ ...eq, enabled: e.target.checked })}
         />
+        <Button
+          size="sm" variant="outline-secondary" className="py-0 ms-2"
+          title={open ? 'Hide the equalizer' : 'Show the equalizer'} aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+        >
+          {open ? '▾' : '▸'}
+        </Button>
       </Card.Header>
-      <Card.Body className={eq.enabled ? '' : 'opacity-50'}>
-        <div className="eq-bands">
-          {eq.bands.map((hz, i) => (
-            <div className="eq-band" key={hz}>
-              <small className="eq-gain">{eq.gains[i] === 0 ? '·' : (eq.gains[i] > 0 ? '+' : '') + eq.gains[i]}</small>
-              <Form.Range
-                className="eq-slider" min={-eq.maxGain} max={eq.maxGain} step={1}
-                value={eq.gains[i]} disabled={!eq.enabled}
-                onChange={(e) => setGain(i, Number(e.target.value))}
-                onPointerUp={() => save(eq)}
-                onKeyUp={() => save(eq)}
-                title={`${hz} Hz: ${eq.gains[i] > 0 ? '+' : ''}${eq.gains[i]} dB`}
-              />
-              <small className="text-body-secondary eq-hz">{fmtBand(hz)}</small>
+      <Collapse in={open}>
+        <div>
+          <Card.Body className={eq.enabled ? '' : 'opacity-50'}>
+            <div className="eq-bands">
+              {eq.bands.map((hz, i) => (
+                <div className="eq-band" key={hz}>
+                  <small className="eq-gain">{eq.gains[i] === 0 ? '·' : (eq.gains[i] > 0 ? '+' : '') + eq.gains[i]}</small>
+                  <Form.Range
+                    className="eq-slider" min={-eq.maxGain} max={eq.maxGain} step={1}
+                    value={eq.gains[i]} disabled={!eq.enabled}
+                    onChange={(e) => setGain(i, Number(e.target.value))}
+                    onPointerUp={() => save(eq)}
+                    onKeyUp={() => save(eq)}
+                    title={`${hz} Hz: ${eq.gains[i] > 0 ? '+' : ''}${eq.gains[i]} dB`}
+                  />
+                  <small className="text-body-secondary eq-hz">{fmtBand(hz)}</small>
+                </div>
+              ))}
             </div>
-          ))}
+            <ButtonGroup size="sm" className="mt-3 w-100 flex-wrap">
+              {Object.entries(presets).map(([name, gains]) => (
+                <Button key={name} variant="outline-secondary" disabled={!eq.enabled} onClick={() => save({ ...eq, gains: eq.bands.map(gains) })}>
+                  {name}
+                </Button>
+              ))}
+              <Button variant="outline-secondary" disabled={!eq.enabled} title="Load a foobar2000 .feq preset" onClick={() => fileInput.current?.click()}>
+                Load…
+              </Button>
+              <Button variant="outline-secondary" disabled={!eq.enabled} title="Save as a foobar2000 .feq preset" onClick={() => saveFile(presetName, formatFeq(eq.gains)).catch((e) => onError(errMsg(e)))}>
+                Save…
+              </Button>
+            </ButtonGroup>
+            <input
+              ref={fileInput} type="file" accept=".feq" hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                e.target.value = '' // the same file can be picked again
+                if (f) loadFeq(f)
+              }}
+            />
+          </Card.Body>
         </div>
-        <ButtonGroup size="sm" className="mt-3 w-100 flex-wrap">
-          {Object.entries(presets).map(([name, gains]) => (
-            <Button key={name} variant="outline-secondary" disabled={!eq.enabled} onClick={() => save({ ...eq, gains: eq.bands.map(gains) })}>
-              {name}
-            </Button>
-          ))}
-          <Button variant="outline-secondary" disabled={!eq.enabled} title="Load a foobar2000 .feq preset" onClick={() => fileInput.current?.click()}>
-            Load…
-          </Button>
-          <Button variant="outline-secondary" disabled={!eq.enabled} title="Save as a foobar2000 .feq preset" onClick={() => saveFile(presetName, formatFeq(eq.gains)).catch((e) => onError(errMsg(e)))}>
-            Save…
-          </Button>
-        </ButtonGroup>
-        <input
-          ref={fileInput} type="file" accept=".feq" hidden
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            e.target.value = '' // the same file can be picked again
-            if (f) loadFeq(f)
-          }}
-        />
-      </Card.Body>
+      </Collapse>
     </Card>
   )
 }

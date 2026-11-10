@@ -75,10 +75,10 @@ body { overflow: hidden; font-size: 14px; }
 .renderer-ip { flex: none; margin-right: .5rem; font-size: .85em; min-width: 7.5em; }
 
 /* sliders without blue: Bootstrap has no CSS variable for the thumb color */
-input.form-range::-webkit-slider-thumb { background-color: var(--bs-secondary-color); }
-input.form-range::-moz-range-thumb { background-color: var(--bs-secondary-color); }
-input.form-range:active::-webkit-slider-thumb { background-color: var(--bs-body-color); }
-input.form-range:active::-moz-range-thumb { background-color: var(--bs-body-color); }
+input.form-range::-webkit-slider-thumb { background-color: var(--bs-secondary); }
+input.form-range::-moz-range-thumb { background-color: var(--bs-secondary); }
+input.form-range:active::-webkit-slider-thumb { background-color: var(--bs-secondary-color); }
+input.form-range:active::-moz-range-thumb { background-color: var(--bs-secondary-color); }
 input.form-range:focus::-webkit-slider-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs-secondary-rgb), .3); }
 input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs-secondary-rgb), .3); }
 .form-range.eq-slider::-webkit-slider-runnable-track { background-color: var(--bs-tertiary-bg); }

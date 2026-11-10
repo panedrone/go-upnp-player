@@ -52,7 +52,7 @@ export default function App() {
   const narrow = useNarrow()
   const queueVersion = useRef(-1)
   const seenBuild = useRef('')
-  const wasScanning = useRef(false)
+  const seenScans = useRef(-1)
 
   // player state: the page asks /api/state once a second (the backend polls the
   // renderer at the same rate) and right after every command, so a click shows its
@@ -111,13 +111,14 @@ export default function App() {
       queueVersion.current = state.queueVersion
       api.queue().then((q) => setQueue(q.tracks)).catch(() => {})
     }
-    // scan finished: redraw the tree and reload the playlist; a playlist restored
-    // after a restart cannot find its tracks until the scan completes
-    if (wasScanning.current && !state.library.scanning) {
+    // a scan finished: redraw the tree and reload the playlist; a playlist restored
+    // after a restart cannot find its tracks until the scan completes. The count,
+    // not the scanning flag: a scan from the meta cache can end between two polls.
+    if (seenScans.current >= 0 && state.library.scans !== seenScans.current) {
       setTreeKey((k) => k + 1)
       api.queue().then((q) => setQueue(q.tracks)).catch(() => {})
     }
-    wasScanning.current = state.library.scanning
+    seenScans.current = state.library.scans
   }, [state])
 
   useEffect(() => {
@@ -157,15 +158,17 @@ export default function App() {
 
   const playingId = state?.track?.id ?? null
 
-  // "Select Opened File", as in JetBrains IDEs: show the playing track in the tree
+  // "Select Opened File", as in JetBrains IDEs: show in the tree the node the playlist
+  // was built from; a playlist built from search results has none, then the cue sheet
+  // or the file of the playing track
   const [reveal, setReveal] = useState<RevealRequest | null>(null)
   const [collapseSeq, setCollapseSeq] = useState(0)
+  const revealTarget = state?.source || state?.track?.leaf || ''
   const revealPlaying = useCallback(() => {
-    const t = state?.track
-    if (!t) return
+    if (!revealTarget) return
     setFilter('') // the tree is hidden while search results are shown
-    setReveal((r) => ({ id: t.id, leaf: t.leaf, fromCue: t.fromCue, seq: (r?.seq ?? 0) + 1 }))
-  }, [state?.track])
+    setReveal((r) => ({ path: revealTarget, seq: (r?.seq ?? 0) + 1 }))
+  }, [revealTarget])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey && e.key === 'F1') {
@@ -179,7 +182,7 @@ export default function App() {
 
   // arrow button in the tree: build the playlist from the node; playback is left alone
   const makePlaylist = (node: TreeNode) =>
-    run(node.id ? api.setQueue([node.id]) : api.tracks(node.path).then((tracks) => api.setQueue(tracks.map((t) => t.id))))
+    run(node.id ? api.setQueue([node.id], node.path) : api.tracks(node.path).then((tracks) => api.setQueue(tracks.map((t) => t.id), node.path)))
 
   const stalled = !!state?.stalled
   const playing = state?.transport === 'PLAYING' && !state?.paused && !stalled
@@ -309,10 +312,22 @@ export default function App() {
           <Card.Header className="d-flex align-items-center">
             <span className="me-auto">Library</span>
             {state?.library.scanning && <Spinner size="sm" className="me-2" />}
+            {/* rescan the library folders for new or removed music; the tree keeps its
+                expanded folders and the highlighted playlist source */}
+            <Button
+              size="sm" variant="outline-secondary" className="py-0 px-1 reveal-btn me-1"
+              title="Refresh: rescan the library folders"
+              disabled={state?.library.scanning} onClick={() => run(api.rescan())}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+                <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" />
+                <path d="M12.3 1.3v3.2H9.1" />
+              </svg>
+            </Button>
             <Button
               size="sm" variant="outline-secondary" className="py-0 px-1 reveal-btn"
-              title="Show the playing track in the tree (Alt+F1)"
-              disabled={!state?.track} onClick={revealPlaying}
+              title="Show in the tree what the playlist was built from (Alt+F1)"
+              disabled={!revealTarget} onClick={revealPlaying}
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
                 <circle cx="8" cy="8" r="5.2" />
@@ -346,7 +361,7 @@ export default function App() {
           <div className="flex-grow-1 overflow-auto min-h-0">
             {/* the tree is not unmounted during search, so expansion state is kept */}
             <div className={searchHits ? 'd-none' : ''}>
-              <Tree playingId={playingId} onMakePlaylist={makePlaylist} reloadKey={treeKey} reveal={reveal} collapseSeq={collapseSeq} />
+              <Tree selectedPath={state?.source ?? ''} onMakePlaylist={makePlaylist} reloadKey={treeKey} reveal={reveal} collapseSeq={collapseSeq} />
             </div>
             {searchHits && <SearchResults hits={searchHits} playingId={playingId} onMakePlaylist={(ids) => run(api.setQueue(ids))} />}
           </div>

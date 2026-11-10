@@ -177,8 +177,17 @@ func SetEQ(s services.EQSettings) error {
 func Shutdown() {
 	mu.Lock()
 	playing := wantPlaying && !paused
+	busy, pos := wantPlaying, position
 	mu.Unlock()
 	if playing {
 		_ = Stop()
+	}
+	if busy && pos > 1 {
+		// an update or a restart is not a Stop: the next Play continues the track
+		// where it was (it used to start the track over, 2026-11-10)
+		mu.Lock()
+		resumeAt = pos
+		mu.Unlock()
+		savePlaylist()
 	}
 }

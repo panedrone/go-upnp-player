@@ -59,6 +59,7 @@ var (
 	mu       sync.RWMutex
 	cur      = &index{byID: map[string]*Track{}, children: map[string][]Node{}}
 	scanning atomic.Bool
+	scans    int // completed scans: the UI reloads the tree when it changes
 	scanMu   sync.Mutex
 
 	metaCache   = map[string]*FileMeta{}
@@ -69,12 +70,16 @@ var (
 type Status struct {
 	Scanning bool `json:"scanning"`
 	Tracks   int  `json:"tracks"`
+	// Scans counts completed scans. The UI polls once a second and a scan served
+	// from the meta cache can finish in between, so Scanning alone may never be
+	// seen as true; a changed count is what tells the page to reload the tree.
+	Scans int `json:"scans"`
 }
 
 func GetStatus() Status {
 	mu.RLock()
 	defer mu.RUnlock()
-	return Status{Scanning: scanning.Load(), Tracks: len(cur.tracks)}
+	return Status{Scanning: scanning.Load(), Tracks: len(cur.tracks), Scans: scans}
 }
 
 // Scan rebuilds the index. While a scan runs, readers see the old index.
@@ -103,5 +108,6 @@ func Scan(roots []string) {
 
 	mu.Lock()
 	cur = idx
+	scans++
 	mu.Unlock()
 }

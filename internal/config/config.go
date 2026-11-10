@@ -23,6 +23,12 @@ type Config struct {
 type Playlist struct {
 	IDs   []string `json:"ids"`
 	Index int      `json:"index"`
+	// Source: the library tree node (folder, cue or file) the playlist was built
+	// from; empty for a playlist built from search results
+	Source string `json:"source,omitempty"`
+	// Position: where Play resumes the current track after a restart (the player was
+	// closed or updated while playing or paused); 0 starts it over
+	Position float64 `json:"position,omitempty"`
 }
 
 var (

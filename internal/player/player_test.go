@@ -57,7 +57,7 @@ func newRenderer(t *testing.T, udn string) *testkit.Renderer {
 }
 
 func resetState() {
-	renderers, selected, queue, queueVersion = nil, "", nil, 0
+	renderers, selected, queue, queueVersion, source = nil, "", nil, 0, ""
 	index, wantPlaying, paused, lastCmd, nextURL = -1, false, false, time.Time{}, ""
 	transport, position, duration, volume, lastErr = "", 0, 0, -1, ""
 	discovering, mediaPort, tickCount, resumeAt = false, 0, 0, -1
@@ -357,14 +357,14 @@ func TestPlayQueue(t *testing.T) {
 func TestSetQueueKeepsPlayingTrack(t *testing.T) {
 	r := setup(t)
 	playingAt(r, []string{"a", "b"}, 1, 10)
-	SetQueue([]string{"c", "b", "a"})
+	SetQueue([]string{"c", "b", "a"}, "")
 	if index != 1 {
 		t.Fatalf("index %d, want the playing track found in the new list", index)
 	}
 	if !strings.Contains(r.Get().Next, "/a.flac") {
 		t.Fatalf("next %s", r.Get().Next)
 	}
-	SetQueue([]string{"c"})
+	SetQueue([]string{"c"}, "")
 	if index != -1 {
 		t.Fatalf("index %d after the playing track left the list", index)
 	}
@@ -372,9 +372,34 @@ func TestSetQueueKeepsPlayingTrack(t *testing.T) {
 
 func TestSetQueueIdleDoesNotTouchRenderer(t *testing.T) {
 	r := setup(t)
-	SetQueue([]string{"a", "b"})
+	SetQueue([]string{"a", "b"}, "")
 	if r.Count("SetNextAVTransportURI") != 0 || queueVersion != 1 {
 		t.Fatalf("setnext %d version %d", r.Count("SetNextAVTransportURI"), queueVersion)
+	}
+}
+
+// The tree highlights the node a playlist was built from; it survives a restart,
+// and a playlist started from a list of ids (no tree node) clears it.
+func TestPlaylistSourceIsKept(t *testing.T) {
+	setup(t)
+	source = "/music/old"
+	if err := PlayQueue([]string{"a"}, 0); err != nil {
+		t.Fatal(err)
+	}
+	if source != "" {
+		t.Fatalf("source %q after a playlist without a tree node", source)
+	}
+	SetQueue([]string{"a", "b"}, "/music/album.cue")
+	if s := Snapshot(); s.Source != "/music/album.cue" {
+		t.Fatalf("snapshot source %q", s.Source)
+	}
+	if got := config.Get().Playlist.Source; got != "/music/album.cue" {
+		t.Fatalf("saved source %q", got)
+	}
+	source = ""
+	Init(0) // a restart: last, it rereads the renderer and the port too
+	if source != "/music/album.cue" {
+		t.Fatalf("source after restart %q", source)
 	}
 }
 
@@ -768,5 +793,50 @@ func TestMediaPicksContainerAndMime(t *testing.T) {
 	stream.SetEQ(eqOn())
 	if uri, _ = media(r.Device, tracks["a"]); !strings.Contains(uri, "a.wav?ct=audio%2Fx-wav") {
 		t.Fatal(uri)
+	}
+}
+
+// An update or a restart while paused (or playing) is not a Stop: Play continues the
+// track at the same second, with no detour through its opening.
+func TestResumeAfterRestartContinuesAtPosition(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"a", "b"}, 1, 42)
+	uri, _ := media(r.Device, tracks["b"])
+	r.With(func(s *testkit.RendererState) { s.State, s.URI = "PAUSED_PLAYBACK", uri })
+	paused = true
+	Shutdown()
+	if got := config.Get().Playlist.Position; got != 42 {
+		t.Fatalf("saved position %v", got)
+	}
+
+	// a new process: nothing in memory but the config
+	_ = config.Update(func(c *config.Config) { c.Renderer = "r1" })
+	queue, index, wantPlaying, paused, resumeAt = nil, -1, false, false, -1
+	Init(8090)
+	if index != 1 || resumeAt != 42 {
+		t.Fatalf("index %d resumeAt %v", index, resumeAt)
+	}
+	if err := Resume(); err != nil {
+		t.Fatal(err)
+	}
+	st := r.Get()
+	if st.State != "PLAYING" || st.Pos != 42 || r.Count("Seek") != 1 {
+		t.Fatalf("%+v seeks %d", st, r.Count("Seek"))
+	}
+	if got := config.Get().Playlist.Position; got != 0 || resumeAt != -1 {
+		t.Fatalf("after resume: saved %v resumeAt %v", got, resumeAt)
+	}
+}
+
+// A user Stop still means "start over", and so does quitting while stopped.
+func TestShutdownWhenStoppedSavesNoPosition(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"a"}, 0, 42)
+	if err := Stop(); err != nil {
+		t.Fatal(err)
+	}
+	Shutdown()
+	if got := config.Get().Playlist.Position; got != 0 {
+		t.Fatalf("saved position %v", got)
 	}
 }

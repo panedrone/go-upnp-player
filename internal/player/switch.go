@@ -43,11 +43,14 @@ func startLocked(i int, seek float64) error {
 	ti, _ := upnp.GetTransportInfo(c, d)
 	pi, _ := upnp.GetPositionInfo(c, d)
 	plan := services.PlanSwitch(ti.State, pi.Duration)
+	seekDone := false
 	if plan.ViaNext && pi.TrackURI == uri && services.SameLength(pi.Duration, t.Duration) {
 		// the renderer already has this very track: restart it in place. The URI
 		// alone is not proof — gmrender reports the queued next URI early — so the
 		// audible length must match too.
-		if err := upnp.Seek(c, d, 0); err != nil {
+		// Straight to the target position: seeking to 0 first played the opening of
+		// the track for a moment before the jump (resume after a restart, 2026-11-10).
+		if err := upnp.Seek(c, d, seek); err != nil {
 			return err
 		}
 		if plan.Resume {
@@ -56,6 +59,7 @@ func startLocked(i int, seek float64) error {
 			}
 		}
 		plan.ViaNext = false
+		seekDone = true
 	} else if plan.ViaNext {
 		// Up to three attempts: if the renderer had already pulled a previously
 		// queued "next" into its buffer, our SetNext comes too late and it lands
@@ -89,7 +93,7 @@ func startLocked(i int, seek float64) error {
 	} else if err := startDirect(d, uri, meta); err != nil {
 		return err
 	}
-	if seek > 1 {
+	if seek > 1 && !seekDone {
 		seekWhenReady(d, seek)
 	}
 	mu.Lock()

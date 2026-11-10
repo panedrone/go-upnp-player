@@ -80,7 +80,12 @@ window sits on the taskbar and is awkward to close.
 **The playlist survives restarts.** The playlist (track IDs) and the current track index are
 stored in `config.json` (`playlist`). They are written when a playlist is built with the arrow
 button, when a track starts and when playback advances to the next track. On start the playlist
-is restored but not played: Play resumes from the same track. The UI re-reads the playlist when
+is restored but not played: Play resumes from the same track. If the player was closed or
+updated while playing or paused, the shutdown also saves the position (`playlist.position`), and
+Play continues the track there; a user Stop, or quitting while stopped, saves none and Play starts
+the track over. ~~Play after an update starts the track from 0~~ — fixed 2026-11-10: the slider
+showed the right position (the renderer reports it), but the restarted player had forgotten the
+track was paused. The UI re-reads the playlist when
 the library scan finishes, because IDs do not resolve to tracks until then.
 
 **Single instance, replaced on update.** On start the process first binds the port (8090). If the
@@ -114,7 +119,8 @@ Saved column widths are not carried over (they reset to the defaults once).
      the following track. If the renderer had already pulled a previously queued "next" into its
      buffer, it lands on that track instead; the switch is then repeated (up to three attempts);
    - the renderer already has the requested track (same URI and same audible length): it is
-     restarted in place with `Seek(0)` (+ `Play` if paused).
+     restarted in place with a `Seek` straight to the start position (+ `Play` if paused).
+     ~~`Seek(0)`, then a seek to the position~~ played the opening for a moment (2026-11-10).
      Reason (2026-11-09, both renderers run gmrender): gmrender applies `SetAVTransportURI` only
      from STOPPED — while playing or paused it keeps the old song — and `Stop` hangs the FiiO SR11
      until a power cycle, from pause too. ~~SetAVTransportURI while playing~~,
@@ -233,16 +239,30 @@ type, so the track is restarted at the same position.
   only for the slider thumbs, which Bootstrap colors at build time, and for `font-variant-emoji`,
   because Windows draws the transport symbols as blue emoji otherwise.
 - **No modal dialogs**: everything is on one page (device, EQ and folders are cards on the right).
-- **Navigation is the folder tree only.** Folders with nothing playable inside are hidden. A cue
-  sheet expands into its tracks; track files are leaves. Nothing plays from the tree: the arrow
-  button → on each row builds a playlist (a folder or a cue — everything inside; a file or a
-  track — just that one; `PUT /api/queue`, playback is untouched). Only the playlist in the middle
-  plays: the ▶ button on a track or Play in the top bar. Row buttons (→ in the tree, ▶ in the
-  playlist) pop up on hover right after the label and are always visible on touch screens.
+- **Navigation is the folder tree only.** Folders with nothing playable inside are hidden. Cue
+  sheets (external or embedded in a FLAC) and track files are leaves. Nothing plays from the tree:
+  the arrow button → on each row builds a playlist (a folder or a cue — everything inside; a file —
+  just that one; `PUT /api/queue {ids, source}`, playback is untouched). Only the playlist in the
+  middle plays: the ▶ button on a track or Play in the top bar. Row buttons (→ in the tree, ▶ in
+  the playlist) pop up on hover right after the label and are always visible on touch screens.
   Devices are a list in the Output card, selected with a Use button on hover.
+  ~~A cue sheet expands into its tracks in the tree~~ — dropped 2026-11-10: the playlist shows the
+  same tracks, so the tree only repeated them. Cue sheets are still parsed during the library scan
+  (the playlist, search and durations need their tracks); the tree never read them on its own.
+  **The tree highlights the node the playlist was built from** (folder, cue or file), as the
+  selection in foobar2000's album list does; the backend keeps it with the playlist
+  (`config.Playlist.Source`), so it survives a restart. A playlist built from search results has
+  no such node, and nothing is highlighted. ~~The tree highlights the playing track~~ — replaced
+  2026-11-10 together with the cue expansion.
+  The refresh button in the Library header rescans the library folders (the same as Rescan in
+  the folders card) for music added or removed on disk. Expanded folders and the highlighted
+  playlist source stay; open folders refetch in place. The page reloads the tree when
+  `library.scans` (completed scans) changes, not when `scanning` goes false: a scan served from
+  the meta cache can end between two polls and never be seen running.
   The crosshair button in the Library header (or Alt+F1), like "Select Opened File" in JetBrains
-  IDEs, shows the playing track in the tree: it clears the search, expands the folders down to the
-  track (and its cue sheet), scrolls to it and flashes the row. The button next to it, like
+  IDEs, shows that node in the tree; for a playlist from search results, the cue sheet or file of
+  the playing track. It clears the search, expands the folders down to the node, scrolls to it
+  and flashes the row. ~~It showed the playing track~~ until 2026-11-10. The button next to it, like
   "Collapse All", collapses everything below the library roots; the roots stay open, otherwise a
   single library folder would leave one row.
   Rejected 2026-11-09: ~~double-click on a playlist track~~; ~~a dropdown for devices~~;

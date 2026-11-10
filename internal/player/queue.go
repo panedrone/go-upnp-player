@@ -14,6 +14,7 @@ func PlayQueue(ids []string, i int) error {
 	mu.Lock()
 	queue = append([]string(nil), ids...)
 	queueVersion++
+	source = ""
 	mu.Unlock()
 	err := startLocked(i, 0)
 	savePlaylist()
@@ -21,10 +22,11 @@ func PlayQueue(ids []string, i int) error {
 	return err
 }
 
-// SetQueue builds the playlist without touching playback. If the playing track
+// SetQueue builds the playlist without touching playback. src is the tree node it
+// was built from ("" for search results); the tree highlights it. If the playing track
 // is in the new playlist, playback continues through the new one from it; if not, it
 // plays out and the first track of the new playlist comes next.
-func SetQueue(ids []string) {
+func SetQueue(ids []string, src string) {
 	cmdMu.Lock()
 	defer cmdMu.Unlock()
 	mu.Lock()
@@ -34,12 +36,16 @@ func SetQueue(ids []string) {
 	}
 	queue = append([]string(nil), ids...)
 	queueVersion++
+	source = src
 	index = -1
 	for i, id := range queue {
 		if id == cur {
 			index = i
 			break
 		}
+	}
+	if index < 0 {
+		resumeAt = -1 // the paused track left the playlist: Play starts the new one over
 	}
 	playingNow := wantPlaying
 	nextURL = "" // a previously queued next belongs to the old playlist

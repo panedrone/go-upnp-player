@@ -1,6 +1,9 @@
 # <img src="docs/img/gopher.svg" alt="Go gopher" height="44" align="absmiddle"> go-upnp-player
 
-[![coverage](https://codecov.io/gh/panedrone/go-upnp-player/branch/master/graph/badge.svg)](https://codecov.io/gh/panedrone/go-upnp-player)
+[![CI](https://github.com/panedrone/go-upnp-player/actions/workflows/tests.yml/badge.svg)](https://github.com/panedrone/go-upnp-player/actions/workflows/tests.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/panedrone/go-upnp-player.svg)](https://pkg.go.dev/github.com/panedrone/go-upnp-player)
+[![codecov](https://codecov.io/gh/panedrone/go-upnp-player/graph/badge.svg)](https://codecov.io/gh/panedrone/go-upnp-player)
+[![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 
 ![go-upnp-player: library tree, playlist, output devices and the 18-band equalizer](docs/img/screenshot.png)
 
@@ -127,3 +130,7 @@ Windows resource (`.syso`), e.g. `go-winres simply --icon assets/icon-256.png` i
 The Go gopher in the title (`docs/img/gopher.svg`) was designed by Renee French and is licensed
 under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the file is taken unchanged from
 [golang/website](https://github.com/golang/website/tree/master/_content/images/gophers).
+
+## License
+
+[ISC](LICENSE). The gopher image above is under its own license, CC BY 4.0.

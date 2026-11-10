@@ -12,16 +12,17 @@ func State(c fiber.Ctx) error {
 }
 
 type queueDTO struct {
-	IDs []string `json:"ids"`
+	IDs    []string `json:"ids"`
+	Source string   `json:"source"` // tree node the playlist was built from
 }
 
-// SetQueue handles PUT /api/queue {ids}: builds the playlist without touching playback.
+// SetQueue handles PUT /api/queue {ids, source}: builds the playlist without touching playback.
 func SetQueue(c fiber.Ctx) error {
 	var in queueDTO
 	if err := c.Bind().Body(&in); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
-	player.SetQueue(in.IDs)
+	player.SetQueue(in.IDs, in.Source)
 	return c.SendStatus(fiber.StatusNoContent)
 }
 

@@ -27,6 +27,7 @@ type State struct {
 	Index        int            `json:"index"`
 	QueueVersion int            `json:"queueVersion"`
 	QueueLen     int            `json:"queueLen"`
+	Source       string         `json:"source"` // tree node the playlist was built from
 	Track        *library.Track `json:"track"`
 	Error        string         `json:"error,omitempty"`
 	Discovering  bool           `json:"discovering"`
@@ -44,6 +45,7 @@ var (
 	selected     string
 	queue        []string
 	queueVersion int
+	source       string // tree node the playlist was built from, see config.Playlist
 	index        = -1
 	wantPlaying  bool
 	paused       bool
@@ -88,13 +90,17 @@ func Init(port int) {
 	if cfg.Playlist.Index >= 0 && cfg.Playlist.Index < len(queue) {
 		index = cfg.Playlist.Index
 	}
+	source = cfg.Playlist.Source
+	if index >= 0 && cfg.Playlist.Position > 0 {
+		resumeAt = cfg.Playlist.Position // closed while playing or paused: Play continues there
+	}
 	queueVersion++
 }
 
 // savePlaylist writes the playlist and the current track to the config so they survive a restart.
 func savePlaylist() {
 	mu.Lock()
-	p := config.Playlist{IDs: append([]string(nil), queue...), Index: index}
+	p := config.Playlist{IDs: append([]string(nil), queue...), Index: index, Source: source, Position: max(resumeAt, 0)}
 	mu.Unlock()
 	if err := config.Update(func(c *config.Config) { c.Playlist = p }); err != nil {
 		log.Printf("player: save playlist: %v", err)
@@ -108,7 +114,7 @@ func Snapshot() State {
 	s := State{
 		Renderers: renderers, Selected: selected, Transport: transport, Stalled: stalled,
 		WantPlaying: wantPlaying, Paused: paused, Position: position, Duration: duration,
-		Volume: volume, Index: index, QueueVersion: queueVersion, QueueLen: len(queue),
+		Volume: volume, Index: index, QueueVersion: queueVersion, QueueLen: len(queue), Source: source,
 		Error: lastErr, Discovering: discovering, Library: library.GetStatus(), Build: Build, Version: Version,
 	}
 	if index >= 0 && index < len(queue) {

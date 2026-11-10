@@ -47,10 +47,11 @@ export interface PlayerState {
   index: number
   queueVersion: number
   queueLen: number
+  source: string // tree node the playlist was built from, '' if none
   track: Track | null
   error?: string
   discovering: boolean
-  library: { scanning: boolean; tracks: number }
+  library: { scanning: boolean; tracks: number; scans: number }
   build?: string
   version?: string
 }
@@ -76,7 +77,8 @@ export const api = {
   tracks: (path: string) => req<Track[]>('GET', `/api/tracks?path=${q(path)}`),
   search: (text: string) => req<Track[]>('GET', `/api/search?q=${q(text)}`),
   queue: () => req<{ version: number; tracks: Track[] }>('GET', '/api/queue'),
-  setQueue: (ids: string[]) => req<void>('PUT', '/api/queue', { ids }),
+  // source: the tree node the playlist is built from ('' for search results)
+  setQueue: (ids: string[], source = '') => req<void>('PUT', '/api/queue', { ids, source }),
   play: (ids: string[], index: number) => req<void>('POST', '/api/player/play', { ids, index }),
   playIndex: (index: number) => req<void>('POST', '/api/player/play', { index }),
   pause: () => req<void>('POST', '/api/player/pause'),
