@@ -86,6 +86,7 @@ func TestOpenEdges(t *testing.T) {
 }
 
 func TestSubRangeIsCutFromTheFile(t *testing.T) {
+	noFade(t) // byte-exact comparisons: see TestStreamStartFadesIn
 	path, total := writeTestFLAC(t, 20, 4096, 4096)
 	whole := Span{Path: path, End: total, SampleRate: 44100, Channels: 2, Bits: 16}
 	full := readAll(t, whole, 0)
@@ -163,6 +164,7 @@ func TestBisectGivesUpOnJunk(t *testing.T) {
 // A stream that starts at a position is the tail of the whole one: the same samples,
 // a shorter header (ADR-015).
 func TestForTrackFromAPosition(t *testing.T) {
+	noFade(t) // byte-exact comparisons: see TestStreamStartFadesIn
 	path, total := writeTestFLAC(t, 4, 4096, 1000)
 	tr := library.Track{Path: path, End: total, SampleRate: 44100, Channels: 2, Bits: 16}
 	read := func(src Source) []byte {

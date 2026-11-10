@@ -282,12 +282,16 @@ func TestEndpointsScenario(t *testing.T) {
 		_, whole := c.do("GET", path, "")
 		_, one := c.do("GET", "/media/track/"+cueTracks[0].ID+".wav", "")
 		_, two := c.do("GET", "/media/track/"+cueTracks[1].ID+".wav", "")
-		if want := append(append([]byte(nil), one[44:]...), two[44:]...); string(whole[:4]) != "RIFF" || !bytes.Equal(whole[44:], want) {
+		// every stream's first 10 ms rise out of silence, the run's seam does not
+		const fade = 441 * 4
+		seam := len(one) // the second track's data starts here in the run
+		if string(whole[:4]) != "RIFF" || len(whole) != len(one)+len(two)-44 ||
+			!bytes.Equal(whole[44+fade:seam], one[44+fade:]) || !bytes.Equal(whole[seam+fade:], two[44+fade:]) ||
+			bytes.Equal(whole[seam:seam+fade], two[44:44+fade]) {
 			t.Fatalf("run %d bytes, tracks %d + %d", len(whole), len(one), len(two))
 		}
-		seam := len(one) // the second track's data starts here in the run
-		resp, part := c.do("GET", path, "", "Range", fmt.Sprintf("bytes=%d-%d", seam-101, seam+98))
-		if resp.StatusCode != 206 || !bytes.Equal(part, whole[seam-101:seam+99]) {
+		resp, part := c.do("GET", path, "", "Range", fmt.Sprintf("bytes=%d-%d", seam-4000, seam+3999))
+		if resp.StatusCode != 206 || len(part) != 8000 || !bytes.Equal(part[fade:], whole[seam-4000+fade:seam+4000]) {
 			t.Fatalf("%d, a range across the seam: %d bytes", resp.StatusCode, len(part))
 		}
 		c.status(204, "POST", "/api/player/play", `{"index":1}`)
@@ -347,11 +351,12 @@ func TestEndpointsScenario(t *testing.T) {
 		if want := 44 + 5*44100*4; len(body) != want {
 			t.Fatalf("%d bytes, want %d", len(body), want)
 		}
-		resp, part := c.do("GET", path, "", "Range", "bytes=1000-1999")
-		if resp.StatusCode != 206 || !bytes.Equal(part, body[1000:2000]) {
+		// a Range is a stream of its own: its first 10 ms rise out of silence
+		resp, part := c.do("GET", path, "", "Range", "bytes=20000-29999")
+		if resp.StatusCode != 206 || len(part) != 10000 || !bytes.Equal(part[441*4:], body[20000+441*4:30000]) {
 			t.Fatalf("%d, %d bytes", resp.StatusCode, len(part))
 		}
-		if got := resp.Header.Get("Content-Range"); got != fmt.Sprintf("bytes 1000-1999/%d", len(body)) {
+		if got := resp.Header.Get("Content-Range"); got != fmt.Sprintf("bytes 20000-29999/%d", len(body)) {
 			t.Fatal(got)
 		}
 		resp, _ = c.do("GET", path, "", "Range", "bytes=999999999-")

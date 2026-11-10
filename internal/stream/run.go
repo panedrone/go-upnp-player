@@ -166,6 +166,7 @@ type runReader struct {
 	first  int64 // sample offset into the first part opened
 	// handoff: the part just finished, whose equalizer the next part continues
 	handoff *Reader
+	opened  bool // a part was opened already: the next ones continue it
 }
 
 func openRun(r Run, offset int64) (io.ReadCloser, error) {
@@ -243,6 +244,10 @@ func (r *runReader) open() error {
 		rd.eq, rd.eqSrc = h.eq, h.eqSrc
 		r.handoff = nil
 	}
+	if r.opened {
+		rd.fade = 0 // the music goes on from the previous part: no fade
+	}
+	r.opened = true
 	r.first, r.skip = 0, 0
 	r.cur = rd
 	r.next++

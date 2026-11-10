@@ -512,6 +512,27 @@ func TestSelectWhilePlayingMovesTrackWithPosition(t *testing.T) {
 	}
 }
 
+// A renderer left by a switch is only paused (the FiiO): it must hold nothing of the
+// music for its next Play to let out first (the FiiO back from the BeagleBone,
+// 2026-11-11). Its stream is let go and it is seeked in it.
+func TestSelectAwayLeavesSilence(t *testing.T) {
+	r1 := setup(t)
+	r2 := newRenderer(t, "r2")
+	renderers = append(renderers, r2.Device)
+	playingAt(r1, []string{"a"}, 0, 50)
+	old := runURI
+	if err := Select("r2"); err != nil {
+		t.Fatal(err)
+	}
+	halting.Wait()
+	if r1.Count("Pause") != 1 || r1.Last("Seek")["Target"] != services.FormatSeekTarget(50) || !silent(t, old) {
+		t.Fatalf("pause %d seek %v silent %v", r1.Count("Pause"), r1.Last("Seek"), silent(t, old))
+	}
+	if st := r2.Get(); st.State != "PLAYING" || at(st) != 50 || silent(t, runURI) {
+		t.Fatalf("new renderer %+v", st)
+	}
+}
+
 // The old renderer's state does not move to the new one, and an old renderer that
 // is gone does not hold the start on the new one.
 func TestSelectAwayFromDeadRenderer(t *testing.T) {

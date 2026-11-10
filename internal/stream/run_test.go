@@ -39,6 +39,7 @@ func twoFiles(t *testing.T) (Span, Span) {
 // A run is the tracks' PCM back to back under one header, and any byte offset of it
 // can be asked for (a renderer's seek is a Range request).
 func TestRunIsTheTracksBackToBack(t *testing.T) {
+	noFade(t) // byte-exact comparisons: see TestStreamStartFadesIn
 	a, b := twoFiles(t)
 	run := Run{Spans: []Span{a, b}}
 	whole := readRun(t, run, 0)
@@ -76,6 +77,7 @@ func TestRunMergesAnImage(t *testing.T) {
 // Over a seam between two files the equalizer goes on as if the music did: its
 // filters are not started cold at the second file.
 func TestRunEqualizerCarriesOverTheSeam(t *testing.T) {
+	noFade(t) // byte-exact comparisons: see TestStreamStartFadesIn
 	a, b := twoFiles(t)
 	run := Run{Spans: []Span{a, b}}
 	flat := readRun(t, run, 0)[44:]
@@ -154,5 +156,65 @@ func TestRetiredRunIsSilence(t *testing.T) {
 	RegisterRun(run)
 	if !bytes.Equal(read(0), music) {
 		t.Fatal("registered again: music again")
+	}
+}
+
+// noFade turns the fade at stream starts off for a test that compares bytes exactly.
+func noFade(t *testing.T) {
+	t.Helper()
+	fadeMs = 0
+	t.Cleanup(func() { fadeMs = 10 })
+}
+
+func samples16(b []byte) []int {
+	out := make([]int, len(b)/2)
+	for i := range out {
+		out[i] = int(int16(binary.LittleEndian.Uint16(b[i*2:])))
+	}
+	return out
+}
+
+func abs(v int) int { return max(v, -v) }
+
+// A stream that starts mid-music rises out of silence over its first 10 ms instead of
+// stepping into the wave; after that it is the music, sample for sample.
+func TestStreamStartFadesIn(t *testing.T) {
+	path, total := writeTestFLAC(t, 10, 4096, 1000)
+	span := Span{Path: path, End: total, SampleRate: 44100, Channels: 2, Bits: 16}
+	off := int64(44 + 5000*4)
+	faded := samples16(readAll(t, span, off))
+	fadeMs = 0
+	plain := samples16(readAll(t, span, off))
+	fadeMs = 10
+	n := 441 * 2 // 10 ms of stereo samples
+	if len(faded) != len(plain) {
+		t.Fatalf("%d samples, want %d", len(faded), len(plain))
+	}
+	for i := range n {
+		if abs(faded[i]) > abs(plain[i]) {
+			t.Fatalf("sample %d: %d louder than the music's %d", i, faded[i], plain[i])
+		}
+	}
+	if abs(faded[0]) > abs(plain[0])/100+1 {
+		t.Fatalf("the first sample %d does not start near silence (music %d)", faded[0], plain[0])
+	}
+	for i := n; i < len(plain); i++ {
+		if faded[i] != plain[i] {
+			t.Fatalf("sample %d differs after the fade", i)
+		}
+	}
+}
+
+// Within a run only the start fades: the next part goes on from the previous one.
+func TestRunSeamIsNotFaded(t *testing.T) {
+	a, b := twoFiles(t)
+	run := Run{Spans: []Span{a, b}}
+	faded := readRun(t, run, 0)
+	fadeMs = 0
+	plain := readRun(t, run, 0)
+	fadeMs = 10
+	head := 44 + 441*4
+	if bytes.Equal(faded[:head], plain[:head]) || !bytes.Equal(faded[head:], plain[head:]) {
+		t.Fatal("only the first 10 ms of the run may differ")
 	}
 }

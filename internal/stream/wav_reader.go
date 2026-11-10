@@ -30,6 +30,9 @@ func EQActive() bool {
 	return p != nil && p.Active()
 }
 
+// fadeMs is how long the start of a stream rises out of silence (see Open).
+var fadeMs = 10
+
 // Span is what to cut: a file and a sample range [Start, End).
 type Span struct {
 	Path       string
@@ -64,6 +67,9 @@ type Reader struct {
 	eqSrc *services.EQSettings // settings the eq was built from
 	eq    *services.EQ
 
+	// fade: the first this many samples served rise from silence; faded: how many have
+	fade, faded int
+
 	// frames, when set, reads frames from a position found by bisection
 	// (files without a SEEKTABLE) instead of stream
 	frames *bufio.Reader
@@ -83,6 +89,19 @@ func Open(span Span, offset int64) (*Reader, error) {
 		r.skip = skip
 	}
 	target := span.Start + rel
+	// A stream that starts here starts the music mid-wave: a step out of silence is a
+	// click of its own (the FiiO, 2026-11-11). Its first 10 ms rise instead, as
+	// foobar2000 fades in after a seek. A run's next part goes on with no fade.
+	r.fade = int(span.SampleRate) * fadeMs / 1000
+	// With the equalizer on, decoding starts a little earlier: its filters run in on the
+	// music before the first sample served, instead of starting cold on it.
+	from := target
+	if EQActive() {
+		from = max(target-uint64(span.SampleRate)/5, 0)
+		if target < uint64(span.SampleRate)/5 {
+			from = 0
+		}
+	}
 	if target >= span.End {
 		r.done = true
 		return r, nil
@@ -93,13 +112,13 @@ func Open(span Span, offset int64) (*Reader, error) {
 		return nil, err
 	}
 	r.file = f
-	if span.Seekable && target > 0 {
+	if span.Seekable && from > 0 {
 		st, err := flac.NewSeek(f)
 		if err != nil {
 			_ = f.Close()
 			return nil, fmt.Errorf("flac %s: %w", span.Path, err)
 		}
-		got, err := st.Seek(target)
+		got, err := st.Seek(from)
 		if err != nil {
 			_ = f.Close()
 			return nil, fmt.Errorf("flac seek %s: %w", span.Path, err)
@@ -116,8 +135,8 @@ func Open(span Span, offset int64) (*Reader, error) {
 		// for hi-res files (a 24/192 track: ~6 s to reach 7 minutes), and every
 		// track switch seeks to the end of the current track (2026-11-09).
 		// Bisect over frame headers instead; on any failure keep the slow path.
-		if target > 0 {
-			if off, first, err := bisectFrame(f, st.Info, target); err == nil && off > 0 {
+		if from > 0 {
+			if off, first, err := bisectFrame(f, st.Info, from); err == nil && off > 0 {
 				if size, err := fileSize(f); err == nil {
 					r.frames = bufio.NewReaderSize(io.NewSectionReader(f, off, size-off), 1<<16)
 					r.pos = first
@@ -183,18 +202,6 @@ func (r *Reader) fill() error {
 	frameStart := r.pos
 	n := uint64(fr.BlockSize)
 	r.pos += n
-	if r.pos <= r.cut {
-		return nil // the whole frame is before the start of the needed range
-	}
-	from := uint64(0)
-	if r.cut > frameStart {
-		from = r.cut - frameStart
-	}
-	to := n
-	if frameStart+to > r.span.End {
-		to = r.span.End - frameStart
-		r.done = true
-	}
 	chans := make([][]int32, len(fr.Subframes))
 	for i, sf := range fr.Subframes {
 		chans[i] = sf.Samples
@@ -207,9 +214,22 @@ func (r *Reader) fill() error {
 		}
 	}
 	if r.eq != nil {
-		// the whole frame, not just the served part: the filters need continuity
+		// every frame, the ones before the range too: the filters need continuity
 		r.eq.Process(chans)
 	}
+	if r.pos <= r.cut {
+		return nil // the whole frame is before the start of the needed range
+	}
+	from := uint64(0)
+	if r.cut > frameStart {
+		from = r.cut - frameStart
+	}
+	to := n
+	if frameStart+to > r.span.End {
+		to = r.span.End - frameStart
+		r.done = true
+	}
+	r.fadeIn(chans, int(from), int(to))
 	r.pending = r.layout.AppendSamples(r.pending[:0], chans, int(from), int(to))
 	if r.skip > 0 {
 		s := min(r.skip, int64(len(r.pending)))
@@ -217,6 +237,17 @@ func (r *Reader) fill() error {
 		r.skip -= s
 	}
 	return nil
+}
+
+// fadeIn raises the first served samples [from, to) of a frame out of silence.
+func (r *Reader) fadeIn(chans [][]int32, from, to int) {
+	for i := from; i < to && r.faded < r.fade; i++ {
+		r.faded++
+		g := float64(r.faded) / float64(r.fade+1)
+		for ch := range chans {
+			chans[ch][i] = int32(float64(chans[ch][i]) * g)
+		}
+	}
 }
 
 // Close closes the file.

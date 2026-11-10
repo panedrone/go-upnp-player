@@ -2,6 +2,8 @@ package player
 
 import (
 	"github.com/panedrone/go-upnp-player/internal/config"
+	"github.com/panedrone/go-upnp-player/internal/services"
+	"github.com/panedrone/go-upnp-player/internal/stream"
 	"github.com/panedrone/go-upnp-player/internal/upnp"
 	"sync"
 	"time"
@@ -50,6 +52,7 @@ func Select(udn string) error {
 	was := wantPlaying && !paused
 	wasPaused := wantPlaying && paused
 	pos := position
+	oldURI, oldAt := runURI, streamPos
 	selected = udn
 	// the new renderer's state is unknown until it is polled: the badge must not carry
 	// the old one's (a red OFFLINE moved from the BeagleBone to the FiiO, 2026-11-10)
@@ -64,6 +67,14 @@ func Select(udn string) error {
 	}
 	mu.Unlock()
 	_ = config.Update(func(c *config.Config) { c.Renderer = udn })
+	// Its stream is let go now, before the start below may register the same run for
+	// the new renderer (that makes it music again).
+	letGo := hadOld && old.UDN != udn && !services.StopSafe(old.Model)
+	if letGo {
+		if id, ok := runIDOf(oldURI); ok {
+			stream.RetireRun(id)
+		}
+	}
 	// The old renderer is halted alongside the start on the new one, not before it:
 	// a renderer that does not answer held the switch for the whole request timeout
 	// (BeagleBone answering 400 Bad Request, 2026-11-10).
@@ -73,7 +84,12 @@ func Select(udn string) error {
 			defer halting.Done()
 			c, cancel := ctx()
 			defer cancel()
-			_ = halt(c, old) // Stop only where it is safe, see halt()
+			if halt(c, old) == nil && letGo { // Stop only where it is safe, see halt()
+				// paused, it holds a moment of the music ready, which the next Play
+				// let out before its own start (the FiiO back from the BeagleBone,
+				// 2026-11-11): seeked in the let-go stream, it holds silence
+				_ = upnp.Seek(c, old, oldAt)
+			}
 		}()
 	}
 	refreshVolume()

@@ -157,7 +157,9 @@ The browser's `localStorage` keeps only per-viewer conveniences:
      track from there.
    - While paused, the position is remembered for the next Play.
    - The old renderer is halted (`Pause`, or `Stop` where Stop-safe) at the same time as the start
-     on the new one: a renderer that does not answer does not hold the switch. The transport state
+     on the new one: a renderer that does not answer does not hold the switch. A paused one keeps
+     a moment of the music ready, which its next Play let out first: its stream is let go and it
+     is seeked in it, so what it holds is silence (as on Stop). The transport state
      is cleared on the switch; the new renderer's own state shows after its first poll.
 
 ## 4. Serving tracks
@@ -168,6 +170,10 @@ The browser's `localStorage` keeps only per-viewer conveniences:
   continue one another in one file (a CUE image) are decoded as one range, with no seam at all.
   Between two files the equalizer's filters carry over, as if the music did. A Range request maps
   to a track and a sample in it ([ADR-016](adr-016-clicks-between-tracks-on-fiio-coax.md)).
+- **Every stream starts softly:** its first 10 ms rise out of silence, as foobar2000 fades in
+  after a seek. Music cut in mid-wave is a step out of silence, a click on any output. A run's
+  next part goes on with no fade. With the equalizer on, decoding starts 200 ms before the first
+  sample served, so the filters run in on the music instead of starting cold.
 - `/media/track/<id>` serves one track, as below; the player itself no longer hands it out.
 - **A track from a CUE sheet:** a virtual WAV, a 44-byte header plus the PCM of the sample range
   from its `INDEX 01` to the next track's. The length is exact. A Range request maps to a sample;

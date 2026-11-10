@@ -27,6 +27,7 @@ func readAll(t *testing.T, span Span, off int64) []byte {
 // a sequential decode produces at that offset, whether the bisection path or
 // the decode-from-start path served it.
 func TestSeekWithoutSeekTableMatchesSequentialDecode(t *testing.T) {
+	noFade(t) // byte-exact comparisons: see TestStreamStartFadesIn
 	path, total := writeTestFLAC(t, 120, 4096, 1000)
 	span := Span{Path: path, Start: 0, End: total, SampleRate: 44100, Channels: 2, Bits: 16, Seekable: false}
 	full := readAll(t, span, 0)
