@@ -4,8 +4,8 @@
 FiiO's coaxial output; the BeagleBone with runs; the owner's live check of a switch from the
 BeagleBone back to the FiiO. A trace on 2026-11-11 showed what clicked there: the FiiO, left
 paused, let out the moment of music it held before the switch, and the new stream started
-mid-wave. Fixed in 1.1.5 (a left renderer holds silence; every stream fades in over 10 ms),
-not yet heard.
+mid-wave. Fixed in 1.1.5 (a left renderer holds silence; every stream fades in over 10 ms):
+the owner heard no clicks there on 2026-11-11.
 **Overcome:** in tests: the run is the tracks' PCM back to back, the equalizer carries over a seam
 between files, Next/Prev within a run are seeks.
 
