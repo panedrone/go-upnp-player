@@ -212,8 +212,10 @@ export default function App() {
             <>
               <Image
                 src={artUrl(track.id)} rounded className="now-thumb" alt=""
-                onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')}
-                onLoad={(e) => ((e.target as HTMLImageElement).style.visibility = 'visible')}
+                // no cover: no empty place either, as in the playlist; the element lives on
+                // across tracks, so the next track's cover brings it back
+                onError={(e) => (e.target as HTMLImageElement).classList.add('d-none')}
+                onLoad={(e) => (e.target as HTMLImageElement).classList.remove('d-none')}
               />
               <div className="min-w-0">
                 <div className="fw-semibold text-truncate" title={track.title}>{track.title}</div>
