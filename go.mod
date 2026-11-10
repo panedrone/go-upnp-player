@@ -27,3 +27,7 @@ require (
 	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 )
+
+// v1.1.0 was tagged by mistake and its tag removed, but the module proxy kept it
+// and @latest picked it over 1.0.x.
+retract v1.1.0
