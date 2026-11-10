@@ -188,7 +188,11 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
   - crosshair (Alt+F1): show the playlist's source in the tree;
   - Collapse All: fold everything below the library roots.
 - **Playlist and devices.** Only the playlist plays (its ▶, or Play in the top bar). Devices are a
-  list in the Output card with a Use button. Row buttons appear on hover and are always visible on
+  list in the Output card with a Use button. The selected device's row carries its transport badge after its name
+  (a lively green for PLAYING, light gray for quiet states, PAUSED for PAUSED_PLAYBACK); the
+  Output header shows a badge only when the player itself is offline. The Output title line
+  also carries what is streamed and from where (local IP, rate, bits, channels, WAV or FLAC),
+  parts separated by bold dots. Row buttons appear on hover and are always visible on
   touch screens.
 - **Waiting for the renderer.** The ▶ and Use buttons turn into a spinner while their request
   runs. Those requests answer only after the renderer has really switched.

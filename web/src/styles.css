@@ -72,7 +72,8 @@ body { overflow: hidden; font-size: 14px; }
 
 
 /* renderer IP before the name: monospace so addresses line up in a column */
-.renderer-ip { flex: none; margin-right: .5rem; font-size: .85em; min-width: 7.5em; }
+/* the IP takes only its own width: a fixed 7.5em column cut device names short */
+.renderer-ip { flex: none; margin-right: .4rem; font-size: .8em; }
 
 /* sliders without blue: Bootstrap has no CSS variable for the thumb color */
 input.form-range::-webkit-slider-thumb { background-color: var(--bs-secondary); }
@@ -104,3 +105,12 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
 @keyframes badge-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 .badge-pulse { animation: badge-pulse 1.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .badge-pulse { animation: none; } }
+
+/* transport badges: a lively (not lime) green for PLAYING, a light gray for the quiet
+   states (STOPPED, CONNECTING, …); stock success and secondary were hard to tell apart */
+.badge.bg-playing { background-color: #22b35e; color: #fff; }
+.badge.bg-idle { background-color: #b4bcc4; color: #1f2328; }
+/* on a device row the badge sits next to the name: a size smaller, so the name fits */
+.renderer-row .badge { font-size: .65em; padding: .3em .45em; }
+.output-info { font-size: .75em; line-height: 1.3; }
+.output-dot { margin: 0 .35em; }

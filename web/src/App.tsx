@@ -9,14 +9,21 @@ import Settings from './Settings'
 
 declare const __VITE_VERSION__: string // set in vite.config.ts
 
+// Badge colours for the transport state. "playing" and "idle" are our own (styles.css):
+// Bootstrap's success green and secondary gray looked the same at a glance, so playing
+// is a livelier green and every quiet state a lighter gray.
 const transportVariant: Record<string, string> = {
-  PLAYING: 'success',
+  PLAYING: 'playing',
   PAUSED_PLAYBACK: 'warning',
-  TRANSITIONING: 'info',
   OFFLINE: 'danger',
   STALLED: 'danger',
-  CONNECTING: 'secondary',
   'BACKEND OFFLINE': 'danger',
+}
+
+// Short badge labels for the UPnP transport states that are too long for a device row.
+const transportLabel: Record<string, string> = {
+  PAUSED_PLAYBACK: 'PAUSED',
+  NO_MEDIA_PRESENT: 'NO MEDIA',
 }
 
 export default function App() {
@@ -386,10 +393,34 @@ export default function App() {
         {/* device, equalizer, folders */}
         <div className="col-side d-flex flex-column gap-2 overflow-auto h-100">
           <Card>
-            <Card.Header className="d-flex align-items-center">
-              <span className="me-auto">Output</span>
-              <Badge bg={transportVariant[transport] ?? 'secondary'} className={'me-2' + (transport === 'CONNECTING' ? ' badge-pulse' : '')}>{transport}</Badge>
-              <Button size="sm" variant="outline-secondary" className="py-0" title="Search for devices again" onClick={() => run(api.refreshRenderers())} disabled={state?.discovering}>
+            <Card.Header className="d-flex align-items-center gap-2">
+              <span>Output</span>
+              {/* what goes out and from where: a property of the output as a whole */}
+              {(current || track) && (
+                <small className="flex-grow-1 min-w-0 text-body-secondary output-info">
+                  {/* one line of parts with bold dots between them; a narrow column wraps
+                      only at a dot, never inside a part */}
+                  {[
+                    ...(current ? [`from ${current.localIp}`] : []),
+                    ...(track
+                      ? [
+                          `${track.sampleRate / 1000} kHz`,
+                          `${track.bits} bit`,
+                          track.channels === 2 ? 'stereo' : `${track.channels} ch`,
+                          track.fromCue ? 'cue → WAV' : 'FLAC',
+                        ]
+                      : []),
+                  ].map((part, i) => (
+                    <span key={i} className="text-nowrap">
+                      {i > 0 && <b className="output-dot">•</b>}
+                      {part}
+                    </span>
+                  ))}
+                </small>
+              )}
+              {/* the header speaks only for the player itself; the device's own state sits on its row */}
+              {!connected && <Badge bg={transportVariant[transport]} className="me-2">{transport}</Badge>}
+              <Button size="sm" variant="outline-secondary" className="py-0 ms-auto flex-shrink-0" title="Search for devices again" onClick={() => run(api.refreshRenderers())} disabled={state?.discovering}>
                 {state?.discovering ? <Spinner size="sm" /> : '⟳'}
               </Button>
             </Card.Header>
@@ -402,11 +433,20 @@ export default function App() {
                 const sel = r.udn === state?.selected
                 return (
                   <ListGroup.Item key={r.udn} className={'renderer-row d-flex align-items-center gap-2' + (sel ? ' bg-body-secondary' : '')}>
-                    <span className={sel ? 'text-primary' : 'text-body-secondary'}>{sel ? '●' : '○'}</span>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-grow-1">
                       <div className="row-label">
                         <span className="renderer-ip font-monospace text-body-secondary">{r.ip}</span>
                         <span className={'text-truncate' + (sel ? ' fw-bold' : ' text-body-secondary')}>{r.name}</span>
+                        {/* the selected device's transport state, right after its name: it is
+                            this device that plays, stops or is being connected to */}
+                        {sel && connected && (
+                          <Badge
+                            bg={transportVariant[transport] ?? 'idle'}
+                            className={'ms-2 flex-shrink-0' + (transport === 'CONNECTING' ? ' badge-pulse' : '')}
+                          >
+                            {transportLabel[transport] ?? transport}
+                          </Badge>
+                        )}
                         {pendingRenderer === r.udn ? (
                           <Spinner size="sm" className="ms-2 flex-shrink-0 text-body-secondary" />
                         ) : !sel && (
@@ -421,21 +461,17 @@ export default function App() {
                 )
               })}
             </ListGroup>
-            <Card.Body className="pt-2">
-              {current && <small className="text-body-secondary d-block">streams from {current.localIp}</small>}
-              {track && (
-                <small className="text-body-secondary d-block">
-                  {track.sampleRate / 1000} kHz · {track.bits} bit · {track.channels === 2 ? 'stereo' : `${track.channels} ch`} · {track.fromCue ? 'cue → WAV' : 'FLAC'}
-                </small>
-              )}
-              {/* a refused start being retried: said plainly, with the attempt and the time left */}
-              {state?.waiting && (
-                <small className="text-body-secondary d-block mt-2 text-break">
-                  <Spinner size="sm" className="me-1" />{state.waiting}
-                </small>
-              )}
-              {error && <small className="text-danger d-block mt-2 text-break">{error}</small>}
-            </Card.Body>
+            {(state?.waiting || error) && (
+              <Card.Body className="pt-2">
+                {/* a refused start being retried: said plainly, with the attempt and the time left */}
+                {state?.waiting && (
+                  <small className="text-body-secondary d-block text-break">
+                    <Spinner size="sm" className="me-1" />{state.waiting}
+                  </small>
+                )}
+                {error && <small className="text-danger d-block mt-1 text-break">{error}</small>}
+              </Card.Body>
+            )}
           </Card>
           <Equalizer onError={showErr} />
           <Settings scanning={!!state?.library.scanning} tracks={state?.library.tracks ?? 0} />
