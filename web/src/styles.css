@@ -29,6 +29,7 @@ body { overflow: hidden; font-size: 14px; }
   padding: 2px 8px; cursor: default; user-select: none; border-radius: var(--bs-border-radius-sm);
 }
 .tree-row:hover { background: var(--bs-tertiary-bg); }
+.tree-row.expandable { cursor: pointer; }
 .tree-num { width: 22px; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
 .tree-dur { flex: none; font-variant-numeric: tabular-nums; padding-left: 8px; }
 /* row buttons: appear on row hover, placed right after the label */

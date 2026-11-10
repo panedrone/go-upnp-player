@@ -222,21 +222,14 @@ function TreeItem({ node, depth, selectedPath, onMakePlaylist, initiallyOpen, re
   return (
     <>
       <div
-        className={'tree-row' + (selected ? ' bg-body-secondary fw-bold' : ' text-body-secondary')}
+        className={'tree-row' + (expandable ? ' expandable' : '') + (selected ?' bg-body-secondary fw-bold' : ' text-body-secondary')}
         data-path={node.path}
         style={{ paddingLeft: 6 + depth * 16 }}
-        onDoubleClick={() => expandable && setOpen(!open)}
+        // a single click anywhere on a folder row toggles it: the arrow alone is too small a target
+        onClick={() => expandable && setOpen(!open)}
         title={node.kind === 'track' ? node.name : node.path}
       >
-        <span
-          className="tree-toggle text-body-secondary"
-          onClick={(e) => {
-            e.stopPropagation()
-            if (expandable) setOpen(!open)
-          }}
-        >
-          {expandable ? (open ? '▾' : '▸') : ''}
-        </span>
+        <span className="tree-toggle text-body-secondary">{expandable ? (open ? '▾' : '▸') : ''}</span>
         {node.kind === 'track' ? (
           <span className="tree-num text-body-secondary">{node.number > 0 ? node.number : ''}</span>
         ) : (
