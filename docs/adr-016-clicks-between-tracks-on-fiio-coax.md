@@ -1,11 +1,10 @@
 # ADR-016: One stream for the tracks of one format, as foobar2000 sends it
 
-**Status:** Accepted 2026-11-10 (1.1.4, local build). **Open:** the owner's live check on the
-FiiO's coaxial output; the BeagleBone with runs; the owner's live check of a switch from the
-BeagleBone back to the FiiO. A trace on 2026-11-11 showed what clicked there: the FiiO, left
-paused, let out the moment of music it held before the switch, and the new stream started
-mid-wave. Fixed in 1.1.5 (a left renderer holds silence; every stream fades in over 10 ms):
-the owner heard no clicks there on 2026-11-11.
+**Status:** Accepted 2026-11-10 (1.1.4). **Open:** the owner's live check of the track
+boundaries on the FiiO's coaxial output; the BeagleBone with runs. Closed 2026-11-11: a switch
+from the BeagleBone back to the FiiO clicked (a trace showed the FiiO, left paused, letting out
+the moment of music it held, and the new stream starting mid-wave); fixed in 1.1.5 (a left
+renderer holds silence, every stream fades in over 10 ms), and the owner heard no clicks.
 **Overcome:** in tests: the run is the tracks' PCM back to back, the equalizer carries over a seam
 between files, Next/Prev within a run are seeks.
 
