@@ -57,8 +57,17 @@ For those who prefer it, with Go 1.26+:
 go install github.com/panedrone/go-upnp-player/cmd/go-upnp-player@latest
 ```
 
-The binary lands in `$(go env GOPATH)/bin`. Built this way it is a console program (on Windows a
-console window stays open while it runs; close it or press Ctrl+C to stop).
+The binary lands in `$(go env GOPATH)/bin`. On Windows this plain command gives a console program
+(a console window stays open while it runs; close it or press Ctrl+C to stop). To get the same exe
+as in Releases, with no console window, add the linker flags:
+
+```powershell
+go install -ldflags "-s -w -H=windowsgui" github.com/panedrone/go-upnp-player/cmd/go-upnp-player@latest
+```
+
+macOS: the same `go install` should work (the code builds for macOS and opens the page with
+`open`; settings go to `~/Library/Application Support/go-upnp-player`, the log and the cache to
+`~/Library/Caches/go-upnp-player`), but it has not been tested on a Mac.
 
 ## Install (Linux)
 
@@ -88,8 +97,6 @@ and no renderers show up, allow the home network, e.g. `sudo ufw allow from 192.
 - The first library scan over a shared folder is noticeably slower than on a local disk.
 - Do not drive the same renderer from two players (host and VM) at once.
 
-macOS builds compile but have not been tested.
-
 ## Use
 
 - Only one copy runs per machine: starting it again just opens the page. After an update, the
@@ -108,8 +115,15 @@ Requires Go 1.26+. The UI bundle (`web/dist`) is built at design time and commit
 needed only to change the UI.
 
 ```powershell
-.\build.ps1        # the exe only: bin\go-upnp-player.exe (no console window)
-.\build.ps1 -UI    # rebuild web/dist first (Node 20+), then the exe
+go build -ldflags "-s -w -H=windowsgui" -o bin\go-upnp-player.exe .\cmd\go-upnp-player
+```
+
+`-H=windowsgui` builds the exe without a console window: the log goes to
+`%LocalAppData%\go-upnp-player\go-upnp-player.log`, and started from cmd or PowerShell it
+attaches to that console. To rebuild `web/dist` after a UI change (Node 20+):
+
+```powershell
+cd web; npm ci; npm run build
 ```
 
 After a UI change, commit `web/dist` together with the sources.
