@@ -71,7 +71,7 @@ macOS: the same `go install` should work (the code builds for macOS and opens th
 
 ## Install (Linux)
 
-Tested on Ubuntu 25.04, including inside a VirtualBox VM. The distribution's `golang` package may be
+Tested on Ubuntu 26.04, including inside a VirtualBox VM. The distribution's `golang` package may be
 older than 1.26; the snap is current:
 
 ```bash
