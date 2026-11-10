@@ -52,7 +52,7 @@ func DecideTick(in TickInput) TickAction {
 	if in.SinceCmd < StartGrace {
 		return TickNone
 	}
-	if in.State == "STOPPED" || in.State == "NO_MEDIA_PRESENT" {
+	if in.State == "STOPPED" || in.State == "NO_MEDIA_PRESENT" || lastTrackPlayedOut(in) {
 		if in.HasNext {
 			return TickPlayNext
 		}
@@ -78,14 +78,37 @@ func reallyAdvanced(in TickInput) bool {
 	return near(in.CurDuration, in.NextDuration) && in.SinceCmd >= StartGrace && in.LastPosition-in.Position > 5
 }
 
+// AtEnd: the position is within 2 s of the end of the track. A start there is a
+// start of a track that has already ended.
+func AtEnd(position, duration float64) bool {
+	return duration > 0 && position >= duration-2
+}
+
+// lastTrackPlayedOut: the last track's position has reached its length. The FiiO
+// SR11 stays in PLAYING there instead of going STOPPED (2026-11-10), so the end of
+// the playlist is taken from the length, which is known, not from the renderer's
+// state. Only for the last track: before any other the renderer moves on by itself
+// (gapless), and a position near the end is just the last second playing.
+// A stream that starts late in the track (ADR-015) can be so short that the renderer
+// reports no length: the expected length of the current track stands in then.
+func lastTrackPlayedOut(in TickInput) bool {
+	dur := in.Duration
+	if dur <= 0 {
+		dur = in.CurDuration
+	}
+	return in.State == "PLAYING" && !in.HasNext && dur > 0 && in.Position >= dur-1
+}
+
 // StallAfter is how long a PLAYING renderer's position may stand still. Generous
 // enough for a stream that is still buffering.
 const StallAfter = 8 * time.Second
 
 // Stalled reports a renderer that claims to play while its position is frozen.
-// gmrender stays in PLAYING after its stream dies (BeagleBone, 2026-11-09).
-func Stalled(state string, frozenFor time.Duration) bool {
-	return state == "PLAYING" && frozenFor >= StallAfter
+// gmrender stays in PLAYING after its stream dies (BeagleBone, 2026-11-09). A
+// position frozen at the very end of the track is a track that has ended, not a
+// hang: the FiiO SR11 sits like that after the last track (2026-11-10).
+func Stalled(state string, frozenFor time.Duration, position, duration float64) bool {
+	return state == "PLAYING" && frozenFor >= StallAfter && !AtEnd(position, duration)
 }
 
 // RacingTicks is how many polls in a row must see a racing position before the

@@ -30,13 +30,16 @@ func TestRacing(t *testing.T) {
 }
 
 func TestStalled(t *testing.T) {
-	if Stalled("PLAYING", StallAfter-1) {
+	if Stalled("PLAYING", StallAfter-1, 60, 240) {
 		t.Fatal("stalled too early")
 	}
-	if !Stalled("PLAYING", StallAfter) {
+	if !Stalled("PLAYING", StallAfter, 60, 240) {
 		t.Fatal("frozen PLAYING must count as stalled")
 	}
-	if Stalled("PAUSED_PLAYBACK", 10*StallAfter) {
+	if Stalled("PLAYING", 10*StallAfter, 253, 253) {
+		t.Fatal("frozen at the very end is a track that has ended (FiiO SR11, 2026-11-10)")
+	}
+	if Stalled("PAUSED_PLAYBACK", 10*StallAfter, 60, 240) {
 		t.Fatal("a paused renderer is supposed to stand still")
 	}
 }

@@ -2,6 +2,12 @@
 
 **Status:** Accepted 2026-11-09 (written down 2026-11-10).
 **Overcome:** fully. The playlist index follows the renderer correctly on both devices.
+Update 2026-11-10 (1.0.11): the end of a track is not always STOPPED either. The FiiO SR11 stays
+in PLAYING at the very end after the last track. That showed as a false STALLED with "restart
+it". The last track now counts as played out when its position reaches its known length
+(`lastTrackPlayedOut`), not by waiting for the position to freeze (the owner rejected timing
+heuristics for this). A position at the end is never reported as stalled, and the renderer is
+paused 2 s after the end of the playlist.
 
 ## Context
 

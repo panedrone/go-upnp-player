@@ -127,6 +127,11 @@ func TestDecideTick(t *testing.T) {
 		{"stopped right after play", TickInput{WantPlaying: true, State: "STOPPED", SinceCmd: time.Second, HasNext: true}, TickNone},
 		{"ended with next", TickInput{WantPlaying: true, State: "STOPPED", SinceCmd: late, HasNext: true}, TickPlayNext},
 		{"ended last", TickInput{WantPlaying: true, State: "STOPPED", SinceCmd: late}, TickFinished},
+		// the FiiO SR11 stays PLAYING, frozen at the end of the last track (2026-11-10)
+		{"last track played out", TickInput{WantPlaying: true, State: "PLAYING", SinceCmd: late, Position: 253, Duration: 253.4}, TickFinished},
+		{"last track, last second still playing", TickInput{WantPlaying: true, State: "PLAYING", SinceCmd: late, Position: 251, Duration: 253.4}, TickNone},
+		{"not the last track: gapless takes it on", TickInput{WantPlaying: true, State: "PLAYING", SinceCmd: late, Position: 253, Duration: 253.4, HasNext: true}, TickNone},
+		{"a stream with no length reported", TickInput{WantPlaying: true, State: "PLAYING", SinceCmd: late, Position: 0, Duration: 0, CurDuration: 0.4}, TickFinished},
 		{"playing", TickInput{WantPlaying: true, State: "PLAYING", SinceCmd: late, TrackURI: "u1", NextURL: "u2"}, TickNone},
 	}
 	for _, c := range cases {

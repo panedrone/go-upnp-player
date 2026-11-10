@@ -213,6 +213,9 @@ func Shutdown() {
 	mu.Lock()
 	playing := wantPlaying && !paused
 	busy, pos := wantPlaying, position
+	if services.AtEnd(pos, duration) {
+		pos = 0 // the track has ended: the next Play starts it over, nothing to keep
+	}
 	mu.Unlock()
 	if playing {
 		_ = Stop()

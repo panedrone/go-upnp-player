@@ -118,6 +118,9 @@ The browser's `localStorage` keeps only per-viewer conveniences:
    - an advance counts when `TrackDuration` becomes the next track's length
      ([ADR-004](adr-004-detecting-track-advance.md));
    - STOPPED more than 4 s after the player's last command starts the next track;
+   - the last track has played out once its position reaches its known length, whatever the
+     renderer's state: the FiiO SR11 stays in PLAYING there. The renderer is paused (or stopped,
+     if Stop-safe) 2 s later;
    - the end of the playlist stops.
 
    The same poll watches for a frozen renderer ([ADR-006](adr-006-hung-gmrender.md)) and a racing

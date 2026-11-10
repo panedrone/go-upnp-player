@@ -75,7 +75,7 @@ func resetState() {
 	frozenSince, stalled = time.Time{}, false
 	lastPollAt, lastTrackURI, racingTicks, racingIndex, racingFrom, racingFixAt = time.Time{}, "", 0, 0, 0, time.Time{}
 	pendingIndex, pendingPos, pendingSince, pendingTry, pendingTries = 0, 0, time.Time{}, time.Time{}, 0
-	offset = 0
+	offset, finishedAt = 0, time.Time{}
 	_ = config.Update(func(c *config.Config) { *c = config.Config{} })
 }
 
@@ -1052,5 +1052,51 @@ func TestAdvanceFromAStreamFromAPosition(t *testing.T) {
 	Tick()
 	if s := Snapshot(); s.Index != 1 || s.Position != 1 || s.Duration != 180 || offset != 0 {
 		t.Fatalf("index %d position %v duration %v offset %v", s.Index, s.Position, s.Duration, offset)
+	}
+}
+
+// The FiiO SR11 stays in PLAYING at the very end after the last track. The playlist
+// has ended once the position reaches the track's known length: the player finishes
+// and pauses it, so the page shows neither STALLED nor PLAYING (2026-11-10).
+func TestEndOfPlaylistWithRendererFrozenAtTheEnd(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"a"}, 0, 240)
+	Tick()
+	if r.Count("Pause") != 0 {
+		t.Fatal("paused right at the end: the last fraction of a second would be cut")
+	}
+	finishedAt = time.Now().Add(-2 * time.Second)
+	Tick()
+	s := Snapshot()
+	if s.Stalled || wantPlaying || r.Count("Pause") != 1 || r.Get().State != "PAUSED_PLAYBACK" {
+		t.Fatalf("stalled %v want %v pauses %d state %s", s.Stalled, wantPlaying, r.Count("Pause"), r.Get().State)
+	}
+}
+
+// The live case of 2026-11-10: a stream that starts half a second before the end of
+// the last track. The renderer reports no length for it and sits in PLAYING at 0.
+// That is the end of the playlist, not a hang.
+func TestEndOfPlaylistOnAStreamFromNearTheEnd(t *testing.T) {
+	r := setup(t)
+	queue, index, offset, wantPlaying, duration = []string{"a"}, 0, 239.5, true, 240
+	lastCmd = time.Now().Add(-time.Minute)
+	r.SetLength("a", 0) // what the renderer says about a half-second stream
+	r.With(func(s *testkit.RendererState) { s.State, s.URI, s.Pos = "PLAYING", "http://x/a&from=239500", 0 })
+	Tick()
+	if s := Snapshot(); s.Stalled || wantPlaying {
+		t.Fatalf("stalled %v want %v", s.Stalled, wantPlaying)
+	}
+}
+
+// A start within 2 s of the end is a start of a track that has already ended: it
+// starts the track over instead of a stream of the last half second.
+func TestStartAtTheVeryEndStartsOver(t *testing.T) {
+	r := setup(t)
+	queue = []string{"a"}
+	if err := startLocked(0, 239.5); err != nil {
+		t.Fatal(err)
+	}
+	if st := r.Get(); strings.Contains(st.URI, "&from=") || offset != 0 {
+		t.Fatalf("uri %s offset %v", st.URI, offset)
 	}
 }

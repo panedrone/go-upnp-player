@@ -50,7 +50,7 @@ func Tick() {
 	if piErr != nil || abs != lastPos || frozenSince.IsZero() {
 		frozenSince = now
 	}
-	stalled = piErr == nil && services.Stalled(ti.State, now.Sub(frozenSince))
+	stalled = piErr == nil && services.Stalled(ti.State, now.Sub(frozenSince), abs, duration)
 	racing := false
 	if piErr == nil && pi.TrackURI != "" && pi.TrackURI == lastTrackURI && wantPlaying && !paused {
 		if services.Racing(ti.State, abs-lastPos, now.Sub(lastPollAt)) {
@@ -113,7 +113,22 @@ func Tick() {
 	case services.TickFinished:
 		mu.Lock()
 		wantPlaying = false
+		if ti.State == "PLAYING" {
+			finishedAt = time.Now()
+		}
 		mu.Unlock()
+	}
+	mu.Lock()
+	haltNow := !finishedAt.IsZero() && time.Since(finishedAt) >= 2*time.Second
+	if haltNow || wantPlaying {
+		finishedAt = time.Time{}
+	}
+	mu.Unlock()
+	if haltNow && ti.State == "PLAYING" {
+		// It sits in PLAYING at the end of the last track (the FiiO SR11): out of play,
+		// so its state stops saying PLAYING over silence. A moment after the end, not at
+		// it: the position comes in whole seconds and up to half a second may be left.
+		_ = halt(c, d)
 	}
 	if poll {
 		if v, err := upnp.GetVolume(c, d); err == nil {

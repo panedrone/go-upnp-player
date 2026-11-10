@@ -61,9 +61,10 @@ func startLocked(i int, seek float64) (err error) {
 	// its start, with no seek. Play from 0 and a seek afterwards always let the
 	// opening of the track be heard for a moment (2026-11-10, ADR-015).
 	from := 0.0
-	if seek > 1 {
+	if seek > 1 && !services.AtEnd(seek, t.Duration) {
 		from = seek
 	}
+	// a start at the very end is a start of a track that has already ended: from 0
 	uri, meta := media(d, t, from)
 	c, cancel := ctx()
 	defer cancel()

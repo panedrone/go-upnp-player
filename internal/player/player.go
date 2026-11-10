@@ -61,7 +61,10 @@ var (
 	// offset: the current track's stream starts this many seconds into the track (a
 	// start at a position, ADR-015). The renderer counts from the stream's start, so
 	// its RelTime and TrackDuration are shifted by it; 0 for a stream from the start.
-	offset      float64
+	offset float64
+	// finishedAt: the playlist has played out on a renderer that stays in PLAYING (the
+	// FiiO SR11); it is taken out of play a moment later, see Tick
+	finishedAt  time.Time
 	duration    float64
 	volume      = -1
 	lastErr     string
