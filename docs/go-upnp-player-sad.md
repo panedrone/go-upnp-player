@@ -1,6 +1,7 @@
 # go-upnp-player — Software Architecture Document (SAD)
 
-A living document: how the system is built right now. It is updated in the same commit as the code.
+How the system is built right now. Updated in the same commit as the code. Why it is built this
+way, what was rejected and which renderer quirks forced it: the ADRs in §8.
 
 ## 1. Purpose and scope
 
@@ -39,7 +40,7 @@ flowchart LR
 ```
 
 Control goes from the player to the renderer (SOAP); audio goes the other way: the renderer
-pulls the track from the player over HTTP.
+pulls the track from the player over HTTP. Both renderers in use run gmrender-resurrect.
 
 ## 2. Components
 
@@ -59,273 +60,179 @@ web/                    React + React-Bootstrap (Vite); web/dist is built at des
                         committed, and embedded with go:embed (so go install needs no Node)
 ```
 
-The UI keeps only per-viewer conveniences in the browser's `localStorage`: expanded tree
-nodes (`go-upnp-player.tree.open`), column widths (`react-resizable-panels:go-upnp-player.layout.*`)
-and the light/dark theme (`go-upnp-player.theme`, toggled top right; `index.html` applies it before
-the first paint so a light page does not flash dark).
-The column splitters come from `react-resizable-panels`: Bootstrap/React-Bootstrap have no such
-component. On a narrow screen (≤ 900 px) the columns stack and the splitters become horizontal.
-Everything that must survive a browser change lives in `config.json` on the program side.
+**State.** Everything that must survive a browser change lives in `config.json`:
 
-The status bar at the bottom of the page shows the backend's version, taken from the player
-state (no `v` and no build id: the build id is for self-update only), and the React and Vite versions the bundle was built with.
+- library folders, the selected renderer and the equalizer;
+- the playlist: track IDs, the current index, `source` (the tree node it was built from) and
+  `position` (where Play resumes after a restart).
 
-**No console, quit from the UI.** The exe is built with `-H=windowsgui`; the log goes to
-`%LocalAppData%\go-upnp-player\go-upnp-player.log`. `POST /api/shutdown` (the ⏻ Quit button, two
-clicks) takes the same path as Ctrl+C: pause the renderer, then
-`app.ShutdownWithTimeout(3s)`. The timeout is needed because track streams never end
-on their own. ~~A minimized console window as the way to stop it~~ — rejected 2026-11-09: the
-window sits on the taskbar and is awkward to close.
+The browser's `localStorage` keeps only per-viewer conveniences:
 
-**The playlist survives restarts.** The playlist (track IDs) and the current track index are
-stored in `config.json` (`playlist`). They are written when a playlist is built with the arrow
-button, when a track starts and when playback advances to the next track. On start the playlist
-is restored but not played: Play resumes from the same track. If the player was closed or
-updated while playing or paused, the shutdown also saves the position (`playlist.position`), and
-Play continues the track there; a user Stop, or quitting while stopped, saves none and Play starts
-the track over. ~~Play after an update starts the track from 0~~ — fixed 2026-11-10: the slider
-showed the right position (the renderer reports it), but the restarted player had forgotten the
-track was paused. The UI re-reads the playlist when
-the library scan finishes, because IDs do not resolve to tracks until then.
+- expanded tree nodes;
+- whether the EQ and Library folders cards are folded;
+- column widths;
+- the light/dark theme (`index.html` applies it before the first paint).
 
-**Single instance, replaced on update.** On start the process first binds the port (8090). If the
-port is busy and `/api/state` of go-upnp-player answers on it, the process compares builds via
-`/api/version` (a short SHA-256 of the exe file):
-- same build: it opens the browser on the running player and exits with code 0;
-- different build, or no `/api/version` (older builds): it calls `/api/shutdown` on the running
-  player (renderer paused first) and binds the port as soon as it is free. Without this, a shortcut
-  click after an update kept opening the old running player and its old UI (2026-11-09).
+**Process.**
 
-If something else answers on the port, it is an error. A named mutex is not needed: a busy port
-would stop a second copy from working anyway.
-
-**Rename from upnp-player (2026-11-09).** The project, module, exe and data folders are now
-`go-upnp-player`. Files from the old folders are read once as a fallback, so nothing is lost on
-upgrade: `config.json` from `%AppData%\upnp-player` (the next save writes the new folder), the
-metadata cache from `%LocalAppData%\upnp-player`, and the `upnp-player.tree.open` localStorage key.
-Saved column widths are not carried over (they reset to the defaults once).
+- One instance on port 8090. A newer build replaces the running one, and open pages reload
+  themselves ([ADR-012](adr-012-updates-in-place.md)).
+- No console window (`-H=windowsgui`). The log goes to
+  `%LocalAppData%\go-upnp-player\go-upnp-player.log`.
+- Quit is the ⏻ button (two clicks) or Ctrl+C. Shutdown pauses the renderer, saves the playback
+  position and stops Fiber with a 3 s timeout.
+- On start the playlist is restored but not played. Play continues the current track at the saved
+  position, or from the start after a user Stop.
+- The status bar shows the backend version (no `v`, no build id), React and Vite.
 
 ## 3. Playback flow
 
-1. `Discover`: M-SEARCH from every IPv4 interface, then the device description and
+1. **Discovery.** M-SEARCH from every IPv4 interface, then the device description and
    `GetProtocolInfo` (which MIME types the renderer accepts).
-2. For each renderer the local IP that routes to it is determined (UDP dial). That address goes
-   into the track URLs, so VPN, Hyper-V and WSL adapters do not get in the way.
-3. Starting a track depends on the renderer state (`PlanSwitch`):
-   - STOPPED / no media: `SetAVTransportURI(http://<ip>:8090/media/track/<id>.wav|.flac?ct=<mime>, DIDL)` → `Play`;
+2. **Track URLs.** For each renderer, the local IP that routes to it (UDP dial) goes into the track
+   URLs. This keeps VPN, Hyper-V and WSL adapters out of the way.
+3. **Starting a track** (`services.PlanSwitch`,
+   [ADR-003](adr-003-switching-tracks-on-busy-gmrender.md)):
+   - STOPPED or no media: `SetAVTransportURI(http://<ip>:8090/media/track/<id>.wav|.flac?ct=<mime>, DIDL)`
+     → `Play`;
    - PLAYING or PAUSED: `SetNextAVTransportURI(target)` → `Seek` to the last second of the current
-     track (→ `Play` if paused); the renderer moves to the target through its gapless path, and the
-     player waits until the renderer reports the target's length near position 0 before queuing
-     the following track. If the renderer had already pulled a previously queued "next" into its
-     buffer, it lands on that track instead; the switch is then repeated (up to three attempts);
-   - the renderer already has the requested track (same URI and same audible length): it is
-     restarted in place with a `Seek` straight to the start position (+ `Play` if paused).
-     ~~`Seek(0)`, then a seek to the position~~ played the opening for a moment (2026-11-10).
-     Reason (2026-11-09, both renderers run gmrender): gmrender applies `SetAVTransportURI` only
-     from STOPPED — while playing or paused it keeps the old song — and `Stop` hangs the FiiO SR11
-     until a power cycle, from pause too. ~~SetAVTransportURI while playing~~,
-     ~~Play to resume, then SetAVTransportURI~~ and ~~Pause → Stop → SetAVTransportURI~~ were
-     tried live and rejected for those reasons.
-4. Right after a track starts, `SetNextAVTransportURI` is sent for the next one (gapless).
-   If the renderer does not support it, the poll performs the transition.
-5. Poll every second: `GetTransportInfo` + `GetPositionInfo` → `DecideTick`:
-   - the renderer moved to the next URI by itself — advance the index. A `TrackURI` change
-     alone is not enough: gmrender (FiiO SR11, seen live 2026-11-09) reports the next track as
-     current as soon as GStreamer has downloaded the current WAV into its buffer — minutes before
-     the real transition — and also resets RelTime by a couple of seconds. The transition counts
-     when `TrackDuration` becomes the next track's length; a position jump back counts only if
-     both tracks have the same length;
-   - STOPPED later than 4 s after our command — start the next track;
-   - end of the queue — stop.
+     track (→ `Play` if paused). The switch is confirmed by the target's length near position 0,
+     with up to three attempts;
+   - the renderer already has the requested track: a `Seek` straight to the start position.
 
-**Switching renderers keeps the position.** While playing, the track is started on the new
-renderer and seeked to the old position; the seek is repeated until the renderer reports that
-position, because gmrender silently ignores a Seek in the first moments of a stream (it used to
-restart the track from 0). While paused, the position is remembered and the next Play starts the
-track on the new renderer there. Stop clears it ("start over").
+   That is for renderers where `Stop` is not safe: the FiiO SR11, and any unknown model
+   ([ADR-002](adr-002-never-stop-gmrender.md)). There the Stop button is `Pause` plus clearing the
+   intent to play.
 
-**The UI's `index.html` is served with `Cache-Control: no-cache`.** Embedded files have a zero
-modification time, and the browser kept a stale `index.html` pointing at the previous build's
-hashed bundle: after an update the page came up blank (2026-11-09). An `index.html` cached before
-this fix is never revalidated by the browser. `no-cache` alone was not enough: with a zero
-modification time every conditional request got a 304, so `If-Modified-Since` is now dropped for
-`index.html` (2026-11-09). When an old copy asks for the bundle of a build that no
-longer exists (`/assets/index-*.js`), the server answers with a tiny script instead of a 404: it
-refetches `index.html` with `cache: "reload"` (which replaces the cached copy) and reloads the
-page. If the old bundle is cached too, the old UI shows and only a hard reload (Ctrl+F5) helps.
+   Stock gmrender (model `gmediarender`, the BeagleBone) is Stop-safe and is driven the way
+   foobar2000 drives it ([ADR-013](adr-013-stop-safe-renderers-start-like-foobar.md)):
+   - a busy renderer is switched with `Stop → SetAVTransportURI → Play`;
+   - the Stop button and leaving it for another renderer send a real `Stop`.
+4. **Gapless.** Right after a track starts, `SetNextAVTransportURI` queues the next one.
+5. **Poll** every second: `GetTransportInfo` + `GetPositionInfo` → `services.DecideTick`:
+   - an advance counts when `TrackDuration` becomes the next track's length
+     ([ADR-004](adr-004-detecting-track-advance.md));
+   - STOPPED more than 4 s after the player's last command starts the next track;
+   - the end of the playlist stops.
 
-**The UI reloads itself after an update.** `/api/state` carries the build
-id; when an open page sees a different build than the one it started with, it reloads. Otherwise a
-page left open across an update kept its stale state (expanded tree folders never refetched).
+   The same poll watches for a frozen renderer ([ADR-006](adr-006-hung-gmrender.md)) and a racing
+   one ([ADR-007](adr-007-racing-gmrender.md)).
+6. **Switching renderers keeps the position.**
+   - While playing, the track starts on the new renderer and is seeked until it reports the old
+     position ([ADR-005](adr-005-seek-ignored-at-stream-start.md)).
+   - While paused, the position is remembered for the next Play.
 
 ## 4. Serving tracks
 
-- **A track from a CUE sheet** — a virtual WAV: a 44-byte header plus the PCM of the sample range
-  `[INDEX 01 of the track; INDEX 01 of the next one)`. The next track's pregap stays at the end of
-  the previous one. The length is known exactly, so `Content-Length` is honest. A Range request is
-  mapped to a sample number: the decoder seeks to the frame via SEEKTABLE and drops the excess.
-  Without a SEEKTABLE it bisects over frame headers (jump into the byte range, find the next
-  valid frame header by sync code and CRC-8, compare its sample number, narrow) instead of
-  decoding from the start: a 24/192 track went from 7.9 s to 0.23 s for a Range at 5 minutes,
-  and a track switch (which seeks to the end of the current track) from ~19 s to ~2 s
-  (2026-11-09). Bytes are identical to a sequential decode (covered by a test that encodes a
-  FLAC without a SEEKTABLE).
-- **A plain track file** — the FLAC file as is, with Range support. With the equalizer on it also
+- **A track from a CUE sheet:** a virtual WAV, a 44-byte header plus the PCM of the sample range
+  from its `INDEX 01` to the next track's. The length is exact. A Range request maps to a sample;
+  the frame is found via SEEKTABLE, or by bisection over frame headers when there is none
+  ([ADR-008](adr-008-cue-tracks-as-virtual-wav.md)).
+- **A plain track file:** the FLAC file as is, with Range support. With the equalizer on, it also
   goes through WAV.
-- The MIME type is picked from the renderer's list: the BeagleBone knows only `audio/x-wav`,
-  the FiiO knows `audio/wav` as well.
+- **MIME type:** picked from the renderer's list. The BeagleBone knows only `audio/x-wav`, the FiiO
+  knows `audio/wav` as well.
 
 ## 5. CUE parsing — supported
 
-- encodings: UTF-8 (with and without BOM), UTF-16 with BOM, otherwise cp1251 or cp1252, picked
-  by decoding as both and comparing the results (`pickCodePage`);
-- `FILE "x.wav"` with `x.flac` next to it; the only FLAC in the folder;
-- several `FILE` entries in one cue; EAC "gaps appended" layout (INDEX 01 under the next FILE);
-- a track without INDEX 01 is dropped, not the whole sheet; frame numbers ≥ 75 from broken rips
-  are tolerated;
-- a cue sheet in the `CUESHEET` tag inside a FLAC file.
+- Encodings: UTF-8 (with and without BOM), UTF-16 with BOM, otherwise cp1251 or cp1252. The code
+  page is picked by decoding as both and comparing the results (`pickCodePage`).
+- `FILE "x.wav"` with `x.flac` next to it; the only FLAC in the folder.
+- Several `FILE` entries in one cue; EAC "gaps appended" layout (INDEX 01 under the next FILE).
+- A track without INDEX 01 is dropped, not the whole sheet. Frame numbers ≥ 75 from broken rips
+  are tolerated.
+- A cue sheet in the `CUESHEET` tag inside a FLAC file.
 
-Not supported: images other than FLAC (WAV, APE, WavPack), the binary CUESHEET block, DSD and other
-non-FLAC formats — planned in [ADR-001](adr-001-lossless-formats-beyond-flac.md) (proposed). Lossy formats
-(MP3, AAC, Ogg, Opus) are out of scope for good.
+Not supported:
+
+- images other than FLAC (WAV, APE, WavPack), the binary CUESHEET block, DSD and other non-FLAC
+  formats — planned in [ADR-001](adr-001-lossless-formats-beyond-flac.md);
+- lossy formats (MP3, AAC, Ogg, Opus) — out of scope for good.
 
 ## 6. Equalizer
 
-18 half-octave bands (55·2^(n/2): 55 Hz … ~19.9 kHz), ±20 dB, peaking biquads from the
-RBJ Audio EQ Cookbook, Q = 2.0 (the textbook half-octave Q of 2.87 leaves dips between adjacent
-bands). A band is skipped only above 0.475·fs, so the top band works at 44.1 kHz too. A saved set
-for a different band grid is not remapped but reset to zero. ~~10 bands 31 Hz … 16 kHz,
-±12 dB~~ — 2026-11-09: not enough.
+Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
 
-The grid is exactly foobar2000's, so its `.feq` presets (one integer dB per line, 18 lines,
-CRLF) load and save index by index, entirely in the browser: Load reads the file picked in the
-file input, Save uses the browser's "Save as" where available (Chromium), otherwise a download.
-A file with a different number of values is refused, not remapped. ~~Built-in Hard and Soft
-presets~~ — replaced by `.feq` load/save 2026-11-09: the owner's own curves live in foobar2000.
+- **Bands:** 18 half-octave bands on foobar2000's grid (55 Hz … ~19.9 kHz), ±20 dB, RBJ peaking
+  biquads with Q = 2.0.
+- **Overload:** no preamp. A soft limiter is linear up to −1 dBFS and rounds peaks off with tanh
+  above that.
+- **Presets:** foobar2000 `.feq` files are loaded and saved in the browser.
+- **Live changes:** settings are an `atomic.Pointer`, and open streams pick them up from the next
+  FLAC frame. After a change the player re-requests the stream from the current position.
+  Switching the EQ on or off for a plain FLAC track restarts it at the same position.
 
-There is no overall attenuation: boosting a band raises that band and leaves the rest alone.
-Overload is handled by a soft limiter: linear up to −1 dBFS, above that peaks are rounded off
-with tanh and never exceed full scale. ~~Preamp = −(largest boost)~~ — rejected 2026-11-09:
-a +18 dB treble boost turned into "the whole track −18 dB, treble unchanged", i.e. near silence
-instead of sparkle. Measured on "Never Say Die" with those settings: loudness +1.6 dB instead
-of −18.
+## 7. UI
 
-The settings live in an `atomic.Pointer`: open streams pick them up from the next FLAC frame.
-The renderer buffers several seconds, so after a change the player re-requests the stream from
-the current position (Seek). Turning the EQ on or off for a plain FLAC track changes the stream
-type, so the track is restarted at the same position.
+- **State polling.** The page polls `GET /api/state` once a second and again right after every
+  command ([ADR-010](adr-010-ui-polls-state.md)). A changed `library.scans` reloads the tree and
+  the playlist.
+- **Layout.** One page, no modal dialogs:
+  - three columns with splitters (`react-resizable-panels`; they stack on screens ≤ 900 px);
+  - Library tree, playlist, and on the right the Output, Equalizer and Library folders cards.
+- **Library tree** ([ADR-011](adr-011-library-tree-navigation.md)):
+  - folders, cue sheets and track files; cue sheets and files are leaves;
+  - → on a row builds the playlist from the node without touching playback;
+  - the node the playlist was built from is highlighted.
+- **Library header buttons:**
+  - refresh: rescan the library folders; the tree reloads in place;
+  - crosshair (Alt+F1): show the playlist's source in the tree;
+  - Collapse All: fold everything below the library roots.
+- **Playlist and devices.** Only the playlist plays (its ▶, or Play in the top bar). Devices are a
+  list in the Output card with a Use button. Row buttons appear on hover and are always visible on
+  touch screens.
+- **Waiting for the renderer.** The ▶ and Use buttons turn into a spinner while their request
+  runs. Those requests answer only after the renderer has really switched.
+- **Look.** Stock Bootstrap, gray instead of blue:
+  - the active row is a gray band with bold text, other rows are `text-body-secondary`;
+  - buttons are `secondary` or `outline-secondary`;
+  - custom CSS is limited to the slider thumbs and `font-variant-emoji` (Windows draws the
+    transport symbols as blue emoji otherwise).
 
-## 7. Decisions and rejected alternatives
+## 8. Decisions and renderer quirks (ADR)
 
-- **Cut CUE tracks on the program side instead of serving the whole image + Seek.** Time-based
-  seeking on renderers is imprecise, and the display would show the length of the whole album.
-- **EQ on the program side.** gmrender's UPnP RenderingControl offers volume only.
-- ~~`Stop` before `SetAVTransportURI`~~ and ~~`Stop` for the Stop button~~ — rejected 2026-11-09.
-  On `AVTransport.Stop` during playback the FiiO SR11 brought its whole UPnP service down until
-  a power cycle (a live incident). The Stop button now sends `Pause` and clears the intent to
-  play; the next Play starts the track over. When switching renderers, the old one also gets
-  `Pause`.
-- **The page polls `GET /api/state` once a second**, and once more right after every command. The
-  backend polls the renderer at the same rate, so a faster poll would show nothing new.
-  ~~SSE (`/api/events`) pushing a snapshot on every change~~ — dropped 2026-11-09 at the owner's
-  request: a long-lived channel hides what the page is shown and when; a plain request per
-  reading is visible in the browser's network log and needs no keepalive.
-- **A spinner replaces the ▶ and Use buttons while the request runs.** `POST /api/player/play` and
-  `/api/renderers/select` answer only after the renderer has really switched, which takes seconds,
-  so the request's own duration is the honest measure; nothing is guessed from the polled state.
-- **Stock Bootstrap look, no blue.** The playing track and the selected device are a gray band with
-  bold text (`table-active` or `bg-body-secondary`, `fw-bold`); other rows are
-  `text-body-secondary`; all buttons are `secondary` or `outline-secondary`. Custom CSS remains
-  only for the slider thumbs, which Bootstrap colors at build time, and for `font-variant-emoji`,
-  because Windows draws the transport symbols as blue emoji otherwise.
-- **No modal dialogs**: everything is on one page (device, EQ and folders are cards on the right).
-- **Navigation is the folder tree only.** Folders with nothing playable inside are hidden. Cue
-  sheets (external or embedded in a FLAC) and track files are leaves. Nothing plays from the tree:
-  the arrow button → on each row builds a playlist (a folder or a cue — everything inside; a file —
-  just that one; `PUT /api/queue {ids, source}`, playback is untouched). Only the playlist in the
-  middle plays: the ▶ button on a track or Play in the top bar. Row buttons (→ in the tree, ▶ in
-  the playlist) pop up on hover right after the label and are always visible on touch screens.
-  Devices are a list in the Output card, selected with a Use button on hover.
-  ~~A cue sheet expands into its tracks in the tree~~ — dropped 2026-11-10: the playlist shows the
-  same tracks, so the tree only repeated them. Cue sheets are still parsed during the library scan
-  (the playlist, search and durations need their tracks); the tree never read them on its own.
-  **The tree highlights the node the playlist was built from** (folder, cue or file), as the
-  selection in foobar2000's album list does; the backend keeps it with the playlist
-  (`config.Playlist.Source`), so it survives a restart. A playlist built from search results has
-  no such node, and nothing is highlighted. ~~The tree highlights the playing track~~ — replaced
-  2026-11-10 together with the cue expansion.
-  The refresh button in the Library header rescans the library folders (the same as Rescan in
-  the folders card) for music added or removed on disk. Expanded folders and the highlighted
-  playlist source stay; open folders refetch in place. The page reloads the tree when
-  `library.scans` (completed scans) changes, not when `scanning` goes false: a scan served from
-  the meta cache can end between two polls and never be seen running.
-  The crosshair button in the Library header (or Alt+F1), like "Select Opened File" in JetBrains
-  IDEs, shows that node in the tree; for a playlist from search results, the cue sheet or file of
-  the playing track. It clears the search, expands the folders down to the node, scrolls to it
-  and flashes the row. ~~It showed the playing track~~ until 2026-11-10. The button next to it, like
-  "Collapse All", collapses everything below the library roots; the roots stay open, otherwise a
-  single library folder would leave one row.
-  Rejected 2026-11-09: ~~double-click on a playlist track~~; ~~a dropdown for devices~~;
-  ~~a central list of all tracks under the selected folder~~ (large folders produced thousands of
-  rows to scroll); ~~double-click in the tree starts playback~~ (the tree is for navigation, the
-  playlist is what plays).
+Each ADR's status line says how far the problem is overcome and what is still open.
 
-## 8. Known issues
-
-- The BeagleBone (gmrender) answers `Play` with `501 Playing failed` and does not even request the
-  file (2026-11-09). The failure happens before any network access, inside GStreamer on the device:
-  a busy ALSA output or a missing HTTP source element. Check the gmediarender log on the BeagleBone.
-- ~~Without a SEEKTABLE every Range request decodes the file from the start~~ — fixed
-  2026-11-09 by bisection over frame headers (§4).
-- ~~Every scanned FLAC stayed open until a garbage collection~~ — fixed 2026-11-09, found by a
-  test that could not delete its temporary file on Windows. `flac.ParseFile` opens the file, but
-  `Stream.Close` closes nothing because the stream holds a `bufio.Reader`. The library now opens
-  and closes the file itself and calls `flac.Parse`.
-
-- gmrender can hang in PLAYING with a frozen position (BeagleBone, 2026-11-09, trigger not
-  established) and then accepts every command without effect. The player cannot repair it: `Stop`
-  is ruled out (§7), so the device or `gmediarender` has to be restarted. What the player does:
-  a position unchanged for 8 s while PLAYING is reported as `stalled` (the UI shows STALLED and a
-  Play button instead of Pause), Play on such a renderer goes through a real track start, and a
-  switch that fails after three attempts is an error. ~~Report the start as successful anyway~~
-  and ~~trust the renderer's PLAYING~~ showed "playing" over silence.
-- gmrender can also *race*: PLAYING, no sound, the position running at 30–40x and the queue
-  flying by (BeagleBone, switching back to it from the FiiO, 2026-11-09; trigger not
-  established — a 60 s pause, a restart of the player and the switch path itself, all tried on
-  a healthy device, did not cause it). Pause/Play does not cure it; Stop → SetAVTransportURI →
-  Play does (that is what foobar2000 does on a new start, which is how the owner recovered it;
-  ~~restart the renderer~~ was the wrong advice). The poll sees it as a position that grew more
-  than 1.5 s per second + 1.5 s within one track, on three polls in a row (a jump can be a seek
-  that landed late; RelTime's whole seconds make a 1 s poll show 2 s at most), and restarts the
-  track that way from where the racing began, with a line in the log. ~~3 s per second + 3 s, two
-  polls~~ — 2026-11-09: the racing speed is whatever the download allows, 30–40x once but ~5x the
-  next time, which went unnoticed in 1.0.4. This is the one
-  place `Stop` is sent: the renderer plays nothing anyway. If it races again within 2 minutes,
-  it is paused and reported instead of being stopped again.
-- In the same state the BeagleBone may answer every `Play` with `501 Playing failed`. The poll
-  used to start the next track again on every tick (108 attempts in two minutes); a failed
-  automatic start now clears the intent to play and shows the error.
+| ADR | Topic |
+|---|---|
+| [001](adr-001-lossless-formats-beyond-flac.md) | Lossless formats beyond FLAC (DSF/DSD, WAV, WavPack, APE, ALAC) |
+| [002](adr-002-never-stop-gmrender.md) | Never send `Stop`: it hangs the FiiO SR11 |
+| [003](adr-003-switching-tracks-on-busy-gmrender.md) | Switching tracks on a busy gmrender through its gapless path |
+| [004](adr-004-detecting-track-advance.md) | Telling a real track advance from gmrender's early reports |
+| [005](adr-005-seek-ignored-at-stream-start.md) | Repeating a seek that gmrender ignored at the start of a stream |
+| [006](adr-006-hung-gmrender.md) | A hung gmrender (frozen position, `501 Playing failed`) |
+| [007](adr-007-racing-gmrender.md) | A racing gmrender: no sound, position running ahead |
+| [008](adr-008-cue-tracks-as-virtual-wav.md) | CUE tracks as virtual WAV; seeking without a SEEKTABLE |
+| [009](adr-009-equalizer-on-player-side.md) | Equalizer on the player side, soft limiter instead of preamp |
+| [010](adr-010-ui-polls-state.md) | The page polls `/api/state` instead of a push channel |
+| [011](adr-011-library-tree-navigation.md) | The library tree is for choosing, the playlist is for playing |
+| [012](adr-012-updates-in-place.md) | Updating in place: one instance, no stale UI, position kept |
+| [013](adr-013-stop-safe-renderers-start-like-foobar.md) | Renderers that survive Stop are driven the way foobar2000 drives them |
 
 ## 9. Testing
 
 `go test -race ./...` needs no hardware, network or real user folders:
 
 - `cmd/go-upnp-player/endpoints_test.go` walks the whole API through the real route table. Only
-  the outside world is fake: a local HTTP server acts as the renderer, the music is FLAC generated
-  into a temporary folder. Player and library are one per process, so it is one ordered scenario.
-- `testkit.Renderer` reproduces the gmrender behaviour from §3: `SetAVTransportURI` applies only
-  from STOPPED, a seek to the end moves to the queued next URI, early Seeks can be dropped. A
-  `Stop` fails the test, which keeps the FiiO SR11 rule (§7) enforced; only the racing-renderer
-  tests (§8) allow it explicitly.
+  the outside world is fake: a local HTTP server acts as the renderer, and the music is FLAC
+  generated into a temporary folder. Player and library are one per process, so it is one ordered
+  scenario.
+- `testkit.Renderer` reproduces gmrender:
+  - `SetAVTransportURI` applies only from STOPPED;
+  - a seek to the end moves to the queued next URI;
+  - early Seeks can be dropped;
+  - a `Stop` fails the test ([ADR-002](adr-002-never-stop-gmrender.md)), unless the test makes the
+    fake Stop-safe (racing, [ADR-007](adr-007-racing-gmrender.md); stock gmrender,
+    [ADR-013](adr-013-stop-safe-renderers-start-like-foobar.md)).
 - `testkit.IsolateUserDirs` points the config and cache directories at a temporary folder.
 - Replaceable dependencies are package-level function variables (`player/seams.go`,
   `upnp.listLocalIPv4s`, `library.readFlacMeta`).
 
-The handlers are covered by the endpoint scenario, which lives in another package, so per-package
-figures show them as 0%. For the real number use
-`go test -coverpkg=./cmd/...,./internal/... -coverprofile=c.out ./...`. Not covered: `main` itself,
-opening a browser, and the real SSDP multicast.
+**Coverage.** Per-package figures show the handlers as 0%, because the endpoint scenario lives in
+another package. The real number comes from
+`go test -coverpkg=./cmd/...,./internal/... -coverprofile=c.out ./...`. Not covered: `main`
+itself, opening a browser, and the real SSDP multicast.
 
-CI (`.github/workflows/tests.yml`, Windows) runs that command on every push to `master` and sends
-the profile to Codecov, which feeds the README badge. `internal/testkit` is excluded from the
+**CI.** `.github/workflows/tests.yml` runs that command on Windows on every push to `master` and
+sends the profile to Codecov, which feeds the README badge. `internal/testkit` is excluded from the
 figure. CI needs Go only; the UI bundle comes from the repository.

@@ -840,3 +840,56 @@ func TestShutdownWhenStoppedSavesNoPosition(t *testing.T) {
 		t.Fatalf("saved position %v", got)
 	}
 }
+
+// stopSafe turns the fake into stock gmrender (the BeagleBone), which survives Stop.
+func stopSafe(r *testkit.Renderer) {
+	renderers[0].Model = "gmediarender"
+	r.With(func(s *testkit.RendererState) { s.StopAllowed = true })
+}
+
+// On a renderer that survives Stop, a busy renderer is switched the way foobar2000
+// does it: Stop -> SetAVTransportURI -> Play, not the next-URI path with a seek to the
+// end (ADR-007).
+func TestStopSafeRendererSwitchesLikeFoobar(t *testing.T) {
+	r := setup(t)
+	stopSafe(r)
+	playingAt(r, []string{"a", "b", "c"}, 0, 30)
+	if err := PlayIndex(1); err != nil {
+		t.Fatal(err)
+	}
+	st := r.Get()
+	if r.Count("Stop") != 1 || r.Count("SetAVTransportURI") != 1 || r.Count("Seek") != 0 {
+		t.Fatalf("stop %d setURI %d seek %d", r.Count("Stop"), r.Count("SetAVTransportURI"), r.Count("Seek"))
+	}
+	if st.State != "PLAYING" || !strings.Contains(st.URI, "/b.") || index != 1 {
+		t.Fatalf("%+v index %d", st, index)
+	}
+	// gapless playback stays: the following track is still queued as next
+	if !strings.Contains(st.Next, "/c.") {
+		t.Fatalf("next %q", st.Next)
+	}
+}
+
+// Stop and switching away really stop such a renderer, so it does not sit paused with
+// an idle pipeline; the FiiO keeps getting Pause (TestPauseAndStopNeverSendStop).
+func TestStopSafeRendererIsStoppedNotPaused(t *testing.T) {
+	r := setup(t)
+	stopSafe(r)
+	playingAt(r, []string{"a"}, 0, 30)
+	if err := Stop(); err != nil {
+		t.Fatal(err)
+	}
+	if r.Count("Stop") != 1 || r.Count("Pause") != 0 || r.Get().State != "STOPPED" {
+		t.Fatalf("stop %d pause %d state %s", r.Count("Stop"), r.Count("Pause"), r.Get().State)
+	}
+
+	r2 := newRenderer(t, "r2")
+	renderers = append(renderers, r2.Device)
+	playingAt(r, []string{"a"}, 0, 30)
+	if err := Select("r2"); err != nil {
+		t.Fatal(err)
+	}
+	if r.Count("Stop") != 2 || r.Count("Pause") != 0 {
+		t.Fatalf("leaving it: stop %d pause %d", r.Count("Stop"), r.Count("Pause"))
+	}
+}

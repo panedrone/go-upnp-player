@@ -58,7 +58,7 @@ func Select(udn string) error {
 	_ = config.Update(func(c *config.Config) { c.Renderer = udn })
 	if hadOld && old.UDN != udn {
 		c, cancel := ctx()
-		_ = upnp.Pause(c, old) // not Stop, see Stop()
+		_ = halt(c, old) // Stop only where it is safe, see halt()
 		cancel()
 	}
 	refreshVolume()

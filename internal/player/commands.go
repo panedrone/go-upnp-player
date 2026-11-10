@@ -69,8 +69,18 @@ func Stop() error {
 		resumeAt = -1 // Stop means "start the track over" next time
 		nextURL = ""
 		mu.Unlock()
-		return upnp.Pause(c, d)
+		return halt(c, d)
 	})
+}
+
+// halt takes a renderer out of play: a real Stop where that is safe, Pause otherwise
+// (ADR-002). A stopped gmrender drops its pipeline and HTTP connection; a paused one
+// keeps both, idle, which on the BeagleBone was part of the racing trigger (ADR-007).
+func halt(c context.Context, d upnp.Device) error {
+	if services.StopSafe(d.Model) {
+		return upnp.Stop(c, d)
+	}
+	return upnp.Pause(c, d)
 }
 
 func Next() error {

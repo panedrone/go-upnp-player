@@ -44,6 +44,16 @@ func startLocked(i int, seek float64) error {
 	pi, _ := upnp.GetPositionInfo(c, d)
 	plan := services.PlanSwitch(ti.State, pi.Duration)
 	seekDone := false
+	if plan.ViaNext && services.StopSafe(d.Model) {
+		// A renderer that survives Stop is started the way foobar2000 starts it:
+		// Stop -> SetAVTransportURI -> Play, a fresh pipeline every time. On the
+		// BeagleBone the next-URI path with a seek to the end was the suspected
+		// trigger of the racing, which foobar2000 never sees there (ADR-007).
+		if err := upnp.Stop(c, d); err != nil {
+			return err
+		}
+		plan = services.SwitchPlan{}
+	}
 	if plan.ViaNext && pi.TrackURI == uri && services.SameLength(pi.Duration, t.Duration) {
 		// the renderer already has this very track: restart it in place. The URI
 		// alone is not proof — gmrender reports the queued next URI early — so the

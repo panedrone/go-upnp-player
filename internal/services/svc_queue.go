@@ -102,6 +102,15 @@ func Racing(state string, advanced float64, elapsed time.Duration) bool {
 	return state == "PLAYING" && elapsed > 0 && advanced > 1.5*elapsed.Seconds()+1.5
 }
 
+// StopSafe reports whether a renderer takes AVTransport.Stop without harm, judged by
+// the model name from its device description. Stock gmrender-resurrect calls itself
+// "gmediarender" (the BeagleBone); the FiiO SR11 runs a gmrender build of its own under
+// its own name, and Stop hangs it until a power cycle. Anything else is unknown, so it
+// is treated like the FiiO. See ADR-002 and ADR-007.
+func StopSafe(model string) bool {
+	return model == "gmediarender"
+}
+
 // SwitchPlan says how to move a renderer to another track.
 type SwitchPlan struct {
 	ViaNext bool    // SetNextAVTransportURI + seek to the end instead of SetAVTransportURI

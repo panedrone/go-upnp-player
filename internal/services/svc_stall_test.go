@@ -40,3 +40,15 @@ func TestStalled(t *testing.T) {
 		t.Fatal("a paused renderer is supposed to stand still")
 	}
 }
+
+func TestStopSafe(t *testing.T) {
+	for model, want := range map[string]bool{
+		"gmediarender": true,  // stock gmrender-resurrect: the BeagleBone
+		"FiiO SR11":    false, // gmrender inside, but Stop hangs it
+		"":             false, // unknown: treated like the FiiO
+	} {
+		if got := StopSafe(model); got != want {
+			t.Errorf("StopSafe(%q) = %v", model, got)
+		}
+	}
+}
