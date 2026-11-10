@@ -20,6 +20,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/panedrone/go-upnp-player/cmd/go-upnp-player/server"
 	"github.com/panedrone/go-upnp-player/internal/bg_workers"
 	"github.com/panedrone/go-upnp-player/internal/config"
 	"github.com/panedrone/go-upnp-player/internal/handlers"
@@ -47,15 +48,15 @@ func main() {
 	// shut down gracefully and replaced; otherwise the shortcut kept opening the old
 	// UI (2026-11-09). Taken by something else: error. The check runs before any
 	// writes to the config.
-	build := buildID()
+	build := server.BuildID()
 	handlers.BuildID = build
-	handlers.AppVersion = Version
+	handlers.AppVersion = server.Version
 	player.Build = build
-	player.Version = Version
+	player.Version = server.Version
 	addr := ":" + strconv.Itoa(*port)
 	ln, err := net.Listen("tcp4", addr)
 	if err != nil {
-		running, theirs := runningBuild(ui)
+		running, theirs := server.RunningBuild(ui)
 		if !running {
 			setupLogFile() // the port belongs to some other program: no log of ours to keep
 			log.Fatalf("listen: %v", err)
@@ -68,7 +69,7 @@ func main() {
 		}
 		setupLogFile()
 		log.Printf("replacing running build %q with %q", theirs, build)
-		ln, err = takeOver(ui, addr)
+		ln, err = server.TakeOver(ui, addr)
 		if err != nil {
 			log.Fatalf("listen after replacing the running player: %v", err)
 		}
@@ -101,8 +102,8 @@ func main() {
 	// the Quit button in the UI takes the same path as Ctrl+C
 	handlers.RequestShutdown = stop
 
-	app := fiber.New(fiber.Config{AppName: "go-upnp-player " + Version})
-	initRoutes(app)
+	app := fiber.New(fiber.Config{AppName: "go-upnp-player " + server.Version})
+	server.InitRoutes(app)
 
 	go func() {
 		<-ctx.Done()
@@ -113,13 +114,13 @@ func main() {
 		_ = app.ShutdownWithTimeout(3 * time.Second)
 	}()
 
-	log.Printf("go-upnp-player %s: %s", Version, ui)
+	log.Printf("go-upnp-player %s: %s", server.Version, ui)
 	if !*noBrowser {
 		openBrowser(ui)
 	}
 	// Fiber's startup banner for those who start the player from a console; a
 	// shortcut start has no console, so there is nothing to print it to.
-	if err := app.Listener(ln, fiber.ListenConfig{DisableStartupMessage: !hasConsole()}); err != nil {
+	if err := app.Listener(ln, fiber.ListenConfig{DisableStartupMessage: !server.HasConsole()}); err != nil {
 		log.Fatalf("server: %v", err)
 	}
 }

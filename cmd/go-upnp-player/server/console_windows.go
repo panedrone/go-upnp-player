@@ -1,6 +1,6 @@
 //go:build windows
 
-package main
+package server
 
 import (
 	"os"
@@ -14,12 +14,12 @@ var (
 
 const attachParentProcess = ^uintptr(0) // ATTACH_PARENT_PROCESS (-1)
 
-// hasConsole reports whether output can reach the user. The exe is built with
+// HasConsole reports whether output can reach the user. The exe is built with
 // -H=windowsgui, so Windows gives it no console of its own: when started from a
 // shortcut there is nothing to print to. Started from cmd or PowerShell, it
 // attaches to the parent's console and prints there; with the output
 // redirected, the inherited handle is used as is.
-func hasConsole() bool {
+func HasConsole() bool {
 	if t, err := syscall.GetFileType(syscall.Handle(os.Stdout.Fd())); err == nil && t != 0 {
 		return true // a console subsystem build, or output redirected to a file/pipe
 	}

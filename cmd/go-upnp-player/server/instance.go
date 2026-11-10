@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"crypto/sha256"
@@ -11,9 +11,9 @@ import (
 	"time"
 )
 
-// buildID identifies this exe: a short hash of the executable file, so every
+// BuildID identifies this exe: a short hash of the executable file, so every
 // build differs and copies of the same build match.
-func buildID() string {
+func BuildID() string {
 	p, err := os.Executable()
 	if err != nil {
 		return ""
@@ -30,9 +30,9 @@ func buildID() string {
 	return hex.EncodeToString(h.Sum(nil))[:12]
 }
 
-// runningBuild reports whether the port is answered by go-upnp-player and which
+// RunningBuild reports whether the port is answered by go-upnp-player and which
 // build it is ("" for builds before /api/version existed).
-func runningBuild(ui string) (running bool, build string) {
+func RunningBuild(ui string) (running bool, build string) {
 	if !alreadyRunning(ui) {
 		return false, ""
 	}
@@ -51,9 +51,9 @@ func runningBuild(ui string) (running bool, build string) {
 	return true, v.Build
 }
 
-// takeOver asks the running player to quit (the same graceful path as the Quit
+// TakeOver asks the running player to quit (the same graceful path as the Quit
 // button: renderer paused first) and binds the port once it is free.
-func takeOver(ui, addr string) (net.Listener, error) {
+func TakeOver(ui, addr string) (net.Listener, error) {
 	c := http.Client{Timeout: 3 * time.Second}
 	if resp, err := c.Post(ui+"api/shutdown", "application/json", nil); err == nil {
 		_ = resp.Body.Close()

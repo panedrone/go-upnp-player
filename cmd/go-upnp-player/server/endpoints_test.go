@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"bytes"
@@ -148,7 +148,7 @@ func TestEndpointsScenario(t *testing.T) {
 	handlers.BuildID, handlers.AppVersion, player.Build = "b1", "9.9", "b1"
 	player.Init(8090)
 	app := fiber.New()
-	initRoutes(app)
+	InitRoutes(app)
 	c := client{t, app}
 
 	var cueTracks []trackDTO
@@ -461,15 +461,15 @@ func TestRunningBuild(t *testing.T) {
 	}))
 	defer srv.Close()
 	ui := srv.URL + "/"
-	if ok, b := runningBuild(ui); !ok || b != "abc" {
+	if ok, b := RunningBuild(ui); !ok || b != "abc" {
 		t.Fatalf("%v %q", ok, b)
 	}
 	code = 404 // a build from before /api/version
-	if ok, b := runningBuild(ui); !ok || b != "" {
+	if ok, b := RunningBuild(ui); !ok || b != "" {
 		t.Fatalf("%v %q", ok, b)
 	}
 	state = `{"something":"else"}`
-	if ok, _ := runningBuild(ui); ok {
+	if ok, _ := RunningBuild(ui); ok {
 		t.Fatal("some other program is not our player")
 	}
 	if alreadyRunning("http://127.0.0.1:1/") {
@@ -489,7 +489,7 @@ func TestTakeOverAsksToQuitAndBinds(t *testing.T) {
 	}
 	addr := probe.Addr().String()
 	_ = probe.Close()
-	ln, err := takeOver(srv.URL+"/", addr)
+	ln, err := TakeOver(srv.URL+"/", addr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -500,7 +500,7 @@ func TestTakeOverAsksToQuitAndBinds(t *testing.T) {
 }
 
 func TestBuildIDIsStable(t *testing.T) {
-	a, b := buildID(), buildID()
+	a, b := BuildID(), BuildID()
 	if len(a) != 12 || a != b {
 		t.Fatalf("%q %q", a, b)
 	}

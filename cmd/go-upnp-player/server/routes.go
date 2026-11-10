@@ -1,4 +1,6 @@
-package main
+// Package server is what main wires together: the route table, the one-instance
+// check with the takeover of an older build, the console check and the version.
+package server
 
 import (
 	"github.com/gofiber/fiber/v3"
@@ -8,7 +10,7 @@ import (
 	"github.com/panedrone/go-upnp-player/web"
 )
 
-func initRoutes(app *fiber.App) {
+func InitRoutes(app *fiber.App) {
 	api := app.Group("/api")
 	api.Get("/state", handlers.State)
 	api.Get("/version", handlers.Version)

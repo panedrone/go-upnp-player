@@ -45,7 +45,9 @@ pulls the track from the player over HTTP. Both renderers in use run gmrender-re
 ## 2. Components
 
 ```
-cmd/go-upnp-player      startup: Fiber v3, routes, embedded UI (static middleware), polling
+cmd/go-upnp-player      main.go only: flags, log file, startup and shutdown order
+cmd/go-upnp-player/server  routes, embedded UI (static middleware), one-instance
+                        takeover, console check, version
 internal/handlers/h_*   transport: request parsing, responses
 internal/services/svc_* pure logic with tests: CUE, WAV geometry, Range, DIDL,
                         queue advance decision, equalizer, MIME choice
@@ -231,7 +233,7 @@ Each ADR's status line says how far the problem is overcome and what is still op
 
 `go test -race ./...` needs no hardware, network or real user folders:
 
-- `cmd/go-upnp-player/endpoints_test.go` walks the whole API through the real route table. Only
+- `cmd/go-upnp-player/server/endpoints_test.go` walks the whole API through the real route table. Only
   the outside world is fake: a local HTTP server acts as the renderer, and the music is FLAC
   generated into a temporary folder. Player and library are one per process, so it is one ordered
   scenario.
