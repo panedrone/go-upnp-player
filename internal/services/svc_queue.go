@@ -102,6 +102,20 @@ func Racing(state string, advanced float64, elapsed time.Duration) bool {
 	return state == "PLAYING" && elapsed > 0 && advanced > 1.5*elapsed.Seconds()+1.5
 }
 
+// FromSample is the first sample of a track stream that starts fromMs into the
+// track [start, end): a start at a position is served as a stream beginning there,
+// so the renderer never plays the opening first (ADR-015). It stays inside the track.
+func FromSample(start, end uint64, sampleRate uint32, fromMs int64) uint64 {
+	if fromMs <= 0 || sampleRate <= 0 {
+		return start
+	}
+	s := start + uint64(fromMs)*uint64(sampleRate)/1000
+	if s >= end {
+		return start
+	}
+	return s
+}
+
 // StopSafe reports whether a renderer takes AVTransport.Stop without harm, judged by
 // the model name from its device description. Stock gmrender-resurrect calls itself
 // "gmediarender" (the BeagleBone); the FiiO SR11 runs a gmrender build of its own under
@@ -109,6 +123,25 @@ func Racing(state string, advanced float64, elapsed time.Duration) bool {
 // is treated like the FiiO. See ADR-002 and ADR-007.
 func StopSafe(model string) bool {
 	return model == "gmediarender"
+}
+
+// A start the renderer refused ("501 Playing failed") is retried by the poll for a
+// while before it is reported. The BeagleBone refuses while its USB DAC is not the
+// active input of the amplifier: switching the amplifier from coaxial to USB on the
+// remote takes the owner a few seconds (ADR-014).
+const (
+	StartRetryFor   = 10 * time.Second
+	StartRetryEvery = 2 * time.Second
+)
+
+// RetryStart decides what the poll does with a refused start: retry it now, keep
+// waiting, or give up. pending is how long ago the start was first refused, sinceTry
+// how long ago it was last tried.
+func RetryStart(pending, sinceTry time.Duration) (retry, giveUp bool) {
+	if pending >= StartRetryFor {
+		return false, true
+	}
+	return sinceTry >= StartRetryEvery, false
 }
 
 // SwitchPlan says how to move a renderer to another track.
@@ -149,13 +182,6 @@ func SwitchDone(rendererDur, rendererPos, targetDur float64) bool {
 // all), no when they are the same build or our own id is unknown.
 func ShouldReplace(running, ours string) bool {
 	return ours != "" && running != ours
-}
-
-// SeekLanded reports whether the renderer's position is where we seeked to.
-// The window allows for the time between the Seek and the position query and
-// for renderers that seek to the nearest frame or keyframe.
-func SeekLanded(pos, target float64) bool {
-	return pos >= target-2 && pos <= target+5
 }
 
 // IsIndexPath reports whether a request path serves the UI's index.html.

@@ -40,15 +40,18 @@ type Renderer struct {
 	volume     int
 	lengths    map[string]float64
 	fail       map[string]bool
+	failNext   map[string]int // fail only the next n calls of an action
 	ignoreSeek int
 	noAdvance  bool
 	stopOK     bool
+	staleReads int     // this many position reads still report stalePos
+	stalePos   float64 // the previous stream's position (see RendererState.StaleReads)
 }
 
 // NewRenderer starts a fake renderer; it stops with the test.
 func NewRenderer(t testing.TB, udn string) *Renderer {
 	t.Helper()
-	r := &Renderer{t: t, state: "STOPPED", volume: 40, lengths: map[string]float64{}, fail: map[string]bool{}}
+	r := &Renderer{t: t, state: "STOPPED", volume: 40, lengths: map[string]float64{}, fail: map[string]bool{}, failNext: map[string]int{}}
 	r.srv = httptest.NewServer(http.HandlerFunc(r.serve))
 	t.Cleanup(r.srv.Close)
 	r.Device = upnp.Device{
@@ -68,9 +71,10 @@ func (r *Renderer) Close() { r.srv.Close() }
 func (r *Renderer) With(fn func(s *RendererState)) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	s := RendererState{State: r.state, URI: r.uri, Next: r.next, Pos: r.pos, Volume: r.volume, IgnoreSeeks: r.ignoreSeek, NoAdvance: r.noAdvance, StopAllowed: r.stopOK}
+	s := RendererState{State: r.state, URI: r.uri, Next: r.next, Pos: r.pos, Volume: r.volume, IgnoreSeeks: r.ignoreSeek, NoAdvance: r.noAdvance, StopAllowed: r.stopOK, StaleReads: r.staleReads, StalePos: r.stalePos}
 	fn(&s)
 	r.state, r.uri, r.next, r.pos, r.volume, r.ignoreSeek, r.noAdvance, r.stopOK = s.State, s.URI, s.Next, s.Pos, s.Volume, s.IgnoreSeeks, s.NoAdvance, s.StopAllowed
+	r.staleReads, r.stalePos = s.StaleReads, s.StalePos
 }
 
 // RendererState is the part of the fake a test may set or read.
@@ -83,6 +87,11 @@ type RendererState struct {
 	// StopAllowed: the test expects Stop (a racing renderer is restarted with it);
 	// otherwise Stop fails the test
 	StopAllowed bool
+	// StaleReads: this many position reads report StalePos instead of the real
+	// position, as the BeagleBone does right after a start: it still reports where its
+	// previous stream was, which looks like a seek that has landed
+	StaleReads int
+	StalePos   float64
 }
 
 // Get returns the current state.
@@ -104,6 +113,25 @@ func (r *Renderer) Fail(action string, on bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.fail[action] = on
+}
+
+// FailNext makes the next n calls of an action fail, the way the BeagleBone answers
+// "501 Playing failed" to a Play sent too soon after Stop.
+func (r *Renderer) FailNext(action string, n int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.failNext[action] = n
+}
+
+// Actions lists the actions received so far, in order.
+func (r *Renderer) Actions() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]string, 0, len(r.calls))
+	for _, c := range r.calls {
+		out = append(out, c.Action)
+	}
+	return out
 }
 
 // Count returns how many times an action was received.
@@ -145,7 +173,11 @@ func (r *Renderer) serve(w http.ResponseWriter, req *http.Request) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, Call{Action: action, Args: args})
-	if r.fail[action] {
+	failNow := r.fail[action] || r.failNext[action] > 0
+	if r.failNext[action] > 0 {
+		r.failNext[action]--
+	}
+	if failNow {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = io.WriteString(w, `<Envelope><Body><Fault><detail><UPnPError><errorCode>501</errorCode><errorDescription>Action failed</errorDescription></UPnPError></detail></Fault></Body></Envelope>`)
 		return
@@ -184,6 +216,10 @@ func (r *Renderer) serve(w http.ResponseWriter, req *http.Request) {
 		out["TrackURI"] = html.EscapeString(r.uri)
 		out["TrackDuration"] = services.FormatHMS(r.length(r.uri))
 		out["RelTime"] = services.FormatHMS(r.pos)
+		if r.staleReads > 0 {
+			r.staleReads--
+			out["RelTime"] = services.FormatHMS(r.stalePos)
+		}
 	case "GetVolume":
 		out["CurrentVolume"] = strconv.Itoa(r.volume)
 	case "SetVolume":
@@ -205,6 +241,12 @@ func (r *Renderer) length(uri string) float64 {
 	id := uri[strings.LastIndex(uri, "/")+1:]
 	if i := strings.IndexAny(id, ".?"); i >= 0 {
 		id = id[:i]
+	}
+	// a stream that starts at a position (&from=ms) is that much shorter
+	if i := strings.Index(uri, "&from="); i >= 0 {
+		if ms, err := strconv.ParseFloat(uri[i+len("&from="):], 64); err == nil && r.lengths[id] > 0 {
+			return r.lengths[id] - ms/1000
+		}
 	}
 	return r.lengths[id]
 }

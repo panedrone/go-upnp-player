@@ -1,6 +1,7 @@
 package player
 
 import (
+	"errors"
 	"fmt"
 	"github.com/panedrone/go-upnp-player/internal/library"
 	"github.com/panedrone/go-upnp-player/internal/services"
@@ -12,7 +13,35 @@ import (
 )
 
 // startLocked starts track i of the queue; call it under cmdMu.
-func startLocked(i int, seek float64) error {
+func startLocked(i int, seek float64) (err error) {
+	defer func() {
+		// The renderer took the URI but refused to play: not an error yet. The poll
+		// retries the start for a while (ADR-014); the UI says so meanwhile.
+		if errors.Is(err, errPlayRefused) {
+			mu.Lock()
+			now := time.Now()
+			if pendingSince.IsZero() {
+				pendingSince, pendingTries = now, 0
+			} else {
+				pendingTries++
+			}
+			pendingIndex, pendingPos, pendingTry = i, seek, now
+			index, wantPlaying, paused, resumeAt = i, true, false, -1
+			position, nextURL = seek, ""
+			mu.Unlock()
+			err = nil
+			return
+		}
+		// A failed start must not lose the position it was asked for: the next Play
+		// would otherwise start the current track from 0 (BeagleBone, 2026-11-10).
+		if err != nil && seek > 1 {
+			mu.Lock()
+			if i == index {
+				resumeAt = seek
+			}
+			mu.Unlock()
+		}
+	}()
 	d, ok := device()
 	if !ok {
 		return fmt.Errorf("no renderer selected")
@@ -28,7 +57,14 @@ func startLocked(i int, seek float64) error {
 	if t == nil {
 		return fmt.Errorf("track %s is not in the library anymore", id)
 	}
-	uri, meta := media(d, t)
+	// A start at a position is a stream that begins there: the renderer plays it from
+	// its start, with no seek. Play from 0 and a seek afterwards always let the
+	// opening of the track be heard for a moment (2026-11-10, ADR-015).
+	from := 0.0
+	if seek > 1 {
+		from = seek
+	}
+	uri, meta := media(d, t, from)
 	c, cancel := ctx()
 	defer cancel()
 
@@ -43,7 +79,6 @@ func startLocked(i int, seek float64) error {
 	ti, _ := upnp.GetTransportInfo(c, d)
 	pi, _ := upnp.GetPositionInfo(c, d)
 	plan := services.PlanSwitch(ti.State, pi.Duration)
-	seekDone := false
 	if plan.ViaNext && services.StopSafe(d.Model) {
 		// A renderer that survives Stop is started the way foobar2000 starts it:
 		// Stop -> SetAVTransportURI -> Play, a fresh pipeline every time. On the
@@ -52,24 +87,22 @@ func startLocked(i int, seek float64) error {
 		if err := upnp.Stop(c, d); err != nil {
 			return err
 		}
+		waitStopped(d)
 		plan = services.SwitchPlan{}
 	}
-	if plan.ViaNext && pi.TrackURI == uri && services.SameLength(pi.Duration, t.Duration) {
-		// the renderer already has this very track: restart it in place. The URI
+	if plan.ViaNext && pi.TrackURI == uri && services.SameLength(pi.Duration, t.Duration-from) {
+		// the renderer already has this very stream: restart it in place. The URI
 		// alone is not proof — gmrender reports the queued next URI early — so the
 		// audible length must match too.
-		// Straight to the target position: seeking to 0 first played the opening of
-		// the track for a moment before the jump (resume after a restart, 2026-11-10).
-		if err := upnp.Seek(c, d, seek); err != nil {
+		if err := upnp.Seek(c, d, 0); err != nil {
 			return err
 		}
 		if plan.Resume {
-			if err := upnp.Play(c, d); err != nil {
+			if err := playRetried(d); err != nil {
 				return err
 			}
 		}
 		plan.ViaNext = false
-		seekDone = true
 	} else if plan.ViaNext {
 		// Up to three attempts: if the renderer had already pulled a previously
 		// queued "next" into its buffer, our SetNext comes too late and it lands
@@ -80,7 +113,7 @@ func startLocked(i int, seek float64) error {
 			if err := switchViaNext(d, plan, uri, meta); err != nil {
 				return err
 			}
-			if waitSwitched(d, t.Duration) {
+			if waitSwitched(d, t.Duration-from) {
 				switched = true
 				break
 			}
@@ -103,15 +136,13 @@ func startLocked(i int, seek float64) error {
 	} else if err := startDirect(d, uri, meta); err != nil {
 		return err
 	}
-	if seek > 1 && !seekDone {
-		seekWhenReady(d, seek)
-	}
 	mu.Lock()
 	resumeAt = -1
+	pendingSince = time.Time{}
 	index, wantPlaying, paused = i, true, false
 	lastCmd = time.Now()
 	nextURL = ""
-	position, duration = seek, t.Duration
+	position, duration, offset = from, t.Duration, from
 	frozenSince, stalled = time.Now(), false
 	lastTrackURI, racingTicks = "", 0 // the first poll after a start is the new baseline
 	mu.Unlock()
@@ -120,6 +151,14 @@ func startLocked(i int, seek float64) error {
 	return nil
 }
 
+// errPlayRefused: the renderer took the URI but answered every Play with an error.
+var errPlayRefused = errors.New("renderer refused to play")
+
+// playTries: the BeagleBone answered a Play sent right after Stop with "501 Playing
+// failed" (2026-11-10), most likely while its ALSA device was still being released;
+// a moment later the same Play goes through.
+const playTries = 4
+
 // startDirect starts a track on a renderer that is not busy.
 func startDirect(d upnp.Device, uri, meta string) error {
 	c, cancel := ctx()
@@ -127,7 +166,39 @@ func startDirect(d upnp.Device, uri, meta string) error {
 	if err := upnp.SetURI(c, d, uri, meta); err != nil {
 		return err
 	}
-	return upnp.Play(c, d)
+	return playRetried(d)
+}
+
+// playRetried sends Play up to playTries times; a renderer that refuses them all
+// gives errPlayRefused, which the poll retries for a while (ADR-014).
+func playRetried(d upnp.Device) error {
+	var err error
+	for try := range playTries {
+		if try > 0 {
+			sleep(700 * time.Millisecond)
+		}
+		c, cancel := ctx()
+		err = upnp.Play(c, d)
+		cancel()
+		if err == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: %v", errPlayRefused, err)
+}
+
+// waitStopped gives a renderer that was just sent Stop up to 2 s to report STOPPED:
+// it tears its pipeline down asynchronously.
+func waitStopped(d upnp.Device) {
+	for range 10 {
+		c, cancel := ctx()
+		ti, err := upnp.GetTransportInfo(c, d)
+		cancel()
+		if err == nil && ti.State == "STOPPED" {
+			return
+		}
+		sleep(200 * time.Millisecond)
+	}
 }
 
 // waitSwitched waits (up to ~6 s) until the renderer reports the target track's
@@ -163,39 +234,6 @@ func switchViaNext(d upnp.Device, plan services.SwitchPlan, uri, meta string) er
 	return nil
 }
 
-// seekWhenReady seeks the freshly started track to pos and checks that it
-// landed: gmrender silently ignores a Seek sent in the first moments after a
-// stream starts, so a device switch used to restart the track from 0
-// (2026-11-09). Retries for up to ~6 s.
-func seekWhenReady(d upnp.Device, pos float64) {
-	waitPlaying(d)
-	for range 6 {
-		c, cancel := ctx()
-		_ = upnp.Seek(c, d, pos)
-		cancel()
-		sleep(700 * time.Millisecond)
-		c, cancel = ctx()
-		pi, err := upnp.GetPositionInfo(c, d)
-		cancel()
-		if err == nil && services.SeekLanded(pi.Position, pos) {
-			return
-		}
-		sleep(300 * time.Millisecond)
-	}
-}
-
-func waitPlaying(d upnp.Device) {
-	for range 20 {
-		c, cancel := ctx()
-		ti, err := upnp.GetTransportInfo(c, d)
-		cancel()
-		if err == nil && ti.State == "PLAYING" {
-			return
-		}
-		sleep(200 * time.Millisecond)
-	}
-}
-
 // queueNext queues the next track via SetNextAVTransportURI, which gives gapless playback.
 // If unsupported, no harm done: DecideTick starts the next track itself.
 func queueNext(d upnp.Device) {
@@ -211,7 +249,7 @@ func queueNext(d upnp.Device) {
 	if t == nil {
 		return
 	}
-	uri, meta := media(d, t)
+	uri, meta := media(d, t, 0)
 	c, cancel := ctx()
 	defer cancel()
 	if err := upnp.SetNextURI(c, d, uri, meta); err != nil {
@@ -223,13 +261,23 @@ func queueNext(d upnp.Device) {
 }
 
 // media builds the track link and DIDL metadata for a specific renderer.
-func media(d upnp.Device, t *library.Track) (uri, meta string) {
+// media builds the track URL and its DIDL. from > 0: the stream starts that many
+// seconds into the track (ADR-015); it is always WAV then, and shorter.
+func media(d upnp.Device, t *library.Track, from float64) (uri, meta string) {
 	var mime, ext string
 	var size int64
-	if t.FromCue || stream.EQActive() {
+	fromMs := int64(0)
+	if from > 0 {
+		fromMs = int64(from * 1000)
+	}
+	start := services.FromSample(t.Start, t.End, t.SampleRate, fromMs)
+	if start == t.Start {
+		fromMs, from = 0, 0 // nothing to skip (or past the end): the whole track
+	}
+	if t.FromCue || stream.EQActive() || fromMs > 0 {
 		mime = services.PickMime(d.SinkProtocols, "audio/wav", "audio/x-wav")
 		ext = "wav"
-		size = services.NewWavLayout(t.SampleRate, t.Channels, t.Bits, t.End-t.Start).TotalLen()
+		size = services.NewWavLayout(t.SampleRate, t.Channels, t.Bits, t.End-start).TotalLen()
 	} else {
 		mime = services.PickMime(d.SinkProtocols, "audio/flac", "audio/x-flac")
 		ext = "flac"
@@ -237,9 +285,12 @@ func media(d upnp.Device, t *library.Track) (uri, meta string) {
 	}
 	base := "http://" + d.LocalIP + ":" + strconv.Itoa(mediaPort)
 	uri = base + "/media/track/" + t.ID + "." + ext + "?ct=" + url.QueryEscape(mime)
+	if fromMs > 0 {
+		uri += "&from=" + strconv.FormatInt(fromMs, 10)
+	}
 	meta = services.BuildDIDL(services.TrackMeta{
 		Title: t.Title, Artist: t.Artist, Album: t.Album, Date: t.Date, Genre: t.Genre,
-		TrackNumber: t.Number, Duration: t.Duration, SampleRate: t.SampleRate,
+		TrackNumber: t.Number, Duration: t.Duration - from, SampleRate: t.SampleRate,
 		Bits: t.Bits, Channels: t.Channels, Size: size, Mime: mime, URL: uri,
 		ArtURL: base + "/media/art/" + t.ID,
 	})

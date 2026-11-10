@@ -4,7 +4,8 @@
 [ADR-002](adr-002-never-stop-gmrender.md) and [ADR-003](adr-003-switching-tracks-on-busy-gmrender.md)
 for those renderers only.
 **Overcome:** looks so, not yet confirmed. First live use (2026-11-10, a few minutes): the owner
-heard no fault, and the player's log has no racing episode. **Open:**
+heard no fault, and the player's log has no racing episode. The same session found a side effect,
+fixed in 1.0.10: switching back sometimes started the track from 0 (see Consequences). **Open:**
 
 - the old trigger has not been repeated deliberately: switch to the FiiO, wait several minutes,
   switch back;
@@ -62,3 +63,11 @@ Kept as before:
   advances stay gapless.
 - `testkit.Renderer` fails a test on `Stop` unless the test declares the fake Stop-safe. The FiiO
   rule stays enforced everywhere else.
+- **A Play right after Stop can be refused** (found in 1.0.9 live, 2026-11-10). The BeagleBone
+  answered `501 Playing failed`, most likely because its ALSA device was still being released.
+  The failed start skipped the seek, and the next Play started the track from 0, which looked
+  random to the owner. Fixed in 1.0.10:
+  - after `Stop`, the player waits up to 2 s for STOPPED;
+  - `Play` is tried up to 4 times, 0.7 s apart;
+  - a start that still fails keeps the wanted position for the next Play;
+  - a seek that never lands is logged.

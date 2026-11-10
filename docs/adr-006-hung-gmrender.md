@@ -1,14 +1,20 @@
 # ADR-006: A hung gmrender: detect and report, do not pretend
 
 **Status:** Accepted 2026-11-09 (written down 2026-11-10).
-**Overcome:** only partly. The player detects the state and tells the user, but cannot cure it:
-the renderer or `gmediarender` has to be restarted by hand. **Open:**
+**Overcome:**
 
-- the trigger is not established;
-- the BeagleBone's `501 Playing failed` happens inside GStreamer on the device and was never
-  traced. gmediarender's logging is off in its unit. foobar2000 never triggers either failure on
-  the same board, so this player's control pattern is the first suspect. The hypotheses and checks
-  are in
+- **`501 Playing failed`: mostly.** On 2026-11-10 the owner identified its everyday cause: the
+  amplifier's input is not yet switched to the BeagleBone's USB DAC. foobar2000 is refused the
+  same way. That case is now retried for 10 s, with the page saying so
+  ([ADR-014](adr-014-retry-refused-start.md)).
+- **The frozen state: only partly.** The player detects it and tells the user, but cannot cure it:
+  the renderer or `gmediarender` has to be restarted by hand.
+
+**Open:**
+
+- the trigger of the frozen state is not established;
+- whether a `501` ever has another cause on the device was never traced. gmediarender's logging is
+  off in its unit. The checks are in
   [ADR-007](adr-007-racing-gmrender.md#investigation-the-suspected-root-cause-on-the-beaglebone-open).
 
 ## Context

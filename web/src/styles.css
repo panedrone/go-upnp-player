@@ -98,3 +98,9 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
 
 
 .btn.theme-btn { line-height: 1; padding: .3rem .45rem; }
+
+/* CONNECTING: a soft pulse while a refused start is retried; still for those who ask
+   the system for less motion */
+@keyframes badge-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.badge-pulse { animation: badge-pulse 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .badge-pulse { animation: none; } }

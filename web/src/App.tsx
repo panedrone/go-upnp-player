@@ -15,6 +15,7 @@ const transportVariant: Record<string, string> = {
   TRANSITIONING: 'info',
   OFFLINE: 'danger',
   STALLED: 'danger',
+  CONNECTING: 'secondary',
   'BACKEND OFFLINE': 'danger',
 }
 
@@ -193,7 +194,7 @@ export default function App() {
   const renderers = state?.renderers ?? []
   const current = renderers.find((r) => r.udn === state?.selected)
   const error = actionErr || state?.error || (stalled ? 'The renderer reports playing, but its position is not moving. It may be hung: restart it.' : '')
-  const transport = connected ? (stalled ? 'STALLED' : state?.transport || 'IDLE') : 'BACKEND OFFLINE'
+  const transport = connected ? (state?.waiting ? 'CONNECTING' : stalled ? 'STALLED' : state?.transport || 'IDLE') : 'BACKEND OFFLINE'
 
   return (
     <div className="app d-flex flex-column vh-100">
@@ -387,7 +388,7 @@ export default function App() {
           <Card>
             <Card.Header className="d-flex align-items-center">
               <span className="me-auto">Output</span>
-              <Badge bg={transportVariant[transport] ?? 'secondary'} className="me-2">{transport}</Badge>
+              <Badge bg={transportVariant[transport] ?? 'secondary'} className={'me-2' + (transport === 'CONNECTING' ? ' badge-pulse' : '')}>{transport}</Badge>
               <Button size="sm" variant="outline-secondary" className="py-0" title="Search for devices again" onClick={() => run(api.refreshRenderers())} disabled={state?.discovering}>
                 {state?.discovering ? <Spinner size="sm" /> : '⟳'}
               </Button>
@@ -425,6 +426,12 @@ export default function App() {
               {track && (
                 <small className="text-body-secondary d-block">
                   {track.sampleRate / 1000} kHz · {track.bits} bit · {track.channels === 2 ? 'stereo' : `${track.channels} ch`} · {track.fromCue ? 'cue → WAV' : 'FLAC'}
+                </small>
+              )}
+              {/* a refused start being retried: said plainly, with the attempt and the time left */}
+              {state?.waiting && (
+                <small className="text-body-secondary d-block mt-2 text-break">
+                  <Spinner size="sm" className="me-1" />{state.waiting}
                 </small>
               )}
               {error && <small className="text-danger d-block mt-2 text-break">{error}</small>}

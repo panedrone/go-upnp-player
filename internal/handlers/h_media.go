@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -15,14 +16,17 @@ import (
 	"github.com/panedrone/go-upnp-player/internal/stream"
 )
 
-// MediaTrack handles GET/HEAD /media/track/:file (<id>.wav|.flac?ct=mime). The renderer fetches it.
+// MediaTrack handles GET/HEAD /media/track/:file (<id>.wav|.flac?ct=mime[&from=ms]). The renderer
+// fetches it. from: the stream starts that many milliseconds into the track (a start at a
+// position, ADR-015).
 func MediaTrack(c fiber.Ctx) error {
 	ext := filepath.Ext(c.Params("file"))
 	t := library.Get(strings.TrimSuffix(c.Params("file"), ext))
 	if t == nil {
 		return fiber.ErrNotFound
 	}
-	src := stream.ForTrack(t, ext == ".wav")
+	fromMs, _ := strconv.ParseInt(c.Query("from"), 10, 64)
+	src := stream.ForTrack(t, ext == ".wav", fromMs)
 	start, end, partial, err := services.ParseRange(c.Get(fiber.HeaderRange), src.Size)
 	if errors.Is(err, services.ErrRangeNotSatisfiable) {
 		c.Set(fiber.HeaderContentRange, fmt.Sprintf("bytes */%d", src.Size))

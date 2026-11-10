@@ -20,6 +20,9 @@ func Tick() {
 	if !ok {
 		return
 	}
+	if retryPendingStart(d) {
+		return // nothing to poll while a refused start is being retried
+	}
 	c, cancel := ctx()
 	defer cancel()
 	ti, err := upnp.GetTransportInfo(c, d)
@@ -34,19 +37,23 @@ func Tick() {
 
 	mu.Lock()
 	transport = ti.State
+	// the renderer counts from the start of its stream; a stream that starts at a
+	// position (ADR-015) is shifted by offset against the track
+	off := offset
 	if pi.Duration > 0 {
-		duration = pi.Duration
+		duration = pi.Duration + off
 	}
 	lastPos := position
-	position = pi.Position
+	abs := pi.Position + off
+	position = abs
 	now := time.Now()
-	if piErr != nil || pi.Position != lastPos || frozenSince.IsZero() {
+	if piErr != nil || abs != lastPos || frozenSince.IsZero() {
 		frozenSince = now
 	}
 	stalled = piErr == nil && services.Stalled(ti.State, now.Sub(frozenSince))
 	racing := false
 	if piErr == nil && pi.TrackURI != "" && pi.TrackURI == lastTrackURI && wantPlaying && !paused {
-		if services.Racing(ti.State, pi.Position-lastPos, now.Sub(lastPollAt)) {
+		if services.Racing(ti.State, abs-lastPos, now.Sub(lastPollAt)) {
 			if racingTicks == 0 {
 				racingIndex, racingFrom = index, lastPos
 			}
@@ -60,16 +67,18 @@ func Tick() {
 		lastTrackURI, lastPollAt = pi.TrackURI, now
 	}
 	in := services.TickInput{
-		WantPlaying:  wantPlaying && !paused,
-		State:        ti.State,
-		SinceCmd:     time.Since(lastCmd),
-		TrackURI:     pi.TrackURI,
-		NextURL:      nextURL,
-		HasNext:      index+1 < len(queue),
+		WantPlaying: wantPlaying && !paused,
+		State:       ti.State,
+		SinceCmd:    time.Since(lastCmd),
+		TrackURI:    pi.TrackURI,
+		NextURL:     nextURL,
+		HasNext:     index+1 < len(queue),
+		// the advance decision works on the renderer's own figures: the current
+		// track's stream is shorter by offset, the next one starts at 0
 		Duration:     pi.Duration,
 		Position:     pi.Position,
-		LastPosition: lastPos,
-		CurDuration:  trackDuration(index),
+		LastPosition: lastPos - off,
+		CurDuration:  trackDuration(index) - off,
 		NextDuration: trackDuration(index + 1),
 	}
 	tickCount++
@@ -86,6 +95,8 @@ func Tick() {
 		mu.Lock()
 		index++
 		nextURL = ""
+		offset = 0 // the next track's stream starts at its beginning
+		position, duration = in.Position, in.Duration
 		lastCmd = time.Now()
 		mu.Unlock()
 		savePlaylist()
@@ -111,6 +122,35 @@ func Tick() {
 			mu.Unlock()
 		}
 	}
+}
+
+// retryPendingStart retries a start the renderer refused (ADR-014) and reports
+// whether one is pending. After services.StartRetryFor it gives up with an error.
+func retryPendingStart(d upnp.Device) bool {
+	mu.Lock()
+	if pendingSince.IsZero() {
+		mu.Unlock()
+		return false
+	}
+	now := time.Now()
+	retry, giveUp := services.RetryStart(now.Sub(pendingSince), now.Sub(pendingTry))
+	i, pos, tries := pendingIndex, pendingPos, pendingTries+1
+	if giveUp {
+		pendingSince = time.Time{}
+		wantPlaying = false
+		if pos > 1 {
+			resumeAt = pos // the next Play still starts where it should
+		}
+	}
+	mu.Unlock()
+	switch {
+	case giveUp:
+		setErr(fmt.Errorf("renderer %s refused to play %d times in %s: is its output switched on (the amplifier input)?",
+			d.Name, tries, services.StartRetryFor))
+	case retry:
+		setErr(startLocked(i, pos))
+	}
+	return true
 }
 
 // racingRetry: a renderer that races again this soon after a restart is not cured by

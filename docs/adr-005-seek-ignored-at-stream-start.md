@@ -3,6 +3,17 @@
 **Status:** Accepted 2026-11-09 (written down 2026-11-10).
 **Overcome:** fully. Switching renderers mid-track and resuming after an update both land on the
 right position.
+Superseded for track starts by [ADR-015](adr-015-start-at-position-as-a-stream.md) (2026-11-10):
+a start at a position is now a stream that begins there, so no seek follows a start. On the way
+there, two findings belong here:
+
+- **The landing check could be fooled.** Right after a start the BeagleBone still reports its
+  previous stream's position. With the same track this looked like a landed seek, while the seek
+  had been dropped and the track played from 0; it showed up as a position lost after an update,
+  now and then.
+- **The seek itself was audible.** Play from 0 and a seek afterwards always let the opening be
+  heard. `Pause` from STOPPED as a silent preroll does not work: gmrender refuses it from a real
+  STOPPED (an earlier note claiming it was checked live was wrong).
 
 ## Context
 

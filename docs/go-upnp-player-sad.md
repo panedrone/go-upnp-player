@@ -94,7 +94,8 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 3. **Starting a track** (`services.PlanSwitch`,
    [ADR-003](adr-003-switching-tracks-on-busy-gmrender.md)):
    - STOPPED or no media: `SetAVTransportURI(http://<ip>:8090/media/track/<id>.wav|.flac?ct=<mime>, DIDL)`
-     → `Play`;
+     → `Play`. A start at a position uses a stream that begins there (`&from=<ms>`), so the renderer
+     is never seeked after a start ([ADR-015](adr-015-start-at-position-as-a-stream.md));
    - PLAYING or PAUSED: `SetNextAVTransportURI(target)` → `Seek` to the last second of the current
      track (→ `Play` if paused). The switch is confirmed by the target's length near position 0,
      with up to three attempts;
@@ -106,8 +107,12 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 
    Stock gmrender (model `gmediarender`, the BeagleBone) is Stop-safe and is driven the way
    foobar2000 drives it ([ADR-013](adr-013-stop-safe-renderers-start-like-foobar.md)):
-   - a busy renderer is switched with `Stop → SetAVTransportURI → Play`;
+   - a busy renderer is switched with `Stop` → wait for STOPPED → `SetAVTransportURI` → `Play`
+     (`Play` is retried up to 4 times within ~2 s);
    - the Stop button and leaving it for another renderer send a real `Stop`.
+   A start whose `Play` is still refused (`501 Playing failed`, e.g. the amplifier is not yet on the
+   BeagleBone's USB input) is retried by the poll every 2 s for up to 10 s. Meanwhile the page
+   shows CONNECTING with the attempt and the seconds left ([ADR-014](adr-014-retry-refused-start.md)).
 4. **Gapless.** Right after a track starts, `SetNextAVTransportURI` queues the next one.
 5. **Poll** every second: `GetTransportInfo` + `GetPositionInfo` → `services.DecideTick`:
    - an advance counts when `TrackDuration` becomes the next track's length
@@ -118,8 +123,10 @@ The browser's `localStorage` keeps only per-viewer conveniences:
    The same poll watches for a frozen renderer ([ADR-006](adr-006-hung-gmrender.md)) and a racing
    one ([ADR-007](adr-007-racing-gmrender.md)).
 6. **Switching renderers keeps the position.**
-   - While playing, the track starts on the new renderer and is seeked until it reports the old
-     position ([ADR-005](adr-005-seek-ignored-at-stream-start.md)).
+   - While playing, the track starts on the new renderer as a stream from the old position
+     ([ADR-015](adr-015-start-at-position-as-a-stream.md)).
+   - The player keeps that stream's offset: it shifts the renderer's position and length for the
+     UI, and a seek before the stream's start restarts the track from there.
    - While paused, the position is remembered for the next Play.
 
 ## 4. Serving tracks
@@ -130,6 +137,8 @@ The browser's `localStorage` keeps only per-viewer conveniences:
   ([ADR-008](adr-008-cue-tracks-as-virtual-wav.md)).
 - **A plain track file:** the FLAC file as is, with Range support. With the equalizer on, it also
   goes through WAV.
+- **A start at a position** (`&from=<ms>`): a WAV of the rest of the track, beginning at that
+  sample ([ADR-015](adr-015-start-at-position-as-a-stream.md)).
 - **MIME type:** picked from the renderer's list. The BeagleBone knows only `audio/x-wav`, the FiiO
   knows `audio/wav` as well.
 
@@ -208,6 +217,8 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [011](adr-011-library-tree-navigation.md) | The library tree is for choosing, the playlist is for playing |
 | [012](adr-012-updates-in-place.md) | Updating in place: one instance, no stale UI, position kept |
 | [013](adr-013-stop-safe-renderers-start-like-foobar.md) | Renderers that survive Stop are driven the way foobar2000 drives them |
+| [014](adr-014-retry-refused-start.md) | A refused start is retried for 10 s, and the page says so |
+| [015](adr-015-start-at-position-as-a-stream.md) | A start at a position is a stream that begins there |
 
 ## 9. Testing
 

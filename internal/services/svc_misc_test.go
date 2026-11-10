@@ -198,24 +198,6 @@ func TestShouldReplace(t *testing.T) {
 	}
 }
 
-func TestSeekLanded(t *testing.T) {
-	cases := []struct {
-		pos, target float64
-		want        bool
-	}{
-		{269, 269, true},
-		{271, 269, true}, // a second or two of playback after the seek
-		{0, 269, false},  // the seek was ignored: track restarted from the top
-		{3, 269, false},
-		{280, 269, false},
-	}
-	for _, c := range cases {
-		if got := SeekLanded(c.pos, c.target); got != c.want {
-			t.Errorf("%v/%v: got %v", c.pos, c.target, got)
-		}
-	}
-}
-
 func TestIsIndexPath(t *testing.T) {
 	for p, want := range map[string]bool{"/": true, "": true, "/index.html": true, "/assets/index-x.js": false, "/api/state": false} {
 		if got := IsIndexPath(p); got != want {

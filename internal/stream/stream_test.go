@@ -104,7 +104,7 @@ func TestForTrackRawServesTheFileFromOffset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	src := ForTrack(&library.Track{Path: path, FileSize: int64(len(data))}, false)
+	src := ForTrack(&library.Track{Path: path, FileSize: int64(len(data))}, false, 0)
 	if src.Size != int64(len(data)) {
 		t.Fatalf("size %d", src.Size)
 	}
@@ -119,7 +119,7 @@ func TestForTrackRawServesTheFileFromOffset(t *testing.T) {
 	if !bytes.Equal(got, data[100:]) {
 		t.Fatalf("%d bytes", len(got))
 	}
-	if _, err := ForTrack(&library.Track{Path: path + ".absent"}, false).Open(0); err == nil {
+	if _, err := ForTrack(&library.Track{Path: path + ".absent"}, false, 0).Open(0); err == nil {
 		t.Fatal("missing file accepted")
 	}
 }
@@ -129,7 +129,7 @@ func TestForTrackWavAndCueAreDecoded(t *testing.T) {
 	base := library.Track{Path: path, End: total, SampleRate: 44100, Channels: 2, Bits: 16}
 	cue := base
 	cue.FromCue = true
-	for _, src := range []Source{ForTrack(&base, true), ForTrack(&cue, false)} {
+	for _, src := range []Source{ForTrack(&base, true, 0), ForTrack(&cue, false, 0)} {
 		if want := 44 + int64(total)*4; src.Size != want {
 			t.Fatalf("size %d, want %d", src.Size, want)
 		}
@@ -157,5 +157,35 @@ func TestBisectGivesUpOnJunk(t *testing.T) {
 	defer func() { _ = f.Close() }()
 	if _, err := audioStart(f); err == nil {
 		t.Fatal("no FLAC signature, yet an audio start was found")
+	}
+}
+
+// A stream that starts at a position is the tail of the whole one: the same samples,
+// a shorter header (ADR-015).
+func TestForTrackFromAPosition(t *testing.T) {
+	path, total := writeTestFLAC(t, 4, 4096, 1000)
+	tr := library.Track{Path: path, End: total, SampleRate: 44100, Channels: 2, Bits: 16}
+	read := func(src Source) []byte {
+		r, err := src.Open(0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = r.Close() }()
+		b, _ := io.ReadAll(r)
+		return b
+	}
+	whole := read(ForTrack(&tr, false, 0)) // a plain FLAC: served as is
+	full := read(ForTrack(&tr, true, 0))
+	from := ForTrack(&tr, false, 50) // from > 0 is WAV even for a plain FLAC
+	part := read(from)
+	skip := int64(50 * 44100 / 1000 * 4)
+	if string(part[:4]) != "RIFF" || from.Size != int64(len(full))-skip || int64(len(part)) != from.Size {
+		t.Fatalf("size %d, read %d, whole %d", from.Size, len(part), len(full))
+	}
+	if !bytes.Equal(part[44:], full[44+skip:]) {
+		t.Fatal("the samples differ from the tail of the whole stream")
+	}
+	if len(whole) == 0 {
+		t.Fatal("no raw FLAC")
 	}
 }

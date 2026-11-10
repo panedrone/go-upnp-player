@@ -7,12 +7,24 @@ import (
 	"github.com/panedrone/go-upnp-player/internal/services"
 	"github.com/panedrone/go-upnp-player/internal/stream"
 	"github.com/panedrone/go-upnp-player/internal/upnp"
+	"log"
 	"time"
 )
 
 // Pause / Resume / Stop / Next / Prev / Seek / SetVolume are UI commands.
 
 func Pause() error {
+	mu.Lock()
+	if !pendingSince.IsZero() {
+		// a refused start is being retried: pausing ends that, the position stays
+		pendingSince, paused = time.Time{}, true
+		if pendingPos > 1 {
+			resumeAt = pendingPos
+		}
+		mu.Unlock()
+		return nil
+	}
+	mu.Unlock()
 	return do(func(c context.Context, d upnp.Device) error {
 		if err := upnp.Pause(c, d); err != nil {
 			return err
@@ -66,7 +78,8 @@ func Stop() error {
 	return do(func(c context.Context, d upnp.Device) error {
 		mu.Lock()
 		wantPlaying, paused = false, false
-		resumeAt = -1 // Stop means "start the track over" next time
+		pendingSince = time.Time{} // also ends the retries of a refused start
+		resumeAt = -1              // Stop means "start the track over" next time
 		nextURL = ""
 		mu.Unlock()
 		return halt(c, d)
@@ -106,8 +119,20 @@ func Prev() error {
 }
 
 func Seek(sec float64) error {
+	mu.Lock()
+	off, i := offset, index
+	mu.Unlock()
+	if off > 0 && sec < off {
+		// the current stream starts later than the target (ADR-015): start the
+		// track again from there
+		cmdMu.Lock()
+		defer cmdMu.Unlock()
+		err := startLocked(i, sec)
+		setErr(err)
+		return err
+	}
 	return do(func(c context.Context, d upnp.Device) error {
-		if err := upnp.Seek(c, d, sec); err != nil {
+		if err := upnp.Seek(c, d, sec-off); err != nil {
 			return err
 		}
 		mu.Lock()
@@ -197,7 +222,11 @@ func Shutdown() {
 		// where it was (it used to start the track over, 2026-11-10)
 		mu.Lock()
 		resumeAt = pos
+		i := index
 		mu.Unlock()
 		savePlaylist()
+		// one line per exit: the next process must pick this up (a lost position
+		// after an update was reported 2026-11-10)
+		log.Printf("player: shutdown: the next Play continues playlist track %d at %.0f s", i, pos)
 	}
 }

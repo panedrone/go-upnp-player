@@ -49,6 +49,7 @@ func Select(udn string) error {
 	selected = udn
 	frozenSince, stalled = time.Time{}, false
 	lastTrackURI, racingTicks, racingFixAt = "", 0, time.Time{}
+	pendingSince = time.Time{} // a refused start belonged to the old renderer
 	nextURL = ""
 	if wasPaused && old.UDN != udn {
 		// the position must survive the switch: Play continues it on the new renderer

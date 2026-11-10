@@ -4,12 +4,14 @@ package player
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/panedrone/go-upnp-player/internal/config"
 	"github.com/panedrone/go-upnp-player/internal/library"
+	"github.com/panedrone/go-upnp-player/internal/services"
 	"github.com/panedrone/go-upnp-player/internal/upnp"
 )
 
@@ -30,8 +32,11 @@ type State struct {
 	Source       string         `json:"source"` // tree node the playlist was built from
 	Track        *library.Track `json:"track"`
 	Error        string         `json:"error,omitempty"`
-	Discovering  bool           `json:"discovering"`
-	Library      library.Status `json:"library"`
+	// Waiting: the renderer refused to play and the start is being retried; a hint for
+	// the UI, not an error yet
+	Waiting     string         `json:"waiting,omitempty"`
+	Discovering bool           `json:"discovering"`
+	Library     library.Status `json:"library"`
 	// Build of the running exe: the UI reloads itself when it changes (after an update)
 	Build   string `json:"build"`
 	Version string `json:"version"`
@@ -53,14 +58,18 @@ var (
 	nextURL      string
 	transport    string
 	position     float64
-	duration     float64
-	volume       = -1
-	lastErr      string
-	discovering  bool
-	mediaPort    int
-	tickCount    int
-	frozenSince  time.Time // since when the reported position has not changed
-	stalled      bool
+	// offset: the current track's stream starts this many seconds into the track (a
+	// start at a position, ADR-015). The renderer counts from the stream's start, so
+	// its RelTime and TrackDuration are shifted by it; 0 for a stream from the start.
+	offset      float64
+	duration    float64
+	volume      = -1
+	lastErr     string
+	discovering bool
+	mediaPort   int
+	tickCount   int
+	frozenSince time.Time // since when the reported position has not changed
+	stalled     bool
 	// racing detection (services.Racing): the previous poll, the run of racing polls,
 	// where the run started and when the renderer was last restarted because of it
 	lastPollAt   time.Time
@@ -72,6 +81,13 @@ var (
 	// resumeAt: the renderer was switched while paused; the new one has not got
 	// the track yet, so the next Play starts it there at this position (-1: none)
 	resumeAt = -1.0
+	// a start the renderer refused, retried by the poll (services.RetryStart);
+	// pendingSince is zero when there is none
+	pendingIndex int
+	pendingPos   float64
+	pendingSince time.Time
+	pendingTry   time.Time
+	pendingTries int // attempts so far, shown in the UI
 
 	// Build identifies the running exe; set once in main before serving.
 	Build string
@@ -119,6 +135,17 @@ func Snapshot() State {
 	}
 	if index >= 0 && index < len(queue) {
 		s.Track = lookupTrack(queue[index])
+	}
+	if !pendingSince.IsZero() {
+		name := selected
+		for _, d := range renderers {
+			if d.UDN == selected {
+				name = d.Name
+			}
+		}
+		left := max(0, int((services.StartRetryFor-time.Since(pendingSince)).Seconds()+0.5))
+		s.Waiting = fmt.Sprintf("Connecting to %s: attempt %d, %d s left. Is its output switched on (the amplifier input)?",
+			name, pendingTries+1, left)
 	}
 	return s
 }

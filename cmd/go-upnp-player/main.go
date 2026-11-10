@@ -133,7 +133,15 @@ func setupLogFile() {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return
 	}
-	f, err := os.Create(filepath.Join(dir, "go-upnp-player.log"))
+	// Appended, not recreated: a new build replacing a running one used to wipe the
+	// old process's last lines, including how it shut down (2026-11-10). Started
+	// over once it passes 1 MB.
+	p := filepath.Join(dir, "go-upnp-player.log")
+	flags := os.O_CREATE | os.O_WRONLY | os.O_APPEND
+	if st, err := os.Stat(p); err == nil && st.Size() > 1<<20 {
+		flags |= os.O_TRUNC
+	}
+	f, err := os.OpenFile(p, flags, 0o644)
 	if err != nil {
 		return
 	}

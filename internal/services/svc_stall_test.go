@@ -52,3 +52,38 @@ func TestStopSafe(t *testing.T) {
 		}
 	}
 }
+
+func TestRetryStart(t *testing.T) {
+	cases := []struct {
+		pending, sinceTry time.Duration
+		retry, giveUp     bool
+	}{
+		{0, 0, false, false},
+		{time.Second, time.Second, false, false},
+		{3 * time.Second, StartRetryEvery, true, false},
+		{StartRetryFor, StartRetryEvery, false, true},
+	}
+	for _, c := range cases {
+		if r, g := RetryStart(c.pending, c.sinceTry); r != c.retry || g != c.giveUp {
+			t.Errorf("RetryStart(%v, %v) = %v, %v", c.pending, c.sinceTry, r, g)
+		}
+	}
+}
+
+func TestFromSample(t *testing.T) {
+	cases := []struct {
+		start, end uint64
+		ms         int64
+		want       uint64
+	}{
+		{1000, 100000, 0, 1000},
+		{1000, 100000, 1000, 1000 + 44100},
+		{1000, 44000, 1000, 1000}, // past the end: the whole track
+		{1000, 100000, -5, 1000},
+	}
+	for _, c := range cases {
+		if got := FromSample(c.start, c.end, 44100, c.ms); got != c.want {
+			t.Errorf("FromSample(%d, %d, %d) = %d, want %d", c.start, c.end, c.ms, got, c.want)
+		}
+	}
+}

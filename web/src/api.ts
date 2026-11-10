@@ -50,6 +50,7 @@ export interface PlayerState {
   source: string // tree node the playlist was built from, '' if none
   track: Track | null
   error?: string
+  waiting?: string // the renderer refused to play; the start is being retried
   discovering: boolean
   library: { scanning: boolean; tracks: number; scans: number }
   build?: string
