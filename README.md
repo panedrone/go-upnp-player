@@ -109,32 +109,6 @@ and no renderers show up, allow the home network, e.g. `sudo ufw allow from 192.
   - `-port` — port for the UI, the API and the track streams, 8090 by default;
   - `-no-browser` — do not open the browser.
 
-## Build from source
-
-Requires Go 1.26+. The UI bundle (`web/dist`) is built at design time and committed, so Node is
-needed only to change the UI.
-
-```powershell
-go build -ldflags "-s -w -H=windowsgui" -o bin\go-upnp-player.exe .\cmd\go-upnp-player
-```
-
-`-H=windowsgui` builds the exe without a console window: the log goes to
-`%LocalAppData%\go-upnp-player\go-upnp-player.log`, and started from cmd or PowerShell it
-attaches to that console. To rebuild `web/dist` after a UI change (Node 20+):
-
-```powershell
-cd web; npm ci; npm run build
-```
-
-After a UI change, commit `web/dist` together with the sources.
-
-UI development:
-
-```powershell
-go run ./cmd/go-upnp-player -no-browser   # backend on :8090
-cd web; npm run dev               # Vite proxying /api and /media to :8090
-```
-
 ## Icon
 
 `web/public/favicon.svg` is the source (an original drawing: a streamer box with a play badge).
