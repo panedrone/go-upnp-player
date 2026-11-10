@@ -80,9 +80,24 @@ func Stop() error {
 		wantPlaying, paused = false, false
 		pendingSince = time.Time{} // also ends the retries of a refused start
 		resumeAt = -1              // Stop means "start the track over" next time
-		nextURL = ""
+		nextURL, nextRun = "", runPlan{}
+		position = 0 // and the slider says so: the next Play starts the track over
+		cur, at := runURI, streamPos
 		mu.Unlock()
-		return halt(c, d)
+		if err := halt(c, d); err != nil {
+			return err
+		}
+		if !services.StopSafe(d.Model) {
+			// Paused, not stopped (ADR-002): it keeps the stream and a moment of it
+			// ready to play, which the next Play let be heard before its own start (the
+			// FiiO, 2026-11-10). The stream is let go and the renderer seeked where it
+			// is: what it holds now is silence.
+			if id, ok := runIDOf(cur); ok {
+				stream.RetireRun(id)
+				_ = upnp.Seek(c, d, at)
+			}
+		}
+		return nil
 	})
 }
 
@@ -120,11 +135,15 @@ func Prev() error {
 
 func Seek(sec float64) error {
 	mu.Lock()
-	off, i := offset, index
+	i := index
+	at, inStream := streamTimeLocked(i, sec)
+	if len(runIDs) == 0 {
+		at, inStream = sec, true // nothing started here (yet): the renderer's own stream
+	}
 	mu.Unlock()
-	if off > 0 && sec < off {
-		// the current stream starts later than the target (ADR-015): start the
-		// track again from there
+	if !inStream {
+		// the current stream does not hold that point (it starts later in the track,
+		// ADR-015, or it is not the playlist's anymore): start the track again there
 		cmdMu.Lock()
 		defer cmdMu.Unlock()
 		err := startLocked(i, sec)
@@ -132,11 +151,11 @@ func Seek(sec float64) error {
 		return err
 	}
 	return do(func(c context.Context, d upnp.Device) error {
-		if err := upnp.Seek(c, d, sec-off); err != nil {
+		if err := upnp.Seek(c, d, at); err != nil {
 			return err
 		}
 		mu.Lock()
-		position = sec
+		position, streamPos = sec, at
 		lastCmd = time.Now()
 		mu.Unlock()
 		return nil
@@ -176,7 +195,6 @@ func do(fn func(context.Context, upnp.Device) error) error {
 // the stream type changed (FLAC <-> WAV: the equalizer was turned on/off).
 func SetEQ(s services.EQSettings) error {
 	s = s.Normalize()
-	before := stream.EQActive()
 	stream.SetEQ(s)
 	if err := config.Update(func(c *config.Config) { c.EQ = s }); err != nil {
 		return err
@@ -184,25 +202,12 @@ func SetEQ(s services.EQSettings) error {
 	mu.Lock()
 	active := wantPlaying && !paused && index >= 0
 	pos := position
-	i := index
 	mu.Unlock()
 	if !active {
 		return nil
 	}
-	t := lookupTrack(currentID())
-	if t == nil {
-		return nil
-	}
-	if !t.FromCue && before != stream.EQActive() {
-		cmdMu.Lock()
-		defer cmdMu.Unlock()
-		err := startLocked(i, pos)
-		setErr(err)
-		return err
-	}
-	if !t.FromCue && !stream.EQActive() {
-		return nil // raw FLAC, the equalizer does not apply to it
-	}
+	// every run is WAV decoded here (ADR-016): the equalizer applies to it, and a seek
+	// to where it plays makes the renderer request the stream anew
 	return Seek(pos)
 }
 

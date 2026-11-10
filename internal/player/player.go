@@ -131,7 +131,7 @@ func Snapshot() State {
 	mu.Lock()
 	defer mu.Unlock()
 	s := State{
-		Renderers: renderers, Selected: selected, Transport: transport, Stalled: stalled,
+		Renderers: renderers, Selected: selected, Transport: services.ShownTransport(transport, wantPlaying), Stalled: stalled,
 		WantPlaying: wantPlaying, Paused: paused, Position: position, Duration: duration,
 		Volume: volume, Index: index, QueueVersion: queueVersion, QueueLen: len(queue), Source: source,
 		Error: lastErr, Discovering: discovering, Library: library.GetStatus(), Build: Build, Version: Version,

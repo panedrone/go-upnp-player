@@ -139,6 +139,16 @@ func FromSample(start, end uint64, sampleRate uint32, fromMs int64) uint64 {
 	return s
 }
 
+// ShownTransport is the transport state the page shows. A renderer that must not get
+// Stop (the FiiO SR11, ADR-002) is paused by the Stop button and at the end of the
+// playlist; the player is stopped then, not paused, and the page says STOPPED.
+func ShownTransport(state string, wantPlaying bool) string {
+	if !wantPlaying && state == "PAUSED_PLAYBACK" {
+		return "STOPPED"
+	}
+	return state
+}
+
 // StopSafe reports whether a renderer takes AVTransport.Stop without harm, judged by
 // the model name from its device description. Stock gmrender-resurrect calls itself
 // "gmediarender" (the BeagleBone); the FiiO SR11 runs a gmrender build of its own under

@@ -147,8 +147,8 @@ export default function App() {
     refresh.current()
   }, [])
   const showErr = useCallback((m: string) => setActionErr(m), [])
-  const [seekDrag, seekProps] = useHeld((v) => void run(api.seek(v)))
-  const [volDrag, volProps] = useHeld((v) => void run(api.volume(v)))
+  const [seekDrag, seekProps] = useHeld(state, state?.position, (v) => run(api.seek(v)), 2, 1)
+  const [volDrag, volProps] = useHeld(state, state && state.volume >= 0 ? state.volume : undefined, (v) => run(api.volume(v)), 0, 0)
 
   // spinners: these requests return only when the renderer has really switched,
   // which takes seconds. A later click owns the spinner; an earlier request ending
@@ -455,15 +455,9 @@ export default function App() {
                 )
               })}
             </ListGroup>
-            {(state?.waiting || error) && (
+            {error && (
               <Card.Body className="pt-2">
-                {/* a refused start being retried: said plainly, with the attempt and the time left */}
-                {state?.waiting && (
-                  <small className="text-body-secondary d-block text-break">
-                    <Spinner size="sm" className="me-1" />{state.waiting}
-                  </small>
-                )}
-                {error && <small className="text-danger d-block mt-1 text-break">{error}</small>}
+                <small className="text-danger d-block text-break">{error}</small>
               </Card.Body>
             )}
           </Card>
@@ -472,10 +466,20 @@ export default function App() {
         </div>
         </Panel>
       </PanelGroup>
-      <footer className="status-bar border-top bg-body-tertiary text-body-secondary">
-        go-upnp-player {state?.version}
-        <span className="ms-3">React {reactVersion}</span>
-        <span className="ms-3">Vite {__VITE_VERSION__}</span>
+      {/* status bar: what the player is busy with on the left, versions on the right */}
+      <footer className="status-bar border-top bg-body-tertiary text-body-secondary d-flex align-items-center gap-3">
+        <span className="status-msg text-truncate flex-grow-1" title={state?.waiting || ''}>
+          {/* a refused start being retried: said plainly, with the attempt and the time left */}
+          {state?.waiting && (
+            <>
+              <Spinner size="sm" className="me-2" />
+              {state.waiting}
+            </>
+          )}
+        </span>
+        <span className="flex-shrink-0">go-upnp-player {state?.version}</span>
+        <span className="flex-shrink-0">React {reactVersion}</span>
+        <span className="flex-shrink-0">Vite {__VITE_VERSION__}</span>
       </footer>
     </div>
   )
@@ -526,19 +530,50 @@ function useNarrow(): boolean {
 // pointer (alt-tab, touch turned into a scroll) or the arrow keys never sent the
 // input its pointerup, and the old onPointerUp-only code then kept the held value
 // forever, a slider frozen until the page was reloaded (2026-11-10).
-function useHeld(commit: (v: number) => void) {
+//
+// After the release the slider keeps showing the chosen value until two polls in a
+// row, after the command answered, report one within `near` of it (plus `drift` per
+// second since: a playing track moves on), at most 5 s after the answer. A seek
+// takes the renderer seconds; handing the slider back to the poll at once made the
+// knob jump to the old position and through whatever the renderer reported while
+// it rebuffered. One matching poll is not proof: right after a seek the backend
+// reports the target itself, before it has read the renderer (2026-11-10).
+function useHeld(sample: unknown, actual: number | undefined, commit: (v: number) => Promise<unknown>, near: number, drift: number) {
   const [held, setHeld] = useState<number | null>(null)
   const down = useRef(false)
   const last = useRef<number | null>(null)
+  const pending = useRef<{ v: number; answered: number; hits: number } | null>(null)
   const commitRef = useRef(commit)
   commitRef.current = commit
   const release = useCallback(() => {
     down.current = false
     const v = last.current
     last.current = null
-    setHeld(null)
-    if (v !== null) commitRef.current(v)
+    if (v === null) return // a release elsewhere on the page, or nothing was moved
+    const p = { v, answered: 0, hits: 0 }
+    pending.current = p
+    setHeld(v)
+    void commitRef.current(v).finally(() => {
+      p.answered = Date.now()
+      setTimeout(() => {
+        if (pending.current === p) {
+          pending.current = null
+          setHeld(null)
+        }
+      }, 5000)
+    })
   }, [])
+  // the backend has caught up with the command: the poll owns the slider again
+  useEffect(() => {
+    const p = pending.current
+    if (!p || !p.answered || down.current || actual === undefined) return
+    const ahead = (drift * (Date.now() - p.answered)) / 1000
+    p.hits = actual >= p.v - near && actual <= p.v + ahead + near ? p.hits + 1 : 0
+    if (p.hits >= 2) {
+      pending.current = null
+      setHeld(null)
+    }
+  }, [sample]) // once per poll
   useEffect(() => {
     window.addEventListener('pointerup', release)
     window.addEventListener('pointercancel', release)
@@ -552,6 +587,7 @@ function useHeld(commit: (v: number) => void) {
   const props = {
     onPointerDown: () => {
       down.current = true
+      pending.current = null // a new grab: an earlier command no longer owns the slider
     },
     onChange: (e: ChangeEvent<HTMLInputElement>) => {
       last.current = Number(e.target.value)

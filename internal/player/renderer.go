@@ -3,6 +3,7 @@ package player
 import (
 	"github.com/panedrone/go-upnp-player/internal/config"
 	"github.com/panedrone/go-upnp-player/internal/upnp"
+	"sync"
 	"time"
 )
 
@@ -37,6 +38,9 @@ func Discover() {
 	refreshVolume()
 }
 
+// halting counts the old renderers still being halted after a switch (for tests).
+var halting sync.WaitGroup
+
 // Select switches the renderer. If playing, the current track continues on the new one.
 func Select(udn string) error {
 	cmdMu.Lock()
@@ -47,20 +51,30 @@ func Select(udn string) error {
 	wasPaused := wantPlaying && paused
 	pos := position
 	selected = udn
+	// the new renderer's state is unknown until it is polled: the badge must not carry
+	// the old one's (a red OFFLINE moved from the BeagleBone to the FiiO, 2026-11-10)
+	transport = ""
 	frozenSince, stalled = time.Time{}, false
 	lastTrackURI, racingTicks, racingFixAt = "", 0, time.Time{}
 	pendingSince = time.Time{} // a refused start belonged to the old renderer
-	nextURL = ""
+	nextURL, nextRun = "", runPlan{}
 	if wasPaused && old.UDN != udn {
 		// the position must survive the switch: Play continues it on the new renderer
 		resumeAt = pos
 	}
 	mu.Unlock()
 	_ = config.Update(func(c *config.Config) { c.Renderer = udn })
+	// The old renderer is halted alongside the start on the new one, not before it:
+	// a renderer that does not answer held the switch for the whole request timeout
+	// (BeagleBone answering 400 Bad Request, 2026-11-10).
 	if hadOld && old.UDN != udn {
-		c, cancel := ctx()
-		_ = halt(c, old) // Stop only where it is safe, see halt()
-		cancel()
+		halting.Add(1)
+		go func() {
+			defer halting.Done()
+			c, cancel := ctx()
+			defer cancel()
+			_ = halt(c, old) // Stop only where it is safe, see halt()
+		}()
 	}
 	refreshVolume()
 	if was {

@@ -26,7 +26,21 @@ func MediaTrack(c fiber.Ctx) error {
 		return fiber.ErrNotFound
 	}
 	fromMs, _ := strconv.ParseInt(c.Query("from"), 10, 64)
-	src := stream.ForTrack(t, ext == ".wav", fromMs)
+	return serveSource(c, stream.ForTrack(t, ext == ".wav", fromMs))
+}
+
+// MediaRun handles GET/HEAD /media/run/:file (<run id>.wav?ct=mime): several tracks of one
+// format as one WAV, registered by the player (ADR-016).
+func MediaRun(c fiber.Ctx) error {
+	src, ok := stream.ForRun(strings.TrimSuffix(c.Params("file"), filepath.Ext(c.Params("file"))))
+	if !ok {
+		return fiber.ErrNotFound
+	}
+	return serveSource(c, src)
+}
+
+// serveSource answers a media request with Range support.
+func serveSource(c fiber.Ctx, src stream.Source) error {
 	start, end, partial, err := services.ParseRange(c.Get(fiber.HeaderRange), src.Size)
 	if errors.Is(err, services.ErrRangeNotSatisfiable) {
 		c.Set(fiber.HeaderContentRange, fmt.Sprintf("bytes */%d", src.Size))

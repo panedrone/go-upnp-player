@@ -39,6 +39,7 @@ func InitRoutes(app *fiber.App) {
 	// Fiber v3 registers HEAD for GET routes automatically (DisableHeadAutoRegister
 	// is off); renderers send HEAD before GET
 	app.Get("/media/track/:file", handlers.MediaTrack)
+	app.Get("/media/run/:file", handlers.MediaRun)
 	app.Get("/media/art/:id", handlers.MediaArt)
 
 	// the embedded UI; the filesystem middleware of v2 is static in v3.

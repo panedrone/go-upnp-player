@@ -39,6 +39,7 @@ type Renderer struct {
 	pos        float64
 	volume     int
 	lengths    map[string]float64
+	uriLen     map[string]float64 // lengths from the DIDL sent with a URI, as a renderer reads them
 	fail       map[string]bool
 	failNext   map[string]int // fail only the next n calls of an action
 	ignoreSeek int
@@ -51,7 +52,7 @@ type Renderer struct {
 // NewRenderer starts a fake renderer; it stops with the test.
 func NewRenderer(t testing.TB, udn string) *Renderer {
 	t.Helper()
-	r := &Renderer{t: t, state: "STOPPED", volume: 40, lengths: map[string]float64{}, fail: map[string]bool{}, failNext: map[string]int{}}
+	r := &Renderer{t: t, state: "STOPPED", volume: 40, lengths: map[string]float64{}, uriLen: map[string]float64{}, fail: map[string]bool{}, failNext: map[string]int{}}
 	r.srv = httptest.NewServer(http.HandlerFunc(r.serve))
 	t.Cleanup(r.srv.Close)
 	r.Device = upnp.Device{
@@ -106,6 +107,13 @@ func (r *Renderer) SetLength(id string, sec float64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.lengths[id] = sec
+}
+
+// SetURILength sets the length a renderer reports for a URI a test put in by hand.
+func (r *Renderer) SetURILength(uri string, sec float64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.uriLen[uri] = sec
 }
 
 // Fail makes an action answer with a UPnP fault.
@@ -187,9 +195,11 @@ func (r *Renderer) serve(w http.ResponseWriter, req *http.Request) {
 	case "SetAVTransportURI":
 		if r.state == "STOPPED" || r.state == "NO_MEDIA_PRESENT" {
 			r.uri, r.pos = args["CurrentURI"], 0
+			r.noteLength(args["CurrentURI"], args["CurrentURIMetaData"])
 		}
 	case "SetNextAVTransportURI":
 		r.next = args["NextURI"]
+		r.noteLength(args["NextURI"], args["NextURIMetaData"])
 	case "Play":
 		r.state = "PLAYING"
 	case "Pause":
@@ -236,8 +246,21 @@ func (r *Renderer) serve(w http.ResponseWriter, req *http.Request) {
 	_, _ = io.WriteString(w, b.String())
 }
 
-// length looks a URI up by the track ID in it: .../<id>.wav?ct=...
+var didlDuration = regexp.MustCompile(`duration="([^"]+)"`)
+
+// noteLength keeps the length the DIDL of a URI declares.
+func (r *Renderer) noteLength(uri, didl string) {
+	if m := didlDuration.FindStringSubmatch(didl); m != nil {
+		r.uriLen[uri] = services.ParseHMS(m[1])
+	}
+}
+
+// length is the length the DIDL of a URI declared or, for a URI set up by a test, the
+// one set for the track ID in it: .../<id>.wav?ct=...
 func (r *Renderer) length(uri string) float64 {
+	if l, ok := r.uriLen[uri]; ok {
+		return l
+	}
 	id := uri[strings.LastIndex(uri, "/")+1:]
 	if i := strings.IndexAny(id, ".?"); i >= 0 {
 		id = id[:i]

@@ -37,49 +37,76 @@ func Tick() {
 
 	mu.Lock()
 	transport = ti.State
-	// the renderer counts from the start of its stream; a stream that starts at a
-	// position (ADR-015) is shifted by offset against the track
-	off := offset
-	if pi.Duration > 0 {
-		duration = pi.Duration + off
+	// The renderer counts in its stream: a run of tracks (ADR-016) that may start into
+	// its first track (ADR-015). The UI gets the track and the position in it.
+	lastStream, lastIndex, lastPos := streamPos, index, position
+	if piErr == nil {
+		streamPos = pi.Position
 	}
-	lastPos := position
-	abs := pi.Position + off
-	position = abs
+	streamDur := runLen
+	if pi.Duration > 0 {
+		streamDur = pi.Duration
+	}
 	now := time.Now()
-	if piErr != nil || abs != lastPos || frozenSince.IsZero() {
+	if piErr != nil || streamPos != lastStream || frozenSince.IsZero() {
 		frozenSince = now
 	}
-	stalled = piErr == nil && services.Stalled(ti.State, now.Sub(frozenSince), abs, duration)
+	stalled = piErr == nil && services.Stalled(ti.State, now.Sub(frozenSince), streamPos, streamDur)
 	racing := false
 	if piErr == nil && pi.TrackURI != "" && pi.TrackURI == lastTrackURI && wantPlaying && !paused {
-		if services.Racing(ti.State, abs-lastPos, now.Sub(lastPollAt)) {
+		if services.Racing(ti.State, streamPos-lastStream, now.Sub(lastPollAt)) {
 			if racingTicks == 0 {
-				racingIndex, racingFrom = index, lastPos
+				racingIndex, racingFrom = lastIndex, lastPos
 			}
 			racingTicks++
 			racing = racingTicks >= services.RacingTicks
 		} else {
 			racingTicks = 0
 		}
-	} // a track change says nothing either way: keep the run as it is
+	} // a stream change says nothing either way: keep the run as it is
 	if piErr == nil {
 		lastTrackURI, lastPollAt = pi.TrackURI, now
 	}
+	nextAt := nextStartLocked()
+	curDur := runLen
+	if len(runIDs) == 0 {
+		curDur = trackDuration(index) - offset // nothing started here: the track as it was
+	}
 	in := services.TickInput{
-		WantPlaying: wantPlaying && !paused,
-		State:       ti.State,
-		SinceCmd:    time.Since(lastCmd),
-		TrackURI:    pi.TrackURI,
-		NextURL:     nextURL,
-		HasNext:     index+1 < len(queue),
-		// the advance decision works on the renderer's own figures: the current
-		// track's stream is shorter by offset, the next one starts at 0
+		WantPlaying:  wantPlaying && !paused,
+		State:        ti.State,
+		SinceCmd:     time.Since(lastCmd),
+		TrackURI:     pi.TrackURI,
+		NextURL:      nextURL,
+		HasNext:      nextAt < len(queue),
 		Duration:     pi.Duration,
 		Position:     pi.Position,
-		LastPosition: lastPos - off,
-		CurDuration:  trackDuration(index) - off,
-		NextDuration: trackDuration(index + 1),
+		LastPosition: lastStream,
+		CurDuration:  curDur,
+		NextDuration: nextRun.length,
+	}
+	action := services.DecideTick(in)
+	moved, strayed := false, false
+	if action == services.TickAdvanced {
+		setRunLocked(nextRun) // the queued run is the current one now
+		streamPos = in.Position
+		lastCmd = now
+		moved = true
+	}
+	if piErr == nil && len(runIDs) > 0 && wantPlaying {
+		k, pos := locateLocked(streamPos)
+		if qi := queueIndexLocked(k); qi != index {
+			// the stream went on into its next track; an edited playlist may not have
+			// that one next
+			moved = true
+			strayed = action != services.TickAdvanced && (qi < 0 || qi != lastIndex+1)
+			if !strayed {
+				index = qi
+			}
+		}
+		if !strayed {
+			position, duration = pos, runDurs[k]
+		}
 	}
 	tickCount++
 	poll := tickCount%10 == 0
@@ -90,19 +117,26 @@ func Tick() {
 		recoverRacing(d)
 		return
 	}
-	switch services.DecideTick(in) {
-	case services.TickAdvanced:
-		mu.Lock()
-		index++
-		nextURL = ""
-		offset = 0 // the next track's stream starts at its beginning
-		position, duration = in.Position, in.Duration
-		lastCmd = time.Now()
-		mu.Unlock()
+	if moved && !strayed {
 		savePlaylist()
+	}
+	if strayed && action == services.TickNone {
+		// the playlist was edited: its next track is not the one the stream holds
+		if lastIndex+1 < len(queue) {
+			setErr(startLocked(lastIndex+1, 0))
+		} else {
+			mu.Lock()
+			wantPlaying = false
+			mu.Unlock()
+			_ = halt(c, d)
+		}
+		return
+	}
+	switch action {
+	case services.TickAdvanced:
 		queueNext(d)
 	case services.TickPlayNext:
-		if err := startLocked(currentIndex()+1, 0); err != nil {
+		if err := startLocked(nextStart(), 0); err != nil {
 			// Do not retry on every poll: a BeagleBone answering every Play with
 			// "501 Playing failed" got 108 of them in two minutes (2026-11-09).
 			mu.Lock()
@@ -199,4 +233,19 @@ func recoverRacing(d upnp.Device) {
 		return
 	}
 	setErr(startLocked(i, pos))
+}
+
+// nextStartLocked is the queue index the run after the current one starts at: right
+// after the run, or after the current track when there is no run (yet).
+func nextStartLocked() int {
+	if len(runIDs) > 0 && runCoherentLocked() {
+		return runQ + len(runIDs)
+	}
+	return index + 1
+}
+
+func nextStart() int {
+	mu.Lock()
+	defer mu.Unlock()
+	return nextStartLocked()
 }

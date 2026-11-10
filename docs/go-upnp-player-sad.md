@@ -85,27 +85,46 @@ The browser's `localStorage` keeps only per-viewer conveniences:
   position and stops Fiber with a 3 s timeout.
 - On start the playlist is restored but not played. Play continues the current track at the saved
   position, or from the start after a user Stop.
-- The status bar shows the backend version (no `v`, no build id), React and Vite.
+- The status bar shows on the left what the player is busy with (a refused start being retried,
+  with the attempt and the seconds left) and on the right the backend version (no `v`, no build
+  id), React and Vite.
 
 ## 3. Playback flow
 
 1. **Discovery.** M-SEARCH from every IPv4 interface, then the device description and
    `GetProtocolInfo` (which MIME types the renderer accepts).
-2. **Track URLs.** For each renderer, the local IP that routes to it (UDP dial) goes into the track
+2. **Stream URLs.** For each renderer, the local IP that routes to it (UDP dial) goes into the stream
    URLs. This keeps VPN, Hyper-V and WSL adapters out of the way.
-3. **Starting a track** (`services.PlanSwitch`,
+3. **Runs, not tracks** ([ADR-016](adr-016-clicks-between-tracks-on-fiio-coax.md)). The renderer
+   gets a run: the playlist from the chosen track on, for as long as the format (sample rate,
+   channels, bits) stays the same, as one WAV stream. It plays the run as one song and never
+   switches streams between its tracks, so its output never runs dry there. The player keeps the
+   run's layout and turns the renderer's position in the stream into the track and the position in
+   it for the page. A run ends where the format changes or before 3.75 GB of PCM (the RIFF size
+   field); the next run is queued gapless (step 5).
+   - Next, Prev, a click on a track of the run and a seek within it are a `Seek` in the stream.
+   - A track outside the run, or a point before the stream's start, starts a new run.
+   - The run's DIDL carries the first track's tags and the run's whole length.
+4. **Starting a run** (`services.PlanSwitch`,
    [ADR-003](adr-003-switching-tracks-on-busy-gmrender.md)):
-   - STOPPED or no media: `SetAVTransportURI(http://<ip>:8090/media/track/<id>.wav|.flac?ct=<mime>, DIDL)`
+   - STOPPED or no media: `SetAVTransportURI(http://<ip>:8090/media/run/<run id>.wav?ct=<mime>, DIDL)`
      → `Play`. A start at a position uses a stream that begins there (`&from=<ms>`), so the renderer
      is never seeked after a start ([ADR-015](adr-015-start-at-position-as-a-stream.md));
    - PLAYING or PAUSED: `SetNextAVTransportURI(target)` → `Seek` to the last second of the current
-     track (→ `Play` if paused). The switch is confirmed by the target's length near position 0,
-     with up to three attempts;
-   - the renderer already has the requested track: a `Seek` straight to the start position.
+     stream (→ `Play` if paused). The switch is confirmed by the target's length near position 0,
+     with up to three attempts. That last second is another song (the end of the run, or of the
+     track a paused renderer was left on), so the player first lets the old stream go: what the
+     renderer fetches of it from then on is silence of the same length. The volume is never
+     touched;
+   - the renderer already has the requested stream: a `Seek` straight to its start.
 
    That is for renderers where `Stop` is not safe: the FiiO SR11, and any unknown model
    ([ADR-002](adr-002-never-stop-gmrender.md)). There the Stop button is `Pause` plus clearing the
-   intent to play.
+   intent to play; the page shows STOPPED then, not the renderer's PAUSED_PLAYBACK
+   (`services.ShownTransport`), and the position 0, where the next Play starts. A paused renderer
+   keeps a moment of the music ready, which the next Play let out before its own start: on Stop
+   the player lets the stream go (silence from then on) and seeks the renderer where it is, so
+   what it holds is silence.
 
    Stock gmrender (model `gmediarender`, the BeagleBone) is Stop-safe and is driven the way
    foobar2000 drives it ([ADR-013](adr-013-stop-safe-renderers-start-like-foobar.md)):
@@ -114,36 +133,50 @@ The browser's `localStorage` keeps only per-viewer conveniences:
    - the Stop button and leaving it for another renderer send a real `Stop`.
    A start whose `Play` is still refused (`501 Playing failed`, e.g. the amplifier is not yet on the
    BeagleBone's USB input) is retried by the poll every 2 s for up to 10 s. Meanwhile the page
-   shows CONNECTING with the attempt and the seconds left ([ADR-014](adr-014-retry-refused-start.md)).
-4. **Gapless.** Right after a track starts, `SetNextAVTransportURI` queues the next one.
-5. **Poll** every second: `GetTransportInfo` + `GetPositionInfo` → `services.DecideTick`:
-   - an advance counts when `TrackDuration` becomes the next track's length
+   shows CONNECTING, with the attempt and the seconds left in the status bar ([ADR-014](adr-014-retry-refused-start.md)).
+5. **Gapless between runs.** Right after a run starts, `SetNextAVTransportURI` queues the next one.
+6. **Poll** every second: `GetTransportInfo` + `GetPositionInfo` → `services.DecideTick`, all in
+   the renderer's own figures, the stream's:
+   - the position in the stream gives the playing track; moving into the next track of the run
+     saves the playlist like any track change. If the playlist was edited and its next track is
+     not the one the stream holds, that track is started instead;
+   - an advance to the queued run counts when `TrackDuration` becomes its length
      ([ADR-004](adr-004-detecting-track-advance.md));
-   - STOPPED more than 4 s after the player's last command starts the next track;
-   - the last track has played out once its position reaches its known length, whatever the
+   - STOPPED more than 4 s after the player's last command starts the next run;
+   - the last run has played out once its position reaches its known length, whatever the
      renderer's state: the FiiO SR11 stays in PLAYING there. The renderer is paused (or stopped,
      if Stop-safe) 2 s later;
    - the end of the playlist stops.
 
    The same poll watches for a frozen renderer ([ADR-006](adr-006-hung-gmrender.md)) and a racing
    one ([ADR-007](adr-007-racing-gmrender.md)).
-6. **Switching renderers keeps the position.**
-   - While playing, the track starts on the new renderer as a stream from the old position
+7. **Switching renderers keeps the position.**
+   - While playing, a run starts on the new renderer from the old position
      ([ADR-015](adr-015-start-at-position-as-a-stream.md)).
-   - The player keeps that stream's offset: it shifts the renderer's position and length for the
-     UI, and a seek before the stream's start restarts the track from there.
+   - The player keeps where that stream starts in its first track: a seek before it restarts the
+     track from there.
    - While paused, the position is remembered for the next Play.
+   - The old renderer is halted (`Pause`, or `Stop` where Stop-safe) at the same time as the start
+     on the new one: a renderer that does not answer does not hold the switch. The transport state
+     is cleared on the switch; the new renderer's own state shows after its first poll.
 
 ## 4. Serving tracks
 
+- **A run** (`/media/run/<id>.wav`, what the renderer plays): one WAV header for the whole run,
+  then the tracks' PCM back to back. The player registers a run before it hands out the URL; the
+  last 16 are kept, a renderer may come back for one (a seek is a Range request). Tracks that
+  continue one another in one file (a CUE image) are decoded as one range, with no seam at all.
+  Between two files the equalizer's filters carry over, as if the music did. A Range request maps
+  to a track and a sample in it ([ADR-016](adr-016-clicks-between-tracks-on-fiio-coax.md)).
+- `/media/track/<id>` serves one track, as below; the player itself no longer hands it out.
 - **A track from a CUE sheet:** a virtual WAV, a 44-byte header plus the PCM of the sample range
   from its `INDEX 01` to the next track's. The length is exact. A Range request maps to a sample;
   the frame is found via SEEKTABLE, or by bisection over frame headers when there is none
   ([ADR-008](adr-008-cue-tracks-as-virtual-wav.md)).
 - **A plain track file:** the FLAC file as is, with Range support. With the equalizer on, it also
   goes through WAV.
-- **A start at a position** (`&from=<ms>`): a WAV of the rest of the track, beginning at that
-  sample ([ADR-015](adr-015-start-at-position-as-a-stream.md)).
+- **A start at a position:** the run's first track begins at that sample
+  ([ADR-015](adr-015-start-at-position-as-a-stream.md)).
 - **MIME type:** picked from the renderer's list. The BeagleBone knows only `audio/x-wav`, the FiiO
   knows `audio/wav` as well.
 
@@ -228,6 +261,7 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [013](adr-013-stop-safe-renderers-start-like-foobar.md) | Renderers that survive Stop are driven the way foobar2000 drives them |
 | [014](adr-014-retry-refused-start.md) | A refused start is retried for 10 s, and the page says so |
 | [015](adr-015-start-at-position-as-a-stream.md) | A start at a position is a stream that begins there |
+| [016](adr-016-clicks-between-tracks-on-fiio-coax.md) | One stream for the tracks of one format, as foobar2000 sends it: no clicks between tracks |
 
 ## 9. Testing
 

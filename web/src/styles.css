@@ -13,7 +13,8 @@ body { overflow: hidden; font-size: 14px; }
 .vol-num { width: 24px; }
 
 /* status bar at the bottom of the window */
-.status-bar { flex: none; padding: 1px 12px; font-size: 12px; white-space: nowrap; }
+.status-bar { flex: none; padding: 4px 12px; font-size: 0.875rem; white-space: nowrap; min-height: 30px; }
+.status-msg { min-width: 0; }
 
 /* columns and splitters */
 .col-library, .col-tracks { display: flex; flex-direction: column; }

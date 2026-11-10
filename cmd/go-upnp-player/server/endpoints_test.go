@@ -264,7 +264,7 @@ func TestEndpointsScenario(t *testing.T) {
 		c.status(502, "POST", "/api/player/play", `{"index":99}`)
 		c.status(204, "POST", "/api/player/resume", "")
 		st := r.Get()
-		if st.State != "PLAYING" || !strings.Contains(st.URI, cueTracks[0].ID+".wav") {
+		if st.State != "PLAYING" || !strings.Contains(st.URI, "/media/run/") {
 			t.Fatalf("%+v", st)
 		}
 		s := c.state()
@@ -272,13 +272,28 @@ func TestEndpointsScenario(t *testing.T) {
 			t.Fatalf("%+v", s)
 		}
 		c.status(204, "POST", "/api/player/play", fmt.Sprintf(`{"ids":[%q,%q],"index":0}`, cueTracks[0].ID, cueTracks[1].ID))
-		if !strings.Contains(r.Get().URI, cueTracks[0].ID) {
-			t.Fatal(r.Get().URI)
+		run := r.Get().URI
+		if !strings.Contains(run, "/media/run/") {
+			t.Fatal(run)
+		}
+		// one WAV of both tracks, back to back: the renderer never switches streams
+		// between them (ADR-016)
+		path := run[strings.Index(run, "/media/"):]
+		_, whole := c.do("GET", path, "")
+		_, one := c.do("GET", "/media/track/"+cueTracks[0].ID+".wav", "")
+		_, two := c.do("GET", "/media/track/"+cueTracks[1].ID+".wav", "")
+		if want := append(append([]byte(nil), one[44:]...), two[44:]...); string(whole[:4]) != "RIFF" || !bytes.Equal(whole[44:], want) {
+			t.Fatalf("run %d bytes, tracks %d + %d", len(whole), len(one), len(two))
+		}
+		seam := len(one) // the second track's data starts here in the run
+		resp, part := c.do("GET", path, "", "Range", fmt.Sprintf("bytes=%d-%d", seam-101, seam+98))
+		if resp.StatusCode != 206 || !bytes.Equal(part, whole[seam-101:seam+99]) {
+			t.Fatalf("%d, a range across the seam: %d bytes", resp.StatusCode, len(part))
 		}
 		c.status(204, "POST", "/api/player/play", `{"index":1}`)
 		waitFor(t, "the switch", func() bool { return c.state().Index == 1 })
-		if !strings.Contains(r.Get().URI, cueTracks[1].ID) {
-			t.Fatal(r.Get().URI)
+		if r.Get().URI != run || r.Last("Seek")["Target"] != "0:00:05" {
+			t.Fatalf("%s, seek %s: a track of the stream is reached by a seek", r.Get().URI, r.Last("Seek")["Target"])
 		}
 	})
 
@@ -293,8 +308,9 @@ func TestEndpointsScenario(t *testing.T) {
 		}
 		c.status(400, "POST", "/api/player/seek", "{broken")
 		c.status(204, "POST", "/api/player/seek", `{"value":3}`)
-		if r.Get().Pos != 3 {
-			t.Fatal(r.Get().Pos)
+		// 3 s into the second track of the run: 5 + 3 s into the stream
+		if r.Get().Pos != 8 || c.state().Position != 3 {
+			t.Fatal(r.Get().Pos, c.state().Position)
 		}
 		c.status(400, "POST", "/api/player/volume", "{broken")
 		c.status(204, "POST", "/api/player/volume", `{"value":55}`)

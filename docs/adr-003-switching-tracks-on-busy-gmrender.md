@@ -53,6 +53,12 @@ playback). If a renderer does not support it, the poll starts the next track its
 - A switch on a busy renderer costs a seek to the end of the current track. With a FLAC that has
   no SEEKTABLE this used to take ~19 s; it now takes ~2 s
   ([ADR-008](adr-008-cue-tracks-as-virtual-wav.md)).
+- The seek to the end is audible: the renderer plays the last second of its current stream before
+  the target. On a paused renderer that is the track it was left on (the FiiO after a switch from
+  the BeagleBone, 2026-11-10); with runs ([ADR-016](adr-016-clicks-between-tracks-on-fiio-coax.md))
+  it is the end of the run, another song. Overcome 2026-11-10: the player serves that stream, so
+  it lets it go before the switch, and the renderer fetches silence there. Muting the renderer for
+  the switch was tried first and dropped: the owner wants the cause fixed, not covered.
 - The URI alone does not prove which track is playing ([ADR-004](adr-004-detecting-track-advance.md)),
   which is why the length is checked too.
 - `testkit.Renderer` reproduces this behaviour: `SetAVTransportURI` applies only from STOPPED, and
