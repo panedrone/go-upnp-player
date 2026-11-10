@@ -57,11 +57,12 @@ export interface PlayerState {
   version?: string
 }
 
-async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
+async function req<T>(method: string, url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const r = await fetch(url, {
     method,
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal,
   })
   if (!r.ok) {
     throw new Error((await r.text()) || `${r.status} ${r.statusText}`)
@@ -73,7 +74,9 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
 const q = (path: string) => encodeURIComponent(path)
 
 export const api = {
-  state: () => req<PlayerState>('GET', '/api/state'),
+  // the page polls state one request at a time: a reply that never comes would stop
+  // the poll for good (frozen slider and badges), so it is given up after 5 s
+  state: () => req<PlayerState>('GET', '/api/state', undefined, AbortSignal.timeout(5000)),
   tree: (path = '') => req<TreeNode[]>('GET', `/api/tree?path=${q(path)}`),
   tracks: (path: string) => req<Track[]>('GET', `/api/tracks?path=${q(path)}`),
   search: (text: string) => req<Track[]>('GET', `/api/search?q=${q(text)}`),

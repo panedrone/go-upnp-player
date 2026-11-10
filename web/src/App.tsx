@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, version as reactVersion } from 'react'
+import { ChangeEvent, useCallback, useEffect, useRef, useState, version as reactVersion } from 'react'
 import { Badge, Button, ButtonGroup, Card, Form, Image, InputGroup, ListGroup, Navbar, Spinner } from 'react-bootstrap'
 import { api, artUrl, fmtTime, PlayerState, Track, TreeNode } from './api'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
@@ -32,8 +32,6 @@ export default function App() {
   const [queue, setQueue] = useState<Track[]>([])
   const [filter, setFilter] = useState('')
   const [searchHits, setSearchHits] = useState<Track[] | null>(null)
-  const [seekDrag, setSeekDrag] = useState<number | null>(null)
-  const [volDrag, setVolDrag] = useState<number | null>(null)
   const [actionErr, setActionErr] = useState('')
   const [treeKey, setTreeKey] = useState(0)
   const [quitArmed, setQuitArmed] = useState(false)
@@ -149,6 +147,8 @@ export default function App() {
     refresh.current()
   }, [])
   const showErr = useCallback((m: string) => setActionErr(m), [])
+  const [seekDrag, seekProps] = useHeld((v) => void run(api.seek(v)))
+  const [volDrag, volProps] = useHeld((v) => void run(api.volume(v)))
 
   // spinners: these requests return only when the renderer has really switched,
   // which takes seconds. A later click owns the spinner; an earlier request ending
@@ -245,11 +245,7 @@ export default function App() {
           <Form.Range
             className="flex-grow-1" min={0} max={Math.max(1, duration)} step={1}
             value={Math.min(position, duration)} disabled={!track}
-            onChange={(e) => setSeekDrag(Number(e.target.value))}
-            onPointerUp={() => {
-              if (seekDrag !== null) run(api.seek(seekDrag))
-              setSeekDrag(null)
-            }}
+            {...seekProps}
           />
           <small className="text-body-secondary font-monospace">{fmtTime(duration)}</small>
         </div>
@@ -258,11 +254,7 @@ export default function App() {
           <small className="text-body-secondary">Vol</small>
           <Form.Range
             min={0} max={100} value={volume}
-            onChange={(e) => setVolDrag(Number(e.target.value))}
-            onPointerUp={() => {
-              if (volDrag !== null) run(api.volume(volDrag))
-              setVolDrag(null)
-            }}
+            {...volProps}
           />
           <small className="text-body-secondary vol-num">{state && state.volume >= 0 ? volume : '–'}</small>
         </div>
@@ -526,4 +518,46 @@ function useNarrow(): boolean {
     return () => m.removeEventListener('change', on)
   }, [])
   return narrow
+}
+
+// A range input the poll must not overwrite while the user holds it: the held value
+// shows instead of the polled one, and the release commits it. The release is caught
+// on the window, not on the input: a button let go outside the slider, a cancelled
+// pointer (alt-tab, touch turned into a scroll) or the arrow keys never sent the
+// input its pointerup, and the old onPointerUp-only code then kept the held value
+// forever, a slider frozen until the page was reloaded (2026-11-10).
+function useHeld(commit: (v: number) => void) {
+  const [held, setHeld] = useState<number | null>(null)
+  const down = useRef(false)
+  const last = useRef<number | null>(null)
+  const commitRef = useRef(commit)
+  commitRef.current = commit
+  const release = useCallback(() => {
+    down.current = false
+    const v = last.current
+    last.current = null
+    setHeld(null)
+    if (v !== null) commitRef.current(v)
+  }, [])
+  useEffect(() => {
+    window.addEventListener('pointerup', release)
+    window.addEventListener('pointercancel', release)
+    window.addEventListener('blur', release)
+    return () => {
+      window.removeEventListener('pointerup', release)
+      window.removeEventListener('pointercancel', release)
+      window.removeEventListener('blur', release)
+    }
+  }, [release])
+  const props = {
+    onPointerDown: () => {
+      down.current = true
+    },
+    onChange: (e: ChangeEvent<HTMLInputElement>) => {
+      last.current = Number(e.target.value)
+      if (down.current) setHeld(last.current)
+      else release() // keyboard: every step is a release
+    },
+  }
+  return [held, props] as const
 }
