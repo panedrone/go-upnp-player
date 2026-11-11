@@ -13,9 +13,11 @@ BeagleBone Green and a FiiO SR11). A single executable: a Go/Fiber v3 backend wi
 React-Bootstrap UI embedded in it, opened in the browser. Windows and Linux are tested; macOS
 builds and is expected to work, but has not been run yet.
 
-The sound leaves the computer the way a web page does: over HTTP, with UPnP to tell the streamer
-what to fetch. There is no ASIO, WASAPI, kernel streaming or output plugin to set up, no driver
-and no sound card in the path, which is also why the same program runs on any OS Go builds for.
+It does not try to play to everything. Its outputs are the network streamers of the home network
+that speak UPnP/DLNA: it finds them itself (SSDP), shows them as a list, and sends to the one
+picked. No drivers are written and no output plugins are used: the exchange with a streamer is
+plain, predictable HTTP and UPnP, built into the binary, which is also why the same program runs
+on any OS Go builds for.
 
 A network streamer is bought to take the computer out of the audio path. The player sends it the
 original samples: decoded FLAC with no resampling, no dither and no volume applied on the way. Two
