@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/panedrone/go-upnp-player/internal/services"
 	"github.com/panedrone/go-upnp-player/internal/stream"
@@ -39,7 +40,18 @@ var (
 	runURI    string
 	nextRun   runPlan // the run queued with SetNextAVTransportURI (nextURL is its URI)
 	streamPos float64 // the renderer's position in the stream at the latest poll, s
+	// the latest seek in the stream, until the renderer reports a position after it
+	// (services.SeekLanded); zero seekAt: none pending
+	seekTo float64
+	seekAt time.Time
 )
+
+// seekSentLocked notes a seek the renderer took: the stream is at at now, whatever
+// the next polls say until it lands.
+func seekSentLocked(at float64) {
+	streamPos, seekTo, seekAt = at, at, time.Now()
+	lastCmd = seekAt
+}
 
 // planRun lays out the run that starts at queue track i, from seconds into it, and
 // registers it for serving.
@@ -106,7 +118,7 @@ func planRun(d upnp.Device, i int, from float64) (runPlan, error) {
 func setRunLocked(rp runPlan) {
 	runQ, runIDs, runStarts, runDurs, runLen, runURI = rp.q, rp.ids, rp.starts, rp.durs, rp.length, rp.uri
 	offset = rp.from
-	streamPos = 0
+	streamPos, seekAt = 0, time.Time{}
 	nextURL, nextRun = "", runPlan{}
 }
 
@@ -125,15 +137,14 @@ func runCoherentLocked() bool {
 }
 
 // locateLocked turns a position in the stream into the run's track k and the position
-// in that track.
-func locateLocked(p float64) (k int, pos float64) {
-	for k+1 < len(runStarts) && p >= runStarts[k+1] {
-		k++
-	}
+// in that track. cur is the run's track the player has as playing (-1: none), see
+// services.TrackInStream.
+func locateLocked(p float64, cur int) (k int, pos float64) {
 	if len(runStarts) == 0 {
 		return 0, p + offset
 	}
-	pos = p - runStarts[k]
+	k = services.TrackInStream(runStarts, p, cur)
+	pos = max(p-runStarts[k], 0)
 	if k == 0 {
 		pos += offset
 	}

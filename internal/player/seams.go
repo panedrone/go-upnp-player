@@ -14,4 +14,10 @@ var (
 
 	lookupTrack = library.Get
 	sleep       = time.Sleep
+
+	// What the renderer reports and the seeks sent to it: tests replay through these
+	// what a real one answers, e.g. its old position for a while after a seek.
+	getTransportInfo = upnp.GetTransportInfo
+	getPositionInfo  = upnp.GetPositionInfo
+	seekRenderer     = upnp.Seek
 )

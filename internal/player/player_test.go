@@ -61,7 +61,7 @@ func at(st testkit.RendererState) float64 {
 	mu.Lock()
 	defer mu.Unlock()
 	if st.URI != "" && st.URI == runURI {
-		_, p := locateLocked(st.Pos)
+		_, p := locateLocked(st.Pos, -1)
 		return p
 	}
 	return st.Pos
@@ -87,6 +87,7 @@ func resetState() {
 	pendingIndex, pendingPos, pendingSince, pendingTry, pendingTries = 0, 0, time.Time{}, time.Time{}, 0
 	offset, finishedAt = 0, time.Time{}
 	runQ, runIDs, runStarts, runDurs, runLen, runURI, nextRun, streamPos = 0, nil, nil, nil, 0, "", runPlan{}, 0
+	seekTo, seekAt = 0, time.Time{}
 	_ = config.Update(func(c *config.Config) { *c = config.Config{} })
 }
 
@@ -660,19 +661,20 @@ func TestNextAndPrev(t *testing.T) {
 	if err := Next(); err != nil || r.Count("Seek") != 0 {
 		t.Fatalf("end of queue: err %v seeks %d", err, r.Count("Seek"))
 	}
-	if err := Prev(); err != nil { // deep into the track: back to its start
-		t.Fatal(err)
-	}
-	if r.Get().Pos != 0 || index != 1 {
-		t.Fatalf("pos %v index %d", r.Get().Pos, index)
-	}
-	position = 1
-	r.SetLength("b", 180)
+	// deep into the track: still the previous track, as in foobar2000 (owner, 2026-11-11)
 	if err := Prev(); err != nil {
 		t.Fatal(err)
 	}
-	if index != 0 {
-		t.Fatalf("index %d", index)
+	if index != 0 || at(r.Get()) != 0 {
+		t.Fatalf("index %d at %v, want the previous track from its start", index, at(r.Get()))
+	}
+	// on the first track: back to its start
+	position = 30
+	if err := Prev(); err != nil {
+		t.Fatal(err)
+	}
+	if index != 0 || at(r.Get()) != 0 {
+		t.Fatalf("index %d at %v, want the first track from its start", index, at(r.Get()))
 	}
 	if err := Next(); err != nil || index != 1 {
 		t.Fatalf("err %v index %d", err, index)

@@ -25,7 +25,7 @@ func Tick() {
 	}
 	c, cancel := ctx()
 	defer cancel()
-	ti, err := upnp.GetTransportInfo(c, d)
+	ti, err := getTransportInfo(c, d)
 	if err != nil {
 		mu.Lock()
 		transport = "OFFLINE"
@@ -33,13 +33,22 @@ func Tick() {
 		mu.Unlock()
 		return
 	}
-	pi, piErr := upnp.GetPositionInfo(c, d)
+	pi, piErr := getPositionInfo(c, d)
 
 	mu.Lock()
 	transport = ti.State
 	// The renderer counts in its stream: a run of tracks (ADR-016) that may start into
 	// its first track (ADR-015). The UI gets the track and the position in it.
 	lastStream, lastIndex, lastPos := streamPos, index, position
+	now := time.Now()
+	if piErr == nil && !seekAt.IsZero() {
+		if services.SeekLanded(seekTo, pi.Position, now.Sub(seekAt)) {
+			seekAt = time.Time{}
+		} else {
+			// where it was before the seek: the stream is where it was seeked to
+			pi.Position = streamPos
+		}
+	}
 	if piErr == nil {
 		streamPos = pi.Position
 	}
@@ -47,7 +56,6 @@ func Tick() {
 	if pi.Duration > 0 {
 		streamDur = pi.Duration
 	}
-	now := time.Now()
 	if piErr != nil || streamPos != lastStream || frozenSince.IsZero() {
 		frozenSince = now
 	}
@@ -94,7 +102,7 @@ func Tick() {
 		moved = true
 	}
 	if piErr == nil && len(runIDs) > 0 && wantPlaying {
-		k, pos := locateLocked(streamPos)
+		k, pos := locateLocked(streamPos, index-runQ)
 		if qi := queueIndexLocked(k); qi != index {
 			// the stream went on into its next track; an edited playlist may not have
 			// that one next

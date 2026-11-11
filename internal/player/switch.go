@@ -77,8 +77,8 @@ func startLocked(i int, seek float64) (err error) {
 	// So a busy renderer is switched through its gapless path: the target goes
 	// in as the "next" URI and the current track is seeked to its last second;
 	// the renderer moves on by itself.
-	ti, _ := upnp.GetTransportInfo(c, d)
-	pi, _ := upnp.GetPositionInfo(c, d)
+	ti, _ := getTransportInfo(c, d)
+	pi, _ := getPositionInfo(c, d)
 	plan := services.PlanSwitch(ti.State, pi.Duration)
 	if plan.ViaNext && services.StopSafe(d.Model) {
 		// A renderer that survives Stop is started the way foobar2000 starts it:
@@ -91,11 +91,13 @@ func startLocked(i int, seek float64) (err error) {
 		waitStopped(d)
 		plan = services.SwitchPlan{}
 	}
+	restarted := false
 	if plan.ViaNext && pi.TrackURI == uri && services.SameLength(pi.Duration, rp.length) {
+		restarted = true
 		// the renderer already has this very stream: restart it in place. The URI
 		// alone is not proof — gmrender reports the queued next URI early — so the
 		// audible length must match too.
-		if err := upnp.Seek(c, d, 0); err != nil {
+		if err := seekRenderer(c, d, 0); err != nil {
 			return err
 		}
 		if plan.Resume {
@@ -136,6 +138,9 @@ func startLocked(i int, seek float64) (err error) {
 	index, wantPlaying, paused = i, true, false
 	lastCmd = time.Now()
 	setRunLocked(rp)
+	if restarted {
+		seekSentLocked(0) // the same stream, seeked to its start: old positions for a while
+	}
 	position, duration = rp.from, t.Duration
 	frozenSince, stalled = time.Now(), false
 	lastTrackURI, racingTicks = "", 0 // the first poll after a start is the new baseline
@@ -186,7 +191,7 @@ func playRetried(d upnp.Device) error {
 func waitStopped(d upnp.Device) {
 	for range 10 {
 		c, cancel := ctx()
-		ti, err := upnp.GetTransportInfo(c, d)
+		ti, err := getTransportInfo(c, d)
 		cancel()
 		if err == nil && ti.State == "STOPPED" {
 			return
@@ -201,7 +206,7 @@ func waitStopped(d upnp.Device) {
 func waitSwitched(d upnp.Device, targetDur float64) bool {
 	for range 30 {
 		c, cancel := ctx()
-		pi, err := upnp.GetPositionInfo(c, d)
+		pi, err := getPositionInfo(c, d)
 		cancel()
 		if err == nil && services.SwitchDone(pi.Duration, pi.Position, targetDur) {
 			return true
@@ -225,8 +230,8 @@ func switchViaNextRetried(d upnp.Device, plan services.SwitchPlan, uri, meta str
 			return true, plan, nil
 		}
 		c, cancel := ctx()
-		ti, _ := upnp.GetTransportInfo(c, d)
-		pi, _ := upnp.GetPositionInfo(c, d)
+		ti, _ := getTransportInfo(c, d)
+		pi, _ := getPositionInfo(c, d)
 		cancel()
 		plan = services.PlanSwitch(ti.State, pi.Duration)
 	}
@@ -241,7 +246,7 @@ func switchViaNext(d upnp.Device, plan services.SwitchPlan, uri, meta string) er
 	if err := upnp.SetNextURI(c, d, uri, meta); err != nil {
 		return err
 	}
-	if err := upnp.Seek(c, d, plan.SeekTo); err != nil {
+	if err := seekRenderer(c, d, plan.SeekTo); err != nil {
 		return err
 	}
 	if plan.Resume {

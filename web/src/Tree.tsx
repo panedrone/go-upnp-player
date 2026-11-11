@@ -92,6 +92,7 @@ export default function Tree({ selectedPath, onMakePlaylist, reloadKey, reveal, 
     setSyncTick((t) => t + 1)
     // folders load lazily, one level per request: wait for the row to appear
     let tries = 0
+    const settle: number[] = []
     const timer = setInterval(() => {
       const row = [...document.querySelectorAll<HTMLElement>('.tree-row')].find((r) => r.dataset.path === reveal.path) ?? null
       // wait until it is laid out too: the tree may still be hidden behind search results
@@ -103,10 +104,16 @@ export default function Tree({ selectedPath, onMakePlaylist, reloadKey, reveal, 
           row.classList.remove('revealed')
           void row.offsetWidth // restart the flash animation
           row.classList.add('revealed')
+          // folders above it may still be loading their children and push it out of
+          // view (seen on the first page load, 2026-11-11): centre it again once they settle
+          for (const ms of [400, 1200]) settle.push(window.setTimeout(() => row.isConnected && row.scrollIntoView({ block: 'center' }), ms))
         }
       }
     }, 100)
-    return () => clearInterval(timer)
+    return () => {
+      clearInterval(timer)
+      settle.forEach((t) => clearTimeout(t))
+    }
   }, [reveal, roots])
 
   useEffect(() => {

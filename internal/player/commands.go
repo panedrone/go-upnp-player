@@ -94,7 +94,7 @@ func Stop() error {
 			// is: what it holds now is silence.
 			if id, ok := runIDOf(cur); ok {
 				stream.RetireRun(id)
-				_ = upnp.Seek(c, d, at)
+				_ = seekRenderer(c, d, at)
 			}
 		}
 		return nil
@@ -122,12 +122,12 @@ func Next() error {
 	return PlayIndex(i)
 }
 
+// Prev goes to the previous track wherever the current one is, as foobar2000 does
+// (it used to restart the current track past its first 3 s; owner, 2026-11-11).
+// On the first track it goes back to its start.
 func Prev() error {
-	mu.Lock()
-	i := index - 1
-	pos := position
-	mu.Unlock()
-	if pos > 3 || i < 0 {
+	i := currentIndex() - 1
+	if i < 0 {
 		return Seek(0)
 	}
 	return PlayIndex(i)
@@ -151,12 +151,12 @@ func Seek(sec float64) error {
 		return err
 	}
 	return do(func(c context.Context, d upnp.Device) error {
-		if err := upnp.Seek(c, d, at); err != nil {
+		if err := seekRenderer(c, d, at); err != nil {
 			return err
 		}
 		mu.Lock()
-		position, streamPos = sec, at
-		lastCmd = time.Now()
+		position = sec
+		seekSentLocked(at)
 		mu.Unlock()
 		return nil
 	})

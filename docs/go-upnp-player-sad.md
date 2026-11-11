@@ -103,6 +103,8 @@ The browser's `localStorage` keeps only per-viewer conveniences:
    it for the page. A run ends where the format changes or before 3.75 GB of PCM (the RIFF size
    field); the next run is queued gapless (step 5).
    - Next, Prev, a click on a track of the run and a seek within it are a `Seek` in the stream.
+     Prev goes to the previous track from anywhere in the current one, as foobar2000 does; on the
+     first track, to its start.
    - A track outside the run, or a point before the stream's start, starts a new run.
    - The run's DIDL carries the first track's tags and the run's whole length.
 4. **Starting a run** (`services.PlanSwitch`,
@@ -147,6 +149,13 @@ The browser's `localStorage` keeps only per-viewer conveniences:
      renderer's state: the FiiO SR11 stays in PLAYING there. The renderer is paused (or stopped,
      if Stop-safe) 2 s later;
    - the end of the playlist stops.
+
+   After a `Seek` in the stream (a seek, Next/Prev or a click within the run) the poll takes the
+   seek target as the position until the renderer reports one after it, for up to 5 s
+   (`services.SeekLanded`, [ADR-017](adr-017-old-position-after-seek.md)). Seek targets and
+   `RelTime` are whole seconds, so a jump to a track's start lands up to a second before it: a
+   position less than 1.5 s before the playing track's start counts as its start
+   (`services.TrackInStream`).
 
    The same poll watches for a frozen renderer ([ADR-006](adr-006-hung-gmrender.md)) and a racing
    one ([ADR-007](adr-007-racing-gmrender.md)).
@@ -219,7 +228,8 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
 
 - **State polling.** The page polls `GET /api/state` once a second and again right after every
   command ([ADR-010](adr-010-ui-polls-state.md)). A changed `library.scans` reloads the tree and
-  the playlist.
+  the playlist. The backend's state is shown as it is: a seek or volume slider shows the value
+  being dragged, and from the first state asked for after the command answered, the backend's.
 - **Layout.** One page, no modal dialogs:
   - three columns with splitters (`react-resizable-panels`; they stack on screens ≤ 900 px);
   - Library tree, playlist, and on the right the Output, Equalizer and Library folders cards.
@@ -229,7 +239,8 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
   - the node the playlist was built from is highlighted.
 - **Library header buttons:**
   - refresh: rescan the library folders; the tree reloads in place;
-  - crosshair (Alt+F1): show the playlist's source in the tree;
+  - crosshair (Alt+F1): show the playlist's source in the tree; the page does it once by itself
+    when it opens;
   - Collapse All: fold everything below the library roots.
 - **Playlist and devices.** Only the playlist plays (its ▶, or Play in the top bar). Devices are a
   list in the Output card with a Use button. The selected device's row carries its transport badge after its name
@@ -268,6 +279,7 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [014](adr-014-retry-refused-start.md) | A refused start is retried for 10 s, and the page says so |
 | [015](adr-015-start-at-position-as-a-stream.md) | A start at a position is a stream that begins there |
 | [016](adr-016-clicks-between-tracks-on-fiio-coax.md) | One stream for the tracks of one format, as foobar2000 sends it: no clicks between tracks |
+| [017](adr-017-old-position-after-seek.md) | The renderer's old position after a seek is not taken for where it plays |
 
 ## 9. Testing
 
@@ -285,7 +297,9 @@ Each ADR's status line says how far the problem is overcome and what is still op
     fake Stop-safe (racing, [ADR-007](adr-007-racing-gmrender.md); stock gmrender,
     [ADR-013](adr-013-stop-safe-renderers-start-like-foobar.md)).
 - `testkit.IsolateUserDirs` points the config and cache directories at a temporary folder.
-- Replaceable dependencies are package-level function variables (`player/seams.go`,
+- Replaceable dependencies are package-level function variables (`player/seams.go`: among them
+  the renderer's `GetTransportInfo`/`GetPositionInfo`/`Seek`, through which tests replay what a
+  real renderer reports, e.g. its old position after a seek;
   `upnp.listLocalIPv4s`, `library.readFlacMeta`).
 
 **Coverage.** Per-package figures show the handlers as 0%, because the endpoint scenario lives in

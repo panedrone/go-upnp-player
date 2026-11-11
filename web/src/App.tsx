@@ -64,6 +64,7 @@ export default function App() {
   // renderer at the same rate) and right after every command, so a click shows its
   // result at once. No long-lived channel: every reading is a plain request.
   const refresh = useRef<() => void>(() => {})
+  const stateAskedAt = useRef(0) // when the request behind the current state was sent
   useEffect(() => {
     let timer = 0
     let stopped = false
@@ -77,6 +78,7 @@ export default function App() {
       busy = true
       clearTimeout(timer)
       try {
+        const asked = Date.now()
         const st = await api.state()
         if (stopped) return
         setConnected(true)
@@ -90,6 +92,7 @@ export default function App() {
           }
           seenBuild.current = st.build
         }
+        stateAskedAt.current = asked
         setState(st)
       } catch {
         if (!stopped) setConnected(false)
@@ -147,8 +150,8 @@ export default function App() {
     refresh.current()
   }, [])
   const showErr = useCallback((m: string) => setActionErr(m), [])
-  const [seekDrag, seekProps] = useHeld(state, state?.position, (v) => run(api.seek(v)), 2, 1)
-  const [volDrag, volProps] = useHeld(state, state && state.volume >= 0 ? state.volume : undefined, (v) => run(api.volume(v)), 0, 0)
+  const [seekDrag, seekProps] = useHeld(state, stateAskedAt, (v) => run(api.seek(v)))
+  const [volDrag, volProps] = useHeld(state, stateAskedAt, (v) => run(api.volume(v)))
 
   // spinners: these requests return only when the renderer has really switched,
   // which takes seconds. A later click owns the spinner; an earlier request ending
@@ -177,6 +180,13 @@ export default function App() {
     setFilter('') // the tree is hidden while search results are shown
     setReveal((r) => ({ path: revealTarget, seq: (r?.seq ?? 0) + 1 }))
   }, [revealTarget])
+  // once per page load: the tree opens at the playlist's source, as if Alt+F1 was pressed
+  const revealedOnLoad = useRef(false)
+  useEffect(() => {
+    if (revealedOnLoad.current || !revealTarget) return
+    revealedOnLoad.current = true
+    revealPlaying()
+  }, [revealTarget, revealPlaying])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey && e.key === 'F1') {
@@ -531,18 +541,16 @@ function useNarrow(): boolean {
 // input its pointerup, and the old onPointerUp-only code then kept the held value
 // forever, a slider frozen until the page was reloaded (2026-11-10).
 //
-// After the release the slider keeps showing the chosen value until two polls in a
-// row, after the command answered, report one within `near` of it (plus `drift` per
-// second since: a playing track moves on), at most 5 s after the answer. A seek
-// takes the renderer seconds; handing the slider back to the poll at once made the
-// knob jump to the old position and through whatever the renderer reported while
-// it rebuffered. One matching poll is not proof: right after a seek the backend
-// reports the target itself, before it has read the renderer (2026-11-10).
-function useHeld(sample: unknown, actual: number | undefined, commit: (v: number) => Promise<unknown>, near: number, drift: number) {
+// After the release the slider shows the chosen value until the first state asked for
+// after the command answered: from then on the backend's value, whatever it is. The
+// page does not judge it: the backend reports the seek target until the renderer has
+// caught up with it (services.SeekLanded); guessing that here, by how near the polled
+// value came to the chosen one, made the knob jump on its own (2026-11-11).
+function useHeld(sample: unknown, sampleAskedAt: { current: number }, commit: (v: number) => Promise<unknown>) {
   const [held, setHeld] = useState<number | null>(null)
   const down = useRef(false)
   const last = useRef<number | null>(null)
-  const pending = useRef<{ v: number; answered: number; hits: number } | null>(null)
+  const pending = useRef<{ answered: number } | null>(null)
   const commitRef = useRef(commit)
   commitRef.current = commit
   const release = useCallback(() => {
@@ -550,29 +558,19 @@ function useHeld(sample: unknown, actual: number | undefined, commit: (v: number
     const v = last.current
     last.current = null
     if (v === null) return // a release elsewhere on the page, or nothing was moved
-    const p = { v, answered: 0, hits: 0 }
+    const p = { answered: 0 }
     pending.current = p
     setHeld(v)
     void commitRef.current(v).finally(() => {
       p.answered = Date.now()
-      setTimeout(() => {
-        if (pending.current === p) {
-          pending.current = null
-          setHeld(null)
-        }
-      }, 5000)
     })
   }, [])
-  // the backend has caught up with the command: the poll owns the slider again
+  // a state asked for after the answer: the poll owns the slider again
   useEffect(() => {
     const p = pending.current
-    if (!p || !p.answered || down.current || actual === undefined) return
-    const ahead = (drift * (Date.now() - p.answered)) / 1000
-    p.hits = actual >= p.v - near && actual <= p.v + ahead + near ? p.hits + 1 : 0
-    if (p.hits >= 2) {
-      pending.current = null
-      setHeld(null)
-    }
+    if (!p || !p.answered || down.current || sampleAskedAt.current < p.answered) return
+    pending.current = null
+    setHeld(null)
   }, [sample]) // once per poll
   useEffect(() => {
     window.addEventListener('pointerup', release)

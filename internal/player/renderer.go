@@ -88,7 +88,7 @@ func Select(udn string) error {
 				// paused, it holds a moment of the music ready, which the next Play
 				// let out before its own start (the FiiO back from the BeagleBone,
 				// 2026-11-11): seeked in the let-go stream, it holds silence
-				_ = upnp.Seek(c, old, oldAt)
+				_ = seekRenderer(c, old, oldAt)
 			}
 		}()
 	}

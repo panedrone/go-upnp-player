@@ -2,7 +2,6 @@ package player
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/panedrone/go-upnp-player/internal/upnp"
 )
@@ -97,7 +96,7 @@ func jumpInStream(i int, at float64, wasPaused bool) error {
 	}
 	c, cancel := ctx()
 	defer cancel()
-	if err := upnp.Seek(c, d, at); err != nil {
+	if err := seekRenderer(c, d, at); err != nil {
 		return err
 	}
 	if wasPaused {
@@ -106,9 +105,9 @@ func jumpInStream(i int, at float64, wasPaused bool) error {
 		}
 	}
 	mu.Lock()
-	index, paused, position, streamPos = i, false, 0, at
+	index, paused, position = i, false, 0
 	duration = trackDuration(i)
-	lastCmd = time.Now()
+	seekSentLocked(at)
 	mu.Unlock()
 	savePlaylist()
 	return nil
