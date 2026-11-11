@@ -83,7 +83,8 @@ function PropsSection({ title, rows }: { title: string; rows: [string, string][]
             .map(([k, v]) => (
               <tr key={k}>
                 <td className="props-key text-body-secondary text-nowrap">{k}</td>
-                <td className="props-val">{v}</td>
+                {/* values as quiet as the playlist rows: bright text is for the playing row only */}
+                <td className="props-val text-body-secondary">{v}</td>
               </tr>
             ))}
         </tbody>
