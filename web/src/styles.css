@@ -6,8 +6,6 @@ body { overflow: hidden; font-size: 14px; }
 .min-w-0 { min-width: 0; }
 
 /* player */
-.now-playing { width: 280px; flex: none; min-width: 0; }
-.now-thumb { width: 44px; height: 44px; object-fit: cover; background: var(--bs-secondary-bg); flex: none; }
 .seek-wrap { min-width: 160px; }
 .vol .form-range { width: 110px; }
 .vol-num { width: 24px; }
@@ -45,8 +43,23 @@ body { overflow: hidden; font-size: 14px; }
 .album-thumb { width: 40px; height: 40px; object-fit: cover; background: var(--bs-secondary-bg); flex: none; }
 .track-table { table-layout: fixed; }
 .track-table tr { cursor: default; user-select: none; }
-.col-num { width: 44px; }
+.track-table .col-num { width: 44px; padding-left: 0; }
+/* the number at the right of its cell; the room left of it holds the playing mark, centred */
+.num-cell { display: flex; align-items: center; }
+.play-slot { flex: 1; display: flex; justify-content: center; }
+/* the playing track: the ▶ of the playlist's hover button, without the button: it is a mark */
+.play-mark { font-size: 12px; font-variant-emoji: text; }
+/* the ▶ glyph sits 1 px below the middle of its line (measured 2026-11-11): the line is
+   lifted by 1 px, the button keeps its height */
+.track-table .btn.hover-btn { line-height: calc(1.35em - 2px); padding-bottom: 2px; }
 .col-dur { width: 64px; }
+
+/* track properties under the playlist: a name column, the value wraps (long MD5, tool) */
+.props-head { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--bs-secondary-color); border-bottom: 1px solid var(--bs-border-color-translucent); }
+.props-table { font-size: .85rem; }
+.props-table td { padding: 1px 6px 1px 0; background: transparent; }
+.props-key { width: 1%; padding-right: 14px !important; }
+.props-val { word-break: break-word; user-select: text; }
 
 /* equalizer: vertical sliders */
 .eq-bands { display: flex; justify-content: space-between; gap: 1px; }
@@ -63,7 +76,6 @@ body { overflow: hidden; font-size: 14px; }
 
 @media (max-width: 700px) {
   .player-bar { flex-wrap: wrap !important; }
-  .now-playing { width: 100%; }
   .vol { display: none !important; }
 }
 
@@ -97,10 +109,13 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
 .tree-row.revealed { animation: reveal-flash 1.6s ease-out; }
 /* transport symbols are emoji by default on Windows: blue squares whatever the button color */
 .btn { font-variant-emoji: text; }
-.btn.reveal-btn { line-height: 1; }
+/* card header buttons: one square, the icon in its middle */
+.btn.head-btn { width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.head-btn .head-spinner { width: 12px; height: 12px; border-width: .15em; }
 
 
-.btn.theme-btn { line-height: 1; padding: .3rem .45rem; }
+/* the top bar's buttons: one height, an icon centred, a label after it */
+.btn.bar-btn { height: 30px; display: inline-flex; align-items: center; justify-content: center; gap: .35rem; padding: 0 .55rem; line-height: 1; }
 
 /* CONNECTING: a soft pulse while a refused start is retried; still for those who ask
    the system for less motion */

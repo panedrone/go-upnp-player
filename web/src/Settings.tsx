@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Collapse, Form, Stack } from 'react-bootstrap'
 import { api } from './api'
+import { ChevronIcon } from './icons'
 
 const openKey = 'go-upnp-player.folders-open'
 
@@ -50,11 +51,11 @@ export default function Settings({ scanning, tracks }: Props) {
         <span className="me-auto">Library folders</span>
         <small className="text-body-secondary">{scanning ? 'scanning…' : `${tracks} tracks`}</small>
         <Button
-          size="sm" variant="outline-secondary" className="py-0 ms-2"
+          size="sm" variant="outline-secondary" className="head-btn ms-2"
           title={open ? 'Hide the library folders' : 'Show the library folders'} aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >
-          {open ? '▾' : '▸'}
+          <ChevronIcon open={open} />
         </Button>
       </Card.Header>
       <Collapse in={open}>

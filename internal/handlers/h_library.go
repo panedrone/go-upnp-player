@@ -25,6 +25,19 @@ func Tracks(c fiber.Ctx) error {
 	return c.JSON(tracks)
 }
 
+// TrackProperties handles GET /api/track/:id/properties: what the properties panel shows.
+func TrackProperties(c fiber.Ctx) error {
+	t := library.Get(c.Params("id"))
+	if t == nil {
+		return fiber.ErrNotFound
+	}
+	p, err := library.PropertiesOf(t)
+	if err != nil {
+		return err
+	}
+	return c.JSON(p)
+}
+
 // Search — GET /api/search?q=
 func Search(c fiber.Ctx) error {
 	tracks := library.Search(c.Query("q"), 2000)

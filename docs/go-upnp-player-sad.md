@@ -232,7 +232,8 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
   being dragged, and from the first state asked for after the command answered, the backend's.
 - **Layout.** One page, no modal dialogs:
   - three columns with splitters (`react-resizable-panels`; they stack on screens ≤ 900 px);
-  - Library tree, playlist, and on the right the Output, Equalizer and Library folders cards.
+  - Library tree, playlist, and on the right the Output, Equalizer and Library folders cards;
+  - under the playlist, behind a splitter of its own, the Properties card.
 - **Library tree** ([ADR-011](adr-011-library-tree-navigation.md)):
   - folders, cue sheets and track files; cue sheets and files are leaves;
   - → on a row builds the playlist from the node without touching playback;
@@ -242,6 +243,14 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
   - crosshair (Alt+F1): show the playlist's source in the tree; the page does it once by itself
     when it opens;
   - Collapse All: fold everything below the library roots.
+- **Top bar** holds the controls only: seek, transport, volume, theme, Quit. What plays is shown in
+  the playlist: its row is bold and marked ▶, as in foobar2000; album headers show the total time.
+- **Properties** of the playlist row clicked last (the playing track until one is clicked), as
+  foobar2000's Properties without Location: Metadata (artist, title, album, date, genre, track
+  number, comment) and General (duration with samples, rate, channels, bits, bitrate, codec,
+  encoding, tool, embedded cuesheet, audio MD5). `GET /api/track/:id/properties` reads the FLAC
+  header again on each request; vendor, MD5 and comment are not kept in the index. The bitrate of
+  a cue track is its file's average.
 - **Playlist and devices.** Only the playlist plays (its ▶, or Play in the top bar). Devices are a
   list in the Output card with a Use button. The selected device's row carries its transport badge after its name
   (a lively green for PLAYING, light gray for quiet states, PAUSED for PAUSED_PLAYBACK); the
@@ -254,8 +263,10 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
 - **Look.** Stock Bootstrap, gray instead of blue:
   - the active row is a gray band with bold text, other rows are `text-body-secondary`;
   - buttons are `secondary` or `outline-secondary`;
-  - custom CSS is limited to the slider thumbs and `font-variant-emoji` (Windows draws the
-    transport symbols as blue emoji otherwise).
+  - custom CSS is limited to the slider thumbs, button sizes and `font-variant-emoji` (Windows
+    draws ▶ as a blue emoji otherwise);
+  - button icons are drawn SVG of one size and stroke: the top bar's buttons are 30 px high, the
+    card headers' 24 px squares. Font symbols came out in different sizes and off centre.
 
 ## 8. Decisions and renderer quirks (ADR)
 

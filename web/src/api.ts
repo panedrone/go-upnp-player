@@ -98,8 +98,31 @@ export const api = {
   saveSettings: (roots: string[]) => req<void>('PUT', '/api/settings', { roots }),
   rescan: () => req<void>('POST', '/api/library/rescan'),
   shutdown: () => req<void>('POST', '/api/shutdown'),
+  properties: (id: string) => req<TrackProps>('GET', `/api/track/${q(id)}/properties`),
   eq: () => req<EQ>('GET', '/api/eq'),
   saveEq: (enabled: boolean, gains: number[]) => req<void>('PUT', '/api/eq', { enabled, gains }),
+}
+
+// what the properties panel under the playlist shows
+export interface TrackProps {
+  number: number
+  title: string
+  artist: string
+  album: string
+  date: string
+  genre: string
+  comment: string
+  duration: number
+  samples: number
+  sampleRate: number
+  channels: number
+  bits: number
+  bitrateKbps: number
+  codec: string
+  encoding: string
+  tool: string
+  embeddedCue: boolean
+  md5: string
 }
 
 export interface EQ {

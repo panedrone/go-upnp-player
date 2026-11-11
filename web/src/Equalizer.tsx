@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, ButtonGroup, Card, Collapse, Form } from 'react-bootstrap'
 import { api, EQ } from './api'
+import { ChevronIcon } from './icons'
 
 // Presets are frequency curves, not arrays tied to a specific band grid:
 // the grid comes from the backend and may change.
@@ -141,11 +142,11 @@ export default function Equalizer({ onError }: Props) {
           checked={eq.enabled} onChange={(e) => save({ ...eq, enabled: e.target.checked })}
         />
         <Button
-          size="sm" variant="outline-secondary" className="py-0 ms-2"
+          size="sm" variant="outline-secondary" className="head-btn ms-2"
           title={open ? 'Hide the equalizer' : 'Show the equalizer'} aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >
-          {open ? '▾' : '▸'}
+          <ChevronIcon open={open} />
         </Button>
       </Card.Header>
       <Collapse in={open}>

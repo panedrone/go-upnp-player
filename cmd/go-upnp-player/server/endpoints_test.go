@@ -226,6 +226,10 @@ func TestEndpointsScenario(t *testing.T) {
 		if got := string(c.status(200, "GET", "/api/tree?path=/nowhere", "")); got != "[]" {
 			t.Fatal(got)
 		}
+		if got := string(c.status(200, "GET", "/api/track/"+cueTracks[1].ID+"/properties", "")); !strings.Contains(got, `"number":2`) || !strings.Contains(got, `"codec":"FLAC"`) {
+			t.Fatal(got)
+		}
+		c.status(404, "GET", "/api/track/nope/properties", "")
 		r.SetLength(cueTracks[0].ID, cueTracks[0].Duration)
 		r.SetLength(cueTracks[1].ID, cueTracks[1].Duration)
 		r.SetLength(loose.ID, loose.Duration)

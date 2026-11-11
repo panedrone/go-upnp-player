@@ -5,7 +5,7 @@
 [![codecov](https://codecov.io/gh/panedrone/go-upnp-player/graph/badge.svg)](https://codecov.io/gh/panedrone/go-upnp-player)
 [![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 
-![go-upnp-player: library tree, playlist, output devices and the 18-band equalizer](docs/img/screenshot-1.0.12.png)
+![go-upnp-player: library tree, playlist with track properties, output devices and the 18-band equalizer](docs/img/screenshot-1.1.8.png)
 
 A player for a local FLAC/CUE library that plays to network UPnP/DLNA renderers
 (tested with gmrender-resurrect: a home-made streamer on a BeagleBone Green and a FiiO SR11).

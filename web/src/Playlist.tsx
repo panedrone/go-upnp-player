@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Badge, Button, Image, Spinner, Table } from 'react-bootstrap'
 import { artUrl, fmtTime, Track } from './api'
 
@@ -7,6 +7,8 @@ interface Props {
   playingId: string | null
   pendingIndex: number | null // the track whose start is still in progress
   onPlay: (index: number) => void
+  selectedId: string | null // the row the properties panel shows
+  onSelect: (id: string) => void
 }
 
 interface Group {
@@ -19,8 +21,7 @@ interface Group {
 }
 
 // Track list grouped by album (cue or folder).
-export default function Playlist({ tracks, playingId, pendingIndex, onPlay }: Props) {
-  const [sel, setSel] = useState<string | null>(null)
+export default function Playlist({ tracks, playingId, pendingIndex, onPlay, selectedId, onSelect }: Props) {
   const groups = useMemo(() => {
     const out: Group[] = []
     tracks.forEach((t, i) => {
@@ -56,7 +57,7 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay }: Pr
                 </small>
               </div>
               <Badge bg="primary-subtle" text="primary-emphasis" className="ms-auto">
-                {g.items.length} · {fmtTime(total)}
+                {fmtTime(total)}
               </Badge>
             </div>
             <Table size="sm" hover borderless className="mb-2 track-table">
@@ -66,11 +67,15 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay }: Pr
                   return (
                     <tr
                       key={t.id}
-                      className={playing ? 'table-active fw-bold' : t.id === sel ? 'table-active' : ''}
-                      onClick={() => setSel(t.id)}
+                      className={playing ? 'table-active fw-bold' : t.id === selectedId ? 'table-active' : ''}
+                      onClick={() => onSelect(t.id)}
                     >
-                      <td className="col-num text-end text-body-secondary">
-                        {t.number > 0 ? t.number : ''}
+                      <td className="col-num text-body-secondary text-nowrap">
+                        {/* the mark is centred in the room left of the number */}
+                        <div className="num-cell">
+                          <span className="play-slot">{playing ? <span className="play-mark" title="Playing">▶</span> : null}</span>
+                          {t.number > 0 ? t.number : ''}
+                        </div>
                       </td>
                       <td>
                         {/* the button appears on row hover, right after the title */}

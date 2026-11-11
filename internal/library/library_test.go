@@ -304,6 +304,31 @@ func TestRealFLACMeta(t *testing.T) {
 	}
 }
 
+func TestPropertiesOf(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "image.flac")
+	n := testkit.WriteFLAC(t, path, testkit.FLAC{
+		Frames: 2, BlockSize: 4096,
+		Tags: [][2]string{{"comment", "first"}, {"DESCRIPTION", "second"}, {"CUESHEET", "FILE x WAVE"}},
+	})
+	tr := &Track{Path: path, Number: 2, Title: "T", Start: 100, End: n, SampleRate: 44100, FileSize: 44100 * 4, FileFrames: 44100}
+	p, err := PropertiesOf(tr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Tool != "testkit" || p.Comment != "first" || !p.EmbeddedCue || p.Samples != n-100 || p.BitrateKbps != 1411 || p.Codec != "FLAC" {
+		t.Fatalf("%+v", p)
+	}
+	if _, err := PropertiesOf(&Track{Path: path + ".absent"}); err == nil {
+		t.Fatal("missing file accepted")
+	}
+	plain := filepath.Join(t.TempDir(), "plain.flac")
+	testkit.WriteFLAC(t, plain, testkit.FLAC{Frames: 1, BlockSize: 4096})
+	p, err = PropertiesOf(&Track{Path: plain})
+	if err != nil || p.EmbeddedCue || p.Comment != "" {
+		t.Fatalf("%+v %v", p, err)
+	}
+}
+
 func TestFindArt(t *testing.T) {
 	reset()
 	root := t.TempDir()

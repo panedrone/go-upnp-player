@@ -1,9 +1,11 @@
 import { ChangeEvent, useCallback, useEffect, useRef, useState, version as reactVersion } from 'react'
-import { Badge, Button, ButtonGroup, Card, Form, Image, InputGroup, ListGroup, Navbar, Spinner } from 'react-bootstrap'
-import { api, artUrl, fmtTime, PlayerState, Track, TreeNode } from './api'
+import { Badge, Button, ButtonGroup, Card, Form, InputGroup, ListGroup, Navbar, Spinner } from 'react-bootstrap'
+import { api, fmtTime, PlayerState, Track, TreeNode } from './api'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { RefreshIcon } from './icons'
 import Tree, { RevealRequest } from './Tree'
 import Playlist from './Playlist'
+import TrackProperties from './TrackProperties'
 import Equalizer from './Equalizer'
 import Settings from './Settings'
 
@@ -168,6 +170,10 @@ export default function App() {
   }
 
   const playingId = state?.track?.id ?? null
+  // the playlist row clicked last; the properties panel shows it, or the playing
+  // track while nothing in the current playlist is clicked
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const shownId = selectedId && queue.some((t) => t.id === selectedId) ? selectedId : playingId
 
   // "Select Opened File", as in JetBrains IDEs: show in the tree the node the playlist
   // was built from; a playlist built from search results has none, then the cue sheet
@@ -215,41 +221,8 @@ export default function App() {
 
   return (
     <div className="app d-flex flex-column vh-100">
-      {/* player: now playing, transport, position, volume */}
+      {/* player: position, transport, volume; what plays is marked in the playlist */}
       <Navbar bg="body-tertiary" className="border-bottom px-3 py-2 gap-3 flex-nowrap player-bar">
-        <div className="d-flex align-items-center gap-2 now-playing">
-          {track ? (
-            <>
-              <Image
-                src={artUrl(track.id)} rounded className="now-thumb" alt=""
-                // no cover: no empty place either, as in the playlist; the element lives on
-                // across tracks, so the next track's cover brings it back
-                onError={(e) => (e.target as HTMLImageElement).classList.add('d-none')}
-                onLoad={(e) => (e.target as HTMLImageElement).classList.remove('d-none')}
-              />
-              <div className="min-w-0">
-                <div className="fw-semibold text-truncate" title={track.title}>{track.title}</div>
-                <small className="text-body-secondary text-truncate d-block" title={track.path}>
-                  {[track.artist, track.album].filter(Boolean).join(' — ')}
-                </small>
-              </div>
-            </>
-          ) : (
-            <span className="text-body-secondary">Nothing is playing</span>
-          )}
-        </div>
-
-        <ButtonGroup>
-          <Button variant="outline-secondary" title="Previous" onClick={() => run(api.prev())}>⏮</Button>
-          {playing ? (
-            <Button variant="secondary" title="Pause" onClick={() => run(api.pause())}>❚❚</Button>
-          ) : (
-            <Button variant="secondary" title="Play" onClick={() => run(api.resume())}>▶</Button>
-          )}
-          <Button variant="outline-secondary" title="Stop" onClick={() => run(api.stop())}>■</Button>
-          <Button variant="outline-secondary" title="Next" onClick={() => run(api.next())}>⏭</Button>
-        </ButtonGroup>
-
         <div className="d-flex align-items-center gap-2 flex-grow-1 seek-wrap">
           <small className="text-body-secondary font-monospace">{fmtTime(position)}</small>
           <Form.Range
@@ -259,6 +232,27 @@ export default function App() {
           />
           <small className="text-body-secondary font-monospace">{fmtTime(duration)}</small>
         </div>
+
+        <ButtonGroup>
+          <Button size="sm" variant="outline-secondary" className="bar-btn" title="Previous" onClick={() => run(api.prev())}>
+            <BarIcon name="prev" />
+          </Button>
+          {playing ? (
+            <Button size="sm" variant="outline-secondary" className="bar-btn" title="Pause" onClick={() => run(api.pause())}>
+              <BarIcon name="pause" />
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline-secondary" className="bar-btn" title="Play" onClick={() => run(api.resume())}>
+              <BarIcon name="play" />
+            </Button>
+          )}
+          <Button size="sm" variant="outline-secondary" className="bar-btn" title="Stop" onClick={() => run(api.stop())}>
+            <BarIcon name="stop" />
+          </Button>
+          <Button size="sm" variant="outline-secondary" className="bar-btn" title="Next" onClick={() => run(api.next())}>
+            <BarIcon name="next" />
+          </Button>
+        </ButtonGroup>
 
         <div className="d-flex align-items-center gap-2 vol" title="Volume">
           <small className="text-body-secondary">Vol</small>
@@ -270,7 +264,7 @@ export default function App() {
         </div>
 
         <Button
-          size="sm" variant="outline-secondary" className="theme-btn"
+          size="sm" variant="outline-secondary" className="bar-btn"
           title={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         >
@@ -290,7 +284,7 @@ export default function App() {
 
         {/* two-click quit, no modal dialogs: the first click arms, the second shuts down */}
         <Button
-          size="sm" variant={quitArmed ? 'secondary' : 'outline-secondary'} className="text-nowrap"
+          size="sm" variant={quitArmed ? 'secondary' : 'outline-secondary'} className="bar-btn text-nowrap"
           title="Stop the player program (the renderer is paused first)"
           disabled={quitting}
           onClick={() => {
@@ -302,7 +296,11 @@ export default function App() {
             run(api.shutdown())
           }}
         >
-          {quitting ? 'Stopping…' : quitArmed ? 'Click again to quit' : '⏻ Quit'}
+          {quitting ? 'Stopping…' : quitArmed ? 'Click again to quit' : (
+            <>
+              <BarIcon name="power" /> Quit
+            </>
+          )}
         </Button>
       </Navbar>
 
@@ -327,17 +325,14 @@ export default function App() {
             {/* rescan the library folders for new or removed music; the tree keeps its
                 expanded folders and the highlighted playlist source */}
             <Button
-              size="sm" variant="outline-secondary" className="py-0 px-1 reveal-btn me-1"
+              size="sm" variant="outline-secondary" className="head-btn me-1"
               title="Refresh: rescan the library folders"
               disabled={state?.library.scanning} onClick={() => run(api.rescan())}
             >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-                <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" />
-                <path d="M12.3 1.3v3.2H9.1" />
-              </svg>
+              <RefreshIcon />
             </Button>
             <Button
-              size="sm" variant="outline-secondary" className="py-0 px-1 reveal-btn"
+              size="sm" variant="outline-secondary" className="head-btn"
               title="Show in the tree what the playlist was built from (Alt+F1)"
               disabled={!revealTarget} onClick={revealPlaying}
             >
@@ -349,7 +344,7 @@ export default function App() {
             </Button>
             {/* "Collapse All", as in JetBrains IDEs: two chevrons folding towards a line */}
             <Button
-              size="sm" variant="outline-secondary" className="py-0 px-1 reveal-btn ms-1"
+              size="sm" variant="outline-secondary" className="head-btn ms-1"
               title="Collapse all folders"
               onClick={() => {
                 setFilter('') // the tree is hidden while search results are shown
@@ -381,16 +376,32 @@ export default function App() {
         </Panel>
         <PanelResizeHandle className="split-handle" />
         <Panel defaultSize={34} minSize={18} order={2}>
-        {/* tracks */}
+        {/* tracks, and under them the properties of the clicked one */}
+        <PanelGroup direction="vertical" autoSaveId="go-upnp-player.layout.playlist.v2">
+        <Panel defaultSize={50} minSize={20} order={1}>
         <Card className="col-tracks h-100">
           <Card.Header className="d-flex align-items-center">
             <span className="me-auto">Playlist</span>
             <Badge bg="secondary" pill>{queue.length}</Badge>
           </Card.Header>
           <div className="flex-grow-1 overflow-auto min-h-0">
-            <Playlist tracks={queue} playingId={playingId} pendingIndex={pendingPlay} onPlay={playTrack} />
+            <Playlist
+              tracks={queue} playingId={playingId} pendingIndex={pendingPlay} onPlay={playTrack}
+              selectedId={shownId} onSelect={setSelectedId}
+            />
           </div>
         </Card>
+        </Panel>
+        <PanelResizeHandle className="split-handle" />
+        <Panel defaultSize={50} minSize={10} order={2}>
+        <Card className="col-tracks h-100">
+          <Card.Header>Properties</Card.Header>
+          <div className="flex-grow-1 overflow-auto min-h-0">
+            <TrackProperties id={shownId} />
+          </div>
+        </Card>
+        </Panel>
+        </PanelGroup>
         </Panel>
         <PanelResizeHandle className="split-handle" />
         <Panel defaultSize={28} minSize={16} order={3}>
@@ -424,8 +435,8 @@ export default function App() {
               )}
               {/* the header speaks only for the player itself; the device's own state sits on its row */}
               {!connected && <Badge bg={transportVariant[transport]} className="me-2">{transport}</Badge>}
-              <Button size="sm" variant="outline-secondary" className="py-0 ms-auto flex-shrink-0" title="Search for devices again" onClick={() => run(api.refreshRenderers())} disabled={state?.discovering}>
-                {state?.discovering ? <Spinner size="sm" /> : '⟳'}
+              <Button size="sm" variant="outline-secondary" className="head-btn ms-auto flex-shrink-0" title="Search for devices again" onClick={() => run(api.refreshRenderers())} disabled={state?.discovering}>
+                {state?.discovering ? <Spinner size="sm" className="head-spinner" /> : <RefreshIcon />}
               </Button>
             </Card.Header>
             {/* devices as a list; select with a button that appears on hover after the name */}
@@ -496,6 +507,25 @@ export default function App() {
 }
 
 // Search results: a compact list instead of the tree while the filter has text.
+// The top bar's icons: one size and one stroke, drawn like the theme button's sun and
+// moon. Font symbols (⏮ ❚❚ ⏻) came out in different sizes and weights, some with
+// colour fringes (2026-11-11).
+function BarIcon({ name }: { name: 'prev' | 'play' | 'pause' | 'stop' | 'next' | 'power' }) {
+  const shape = {
+    prev: <><path d="M4 3v10" /><path d="M13 3.5v9L6.5 8z" fill="currentColor" /></>,
+    play: <path d="M5 3v10l8-5z" fill="currentColor" />,
+    pause: <><path d="M5.5 3.5v9M10.5 3.5v9" strokeWidth="2.2" /></>,
+    stop: <rect x="3.5" y="3.5" width="9" height="9" rx="1" fill="currentColor" />,
+    next: <><path d="M12 3v10" /><path d="M3 3.5v9L9.5 8z" fill="currentColor" /></>,
+    power: <><path d="M8 1.8v5.4" /><path d="M4.6 4a5.2 5.2 0 1 0 6.8 0" /></>,
+  }[name]
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">
+      {shape}
+    </svg>
+  )
+}
+
 function SearchResults({ hits, playingId, onMakePlaylist }: { hits: Track[]; playingId: string | null; onMakePlaylist: (ids: string[]) => void }) {
   if (hits.length === 0) return <div className="p-3 text-body-secondary">Nothing found.</div>
   return (

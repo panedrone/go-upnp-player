@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/equalizer.tsx","./src/playlist.tsx","./src/settings.tsx","./src/tree.tsx","./src/api.ts","./src/main.tsx"],"version":"5.6.3"}
+{"root":["./src/app.tsx","./src/equalizer.tsx","./src/playlist.tsx","./src/settings.tsx","./src/trackproperties.tsx","./src/tree.tsx","./src/api.ts","./src/icons.tsx","./src/main.tsx"],"version":"5.6.3"}

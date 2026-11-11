@@ -154,3 +154,33 @@ func TestNextLandingJustBeforeTheTrackDoesNotSkipIt(t *testing.T) {
 			r.Count("SetAVTransportURI"), r.Count("SetNextAVTransportURI"), lastErr)
 	}
 }
+
+// A stream that starts into its first track (a resume after an update, ADR-015) moves
+// on into the next track of the run like any other.
+func TestStreamFromAPositionMovesOnIntoTheNextTrack(t *testing.T) {
+	r := setup(t)
+	odd := map[string]*library.Track{}
+	for id, sec := range map[string]float64{"x": 198.27, "y": 385.52} {
+		odd[id] = &library.Track{ID: id, Title: id, Duration: sec, SampleRate: 44100, Channels: 2, Bits: 16, End: uint64(sec * 44100)}
+	}
+	lookupTrack = func(id string) *library.Track { return odd[id] }
+	queue = []string{"x", "y"}
+	cmdMu.Lock()
+	err := startLocked(0, 184)
+	cmdMu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	lastCmd = time.Now().Add(-time.Minute)
+	into := runStarts[1]
+	mu.Unlock()
+	for _, p := range []float64{10, into - 0.5, into + 1, into + 3} {
+		r.With(func(s *testkit.RendererState) { s.Pos = p })
+		Tick()
+	}
+	if index != 1 || position < 2 || position > 4 || r.Count("SetAVTransportURI") != 1 || lastErr != "" {
+		t.Fatalf("index %d position %v setURI %d err %q: want track 1 a few seconds in, no new start",
+			index, position, r.Count("SetAVTransportURI"), lastErr)
+	}
+}
