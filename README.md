@@ -7,9 +7,20 @@
 
 ![go-upnp-player: library tree, playlist with track properties, output devices and the 18-band equalizer](docs/img/screenshot-1.1.9.png)
 
-A player for a local FLAC/CUE library that plays to network UPnP/DLNA renderers
-(tested with gmrender-resurrect: a home-made streamer on a BeagleBone Green and a FiiO SR11).
-A single exe: a Go/Fiber v3 backend with a React-Bootstrap UI embedded in it, opened in the browser.
+A bit-perfect player for a lossless library (FLAC files and FLAC images with `.cue` sheets) that
+plays to network UPnP/DLNA streamers (tested with gmrender-resurrect: a home-made streamer on a
+BeagleBone Green and a FiiO SR11). A single exe: a Go/Fiber v3 backend with a React-Bootstrap UI
+embedded in it, opened in the browser.
+
+A network streamer is bought to take the computer out of the audio path. The player sends it the
+original samples: decoded FLAC with no resampling, no dither and no volume applied on the way. Two
+things change samples, and only when they apply: the equalizer while it is on, and a 10 ms fade-in
+where a stream starts (Play, a seek), so music cut in mid-wave does not click (foobar2000 does the
+same after a seek). Tracks that follow one another in a stream go on untouched.
+
+Lossy formats (MP3, AAC, Ogg Vorbis, Opus) are not supported and will not be: a link built for
+bit-perfect sound has no use for them. DSD and other lossless formats:
+[ADR-001](docs/adr-001-lossless-formats-beyond-flac.md).
 
 - folder tree, search, tracks from `.cue` sheets (single-file image + cue) and plain track files;
 - renderer selection, play/pause/stop/seek/next/prev, renderer volume;

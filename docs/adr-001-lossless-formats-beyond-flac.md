@@ -39,7 +39,10 @@ play".
 
 **Out of scope for good:** lossy and mobile formats — MP3, AAC (including lossy `.m4a`),
 Ogg Vorbis, Opus, WMA. The library scan must not list them, and an `.m4a` is accepted only if
-its codec is ALAC.
+its codec is ALAC. The reason is the owner's (2026-11-12): the player is for people who bought a
+network streamer to take the computer out of the audio path (galvanic or optical isolation) and
+want the original samples on it; sending lossy files over such a link makes no sense. The README
+says so instead of "FLAC only".
 
 ## Options
 
