@@ -243,15 +243,17 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
   - crosshair (Alt+F1): show the playlist's source in the tree; the page does it once by itself
     when it opens;
   - Collapse All: fold everything below the library roots.
-- **Top bar** holds the controls only: seek, transport, volume, theme, Quit. What plays is shown in
-  the playlist: its row is bold and marked ▶, as in foobar2000; album headers show the total time.
+- **Controls** sit in the column they belong to: transport and seek in the
+  Playlist header (the playlist is what they play); volume, theme and Quit in a card above Output
+  (volume is the selected device's). What plays is shown in the playlist: its row is bold and
+  marked ▶, as in foobar2000; album headers show the total time.
 - **Properties** of the playlist row clicked last (the playing track until one is clicked), as
   foobar2000's Properties without Location: Metadata (artist, title, album, date, genre, track
   number, comment) and General (duration with samples, rate, channels, bits, bitrate, codec,
   encoding, tool, embedded cuesheet, audio MD5). `GET /api/track/:id/properties` reads the FLAC
   header again on each request; vendor, MD5 and comment are not kept in the index. The bitrate of
   a cue track is its file's average.
-- **Playlist and devices.** Only the playlist plays (its ▶, or Play in the top bar). Devices are a
+- **Playlist and devices.** Only the playlist plays (its ▶, or Play in its header). Devices are a
   list in the Output card with a Use button. The selected device's row carries its transport badge after its name
   (a lively green for PLAYING, light gray for quiet states, PAUSED for PAUSED_PLAYBACK); the
   Output header shows a badge only when the player itself is offline. The Output title line
@@ -265,8 +267,8 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
   - buttons are `secondary` or `outline-secondary`;
   - custom CSS is limited to the slider thumbs, button sizes and `font-variant-emoji` (Windows
     draws ▶ as a blue emoji otherwise);
-  - button icons are drawn SVG of one size and stroke: the top bar's buttons are 30 px high, the
-    card headers' 24 px squares. Font symbols came out in different sizes and off centre.
+  - button icons are drawn SVG of one size and stroke: all are the card headers' 24 px squares
+    (Quit wider, for its label). Font symbols came out in different sizes and off centre.
 
 ## 8. Decisions and renderer quirks (ADR)
 

@@ -1,5 +1,5 @@
 import { ChangeEvent, useCallback, useEffect, useRef, useState, version as reactVersion } from 'react'
-import { Badge, Button, ButtonGroup, Card, Form, InputGroup, ListGroup, Navbar, Spinner } from 'react-bootstrap'
+import { Badge, Button, ButtonGroup, Card, Form, InputGroup, ListGroup, Spinner } from 'react-bootstrap'
 import { api, fmtTime, PlayerState, Track, TreeNode } from './api'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { RefreshIcon } from './icons'
@@ -221,89 +221,6 @@ export default function App() {
 
   return (
     <div className="app d-flex flex-column vh-100">
-      {/* player: position, transport, volume; what plays is marked in the playlist */}
-      <Navbar bg="body-tertiary" className="border-bottom px-3 py-2 gap-3 flex-nowrap player-bar">
-        <div className="d-flex align-items-center gap-2 flex-grow-1 seek-wrap">
-          <small className="text-body-secondary font-monospace">{fmtTime(position)}</small>
-          <Form.Range
-            className="flex-grow-1" min={0} max={Math.max(1, duration)} step={1}
-            value={Math.min(position, duration)} disabled={!track}
-            {...seekProps}
-          />
-          <small className="text-body-secondary font-monospace">{fmtTime(duration)}</small>
-        </div>
-
-        <ButtonGroup>
-          <Button size="sm" variant="outline-secondary" className="bar-btn" title="Previous" onClick={() => run(api.prev())}>
-            <BarIcon name="prev" />
-          </Button>
-          {playing ? (
-            <Button size="sm" variant="outline-secondary" className="bar-btn" title="Pause" onClick={() => run(api.pause())}>
-              <BarIcon name="pause" />
-            </Button>
-          ) : (
-            <Button size="sm" variant="outline-secondary" className="bar-btn" title="Play" onClick={() => run(api.resume())}>
-              <BarIcon name="play" />
-            </Button>
-          )}
-          <Button size="sm" variant="outline-secondary" className="bar-btn" title="Stop" onClick={() => run(api.stop())}>
-            <BarIcon name="stop" />
-          </Button>
-          <Button size="sm" variant="outline-secondary" className="bar-btn" title="Next" onClick={() => run(api.next())}>
-            <BarIcon name="next" />
-          </Button>
-        </ButtonGroup>
-
-        <div className="d-flex align-items-center gap-2 vol" title="Volume">
-          <small className="text-body-secondary">Vol</small>
-          <Form.Range
-            min={0} max={100} value={volume}
-            {...volProps}
-          />
-          <small className="text-body-secondary vol-num">{state && state.volume >= 0 ? volume : '–'}</small>
-        </div>
-
-        <Button
-          size="sm" variant="outline-secondary" className="bar-btn"
-          title={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-        >
-          {theme === 'dark' ? (
-            // sun: what a click switches to
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-              <circle cx="8" cy="8" r="3" />
-              <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3" />
-            </svg>
-          ) : (
-            // moon
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-              <path d="M13.5 10.2A6 6 0 0 1 5.8 2.5a6 6 0 1 0 7.7 7.7z" />
-            </svg>
-          )}
-        </Button>
-
-        {/* two-click quit, no modal dialogs: the first click arms, the second shuts down */}
-        <Button
-          size="sm" variant={quitArmed ? 'secondary' : 'outline-secondary'} className="bar-btn text-nowrap"
-          title="Stop the player program (the renderer is paused first)"
-          disabled={quitting}
-          onClick={() => {
-            if (!quitArmed) {
-              setQuitArmed(true)
-              return
-            }
-            setQuitting(true)
-            run(api.shutdown())
-          }}
-        >
-          {quitting ? 'Stopping…' : quitArmed ? 'Click again to quit' : (
-            <>
-              <BarIcon name="power" /> Quit
-            </>
-          )}
-        </Button>
-      </Navbar>
-
       {quitting && !connected && (
         <div className="alert alert-secondary m-2 mb-0 py-2">
           The player has stopped. Start it again from the desktop shortcut.
@@ -380,9 +297,36 @@ export default function App() {
         <PanelGroup direction="vertical" autoSaveId="go-upnp-player.layout.playlist.v2">
         <Panel defaultSize={50} minSize={20} order={1}>
         <Card className="col-tracks h-100">
-          <Card.Header className="d-flex align-items-center">
-            <span className="me-auto">Playlist</span>
-            <Badge bg="secondary" pill>{queue.length}</Badge>
+          {/* the playlist's own controls: transport, then the position of the playing track */}
+          <Card.Header className="d-flex align-items-center gap-2">
+            <span>Playlist</span>
+            <ButtonGroup className="flex-shrink-0">
+              <Button size="sm" variant="outline-secondary" className="head-btn" title="Previous" onClick={() => run(api.prev())}>
+                <BarIcon name="prev" />
+              </Button>
+              {playing ? (
+                <Button size="sm" variant="outline-secondary" className="head-btn" title="Pause" onClick={() => run(api.pause())}>
+                  <BarIcon name="pause" />
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline-secondary" className="head-btn" title="Play" onClick={() => run(api.resume())}>
+                  <BarIcon name="play" />
+                </Button>
+              )}
+              <Button size="sm" variant="outline-secondary" className="head-btn" title="Stop" onClick={() => run(api.stop())}>
+                <BarIcon name="stop" />
+              </Button>
+              <Button size="sm" variant="outline-secondary" className="head-btn" title="Next" onClick={() => run(api.next())}>
+                <BarIcon name="next" />
+              </Button>
+            </ButtonGroup>
+            <small className="text-body-secondary font-monospace">{fmtTime(position)}</small>
+            <Form.Range
+              className="flex-grow-1 seek" min={0} max={Math.max(1, duration)} step={1}
+              value={Math.min(position, duration)} disabled={!track}
+              {...seekProps}
+            />
+            <small className="text-body-secondary font-monospace">{fmtTime(duration)}</small>
           </Card.Header>
           <div className="flex-grow-1 overflow-auto min-h-0">
             <Playlist
@@ -407,6 +351,52 @@ export default function App() {
         <Panel defaultSize={28} minSize={16} order={3}>
         {/* device, equalizer, folders */}
         <div className="col-side d-flex flex-column gap-2 overflow-auto h-100">
+          {/* volume of the selected device, theme and Quit */}
+          <Card>
+            <Card.Header className="d-flex align-items-center gap-2">
+              <span>Vol</span>
+              <Form.Range className="flex-grow-1" min={0} max={100} value={volume} title="Volume" {...volProps} />
+              <small className="text-body-secondary vol-num">{state && state.volume >= 0 ? volume : '–'}</small>
+              <Button
+                size="sm" variant="outline-secondary" className="head-btn ms-2 flex-shrink-0"
+                title={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              >
+                {theme === 'dark' ? (
+                  // sun: what a click switches to
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+                    <circle cx="8" cy="8" r="3" />
+                    <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3" />
+                  </svg>
+                ) : (
+                  // moon
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+                    <path d="M13.5 10.2A6 6 0 0 1 5.8 2.5a6 6 0 1 0 7.7 7.7z" />
+                  </svg>
+                )}
+              </Button>
+              {/* two-click quit, no modal dialogs: the first click arms, the second shuts down */}
+              <Button
+                size="sm" variant={quitArmed ? 'secondary' : 'outline-secondary'} className="head-btn head-btn-text text-nowrap flex-shrink-0"
+                title="Stop the player program (the renderer is paused first)"
+                disabled={quitting}
+                onClick={() => {
+                  if (!quitArmed) {
+                    setQuitArmed(true)
+                    return
+                  }
+                  setQuitting(true)
+                  run(api.shutdown())
+                }}
+              >
+                {quitting ? 'Stopping…' : quitArmed ? 'Click again to quit' : (
+                  <>
+                    <BarIcon name="power" /> Quit
+                  </>
+                )}
+              </Button>
+            </Card.Header>
+          </Card>
           <Card>
             <Card.Header className="d-flex align-items-center gap-2">
               <span>Output</span>
@@ -507,7 +497,7 @@ export default function App() {
 }
 
 // Search results: a compact list instead of the tree while the filter has text.
-// The top bar's icons: one size and one stroke, drawn like the theme button's sun and
+// The header buttons' icons: one size and one stroke, drawn like the theme button's sun and
 // moon. Font symbols (⏮ ❚❚ ⏻) came out in different sizes and weights, some with
 // colour fringes (2026-11-11).
 function BarIcon({ name }: { name: 'prev' | 'play' | 'pause' | 'stop' | 'next' | 'power' }) {
@@ -520,7 +510,7 @@ function BarIcon({ name }: { name: 'prev' | 'play' | 'pause' | 'stop' | 'next' |
     power: <><path d="M8 1.8v5.4" /><path d="M4.6 4a5.2 5.2 0 1 0 6.8 0" /></>,
   }[name]
   return (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">
       {shape}
     </svg>
   )

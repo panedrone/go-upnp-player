@@ -5,7 +5,7 @@
 [![codecov](https://codecov.io/gh/panedrone/go-upnp-player/graph/badge.svg)](https://codecov.io/gh/panedrone/go-upnp-player)
 [![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 
-![go-upnp-player: library tree, playlist with track properties, output devices and the 18-band equalizer](docs/img/screenshot-1.1.9.png)
+![go-upnp-player: library tree, playlist with track properties, output devices and the 18-band equalizer](docs/img/screenshot-1.1.10.png)
 
 A bit-perfect player for a lossless library (FLAC files and FLAC images with `.cue` sheets) that
 plays to network UPnP/DLNA streamers (tested with gmrender-resurrect: a home-made streamer on a

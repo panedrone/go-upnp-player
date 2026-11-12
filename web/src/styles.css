@@ -5,10 +5,9 @@ body { overflow: hidden; font-size: 14px; }
 .min-h-0 { min-height: 0; }
 .min-w-0 { min-width: 0; }
 
-/* player */
-.seek-wrap { min-width: 160px; }
-.vol .form-range { width: 110px; }
-.vol-num { width: 24px; }
+/* player: seek in the Playlist header, volume in its own card */
+.form-range.seek { min-width: 80px; }
+.vol-num { width: 24px; text-align: right; }
 
 /* status bar at the bottom of the window */
 .status-bar { flex: none; padding: 4px 12px; font-size: 0.875rem; white-space: nowrap; min-height: 30px; }
@@ -74,10 +73,6 @@ body { overflow: hidden; font-size: 14px; }
 .form-range.eq-slider::-webkit-slider-thumb { margin-top: 0; margin-left: -.43rem; }
 .eq-gain { font-size: 10px; font-variant-numeric: tabular-nums; }
 
-@media (max-width: 700px) {
-  .player-bar { flex-wrap: wrap !important; }
-  .vol { display: none !important; }
-}
 
 /* touch screens: no hover, so row buttons are always visible */
 @media (hover: none) {
@@ -113,9 +108,8 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
 .btn.head-btn { width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
 .head-btn .head-spinner { width: 12px; height: 12px; border-width: .15em; }
 
-
-/* the top bar's buttons: one height, an icon centred, a label after it */
-.btn.bar-btn { height: 30px; display: inline-flex; align-items: center; justify-content: center; gap: .35rem; padding: 0 .55rem; line-height: 1; }
+/* a header button with a label after its icon (Quit) */
+.btn.head-btn.head-btn-text { width: auto; gap: .35rem; padding: 0 .5rem; }
 
 /* CONNECTING: a soft pulse while a refused start is retried; still for those who ask
    the system for less motion */
