@@ -6,10 +6,12 @@ import (
 	"time"
 
 	"github.com/panedrone/go-upnp-player/internal/player"
+	"github.com/panedrone/go-upnp-player/internal/power"
 )
 
-// RunPlayerPoll polls the renderer once a second; once a minute, if the selected
-// renderer is not found, it rediscovers (the streamer was turned on after the program).
+// RunPlayerPoll polls the renderer once a second and, while music plays, keeps the PC
+// from sleeping; once a minute, if the selected renderer is not found, it rediscovers
+// (the streamer was turned on after the program).
 func RunPlayerPoll(ctx context.Context) {
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
@@ -21,6 +23,9 @@ func RunPlayerPoll(ctx context.Context) {
 			return
 		case <-tick.C:
 			player.Tick()
+			if keepAwake(player.Snapshot()) {
+				power.StayAwake()
+			}
 		case <-rediscover.C:
 			if selectedMissing(player.Snapshot()) {
 				player.Discover()
@@ -36,4 +41,10 @@ func selectedMissing(s player.State) bool {
 		}
 	}
 	return true
+}
+
+// keepAwake: the player is playing or still starting a track (a refused start being
+// retried counts); paused, stopped or played out lets the PC sleep.
+func keepAwake(s player.State) bool {
+	return s.WantPlaying && !s.Paused
 }

@@ -22,6 +22,22 @@ func TestSelectedMissing(t *testing.T) {
 	}
 }
 
+func TestKeepAwake(t *testing.T) {
+	cases := []struct {
+		s    player.State
+		want bool
+	}{
+		{player.State{WantPlaying: true}, true},
+		{player.State{WantPlaying: true, Paused: true}, false},
+		{player.State{}, false},
+	}
+	for _, c := range cases {
+		if got := keepAwake(c.s); got != c.want {
+			t.Errorf("keepAwake(wantPlaying=%v, paused=%v) = %v", c.s.WantPlaying, c.s.Paused, got)
+		}
+	}
+}
+
 func TestRunPlayerPollStopsWithContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

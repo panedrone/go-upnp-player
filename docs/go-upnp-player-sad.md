@@ -56,6 +56,7 @@ internal/stream         FLAC → WAV for a sample range (+ equalizer), raw FLAC
 internal/library        folder walk, cue, tags, cover art, metadata cache
 internal/player         queue and commands to the selected renderer (package-level state)
 internal/bg_workers     renderer poll every second, re-discovery every minute
+internal/power          keeping the PC awake while playing (Windows only)
 internal/config         settings in %AppData%\go-upnp-player\config.json
 internal/testkit        for tests only: generated FLAC files, a fake gmrender renderer
 web/                    React + React-Bootstrap (Vite); web/dist is built at design time,
@@ -159,6 +160,12 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 
    The same poll watches for a frozen renderer ([ADR-006](adr-006-hung-gmrender.md)) and a racing
    one ([ADR-007](adr-007-racing-gmrender.md)).
+
+   While the player plays or is starting a track (not paused, stopped or played out), the poll
+   also resets the system idle timer (`SetThreadExecutionState(ES_SYSTEM_REQUIRED)`, without
+   `ES_CONTINUOUS`): the stream comes from this PC, and sleep would cut the renderer off. The
+   display still turns off; once playback stops, the PC sleeps by its own settings. Not done
+   outside Windows yet.
 7. **Switching renderers keeps the position.**
    - While playing, a run starts on the new renderer from the old position
      ([ADR-015](adr-015-start-at-position-as-a-stream.md)).
