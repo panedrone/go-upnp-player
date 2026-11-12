@@ -19,8 +19,14 @@ picked. No drivers are written and no output plugins are used: the exchange with
 plain, predictable HTTP and UPnP, built into the binary, which is also why the same program runs
 on any OS Go builds for.
 
-A network streamer is bought to take the computer out of the audio path. The player sends it the
-original samples: decoded FLAC with no resampling, no dither and no volume applied on the way. Two
+Why a streamer and not a USB DAC on the computer. USB ties the DAC to the computer's ground, and
+with it to the noise of switching power supplies, a graphics card and fans. Ethernet carries only
+data and is isolated by transformers. The streamer, a small box with nothing else to do, buffers
+the stream at its leisure (music, unlike games, does not care whether a track starts 5 ms or half
+a second after Play) and feeds the DAC, which clocks the samples out by its own oscillator. The
+computer is out of the audio path.
+
+The player sends the streamer the original samples: decoded FLAC with no resampling, no dither and no volume applied on the way. Two
 things change samples, and only when they apply: the equalizer while it is on, and a 10 ms fade-in
 where a stream starts (Play, a seek), so music cut in mid-wave does not click (foobar2000 does the
 same after a seek). Tracks that follow one another in a stream go on untouched.
