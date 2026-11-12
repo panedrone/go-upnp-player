@@ -236,8 +236,15 @@ export default function App() {
         <Panel defaultSize={38} minSize={18} order={1}>
         {/* library */}
         <Card className="col-library h-100">
+          {/* the search box is the card's title */}
           <Card.Header className="d-flex align-items-center">
-            <span className="me-auto">Library</span>
+            <InputGroup size="sm" className="me-2 flex-grow-1 min-w-0">
+              <Form.Control
+                value={filter} placeholder="Search artist, album, title…"
+                onChange={(e) => setFilter(e.target.value)}
+              />
+              {filter && <Button variant="outline-secondary" onClick={() => setFilter('')}>×</Button>}
+            </InputGroup>
             {state?.library.scanning && <Spinner size="sm" className="me-2" />}
             {/* rescan the library folders for new or removed music; the tree keeps its
                 expanded folders and the highlighted playlist source */}
@@ -273,15 +280,6 @@ export default function App() {
               </svg>
             </Button>
           </Card.Header>
-          <div className="p-2 border-bottom">
-            <InputGroup size="sm">
-              <Form.Control
-                value={filter} placeholder="Search artist, album, title…"
-                onChange={(e) => setFilter(e.target.value)}
-              />
-              {filter && <Button variant="outline-secondary" onClick={() => setFilter('')}>×</Button>}
-            </InputGroup>
-          </div>
           <div className="flex-grow-1 overflow-auto min-h-0">
             {/* the tree is not unmounted during search, so expansion state is kept */}
             <div className={searchHits ? 'd-none' : ''}>
@@ -297,9 +295,8 @@ export default function App() {
         <PanelGroup direction="vertical" autoSaveId="go-upnp-player.layout.playlist.v2">
         <Panel defaultSize={50} minSize={20} order={1}>
         <Card className="col-tracks h-100">
-          {/* the playlist's own controls: transport, then the position of the playing track */}
+          {/* the playlist's own controls, no title: transport, then the position of the playing track */}
           <Card.Header className="d-flex align-items-center gap-2">
-            <span>Playlist</span>
             <ButtonGroup className="flex-shrink-0">
               <Button size="sm" variant="outline-secondary" className="head-btn" title="Previous" onClick={() => run(api.prev())}>
                 <BarIcon name="prev" />
