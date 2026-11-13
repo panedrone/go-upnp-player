@@ -62,6 +62,8 @@ func Run(url, title string) bool {
 		return false
 	}
 	setIcon(w.Window())
+	restorePlacement(uintptr(w.Window()))
+	hookClose(uintptr(w.Window()))
 	current.Store(&w)
 	w.Navigate(url)
 	w.Run() // returns once the window is destroyed or Close posts the quit
@@ -73,7 +75,10 @@ func Run(url, title string) bool {
 func Close() {
 	if p := current.Load(); p != nil {
 		w := *p
-		w.Dispatch(w.Terminate)
+		w.Dispatch(func() {
+			savePlacement(uintptr(w.Window())) // Quit or a takeover: the window was not closed by hand
+			w.Terminate()
+		})
 	}
 }
 

@@ -1,8 +1,7 @@
 # ADR-018: The installed player shows its UI in a window of its own (WebView2)
 
 **Status:** Accepted 2026-11-13 (1.1.14). **Open:** the window is not tried on a Windows without
-the WebView2 runtime (the code falls back to the browser there, untested); window size and
-position are not remembered.
+the WebView2 runtime (the code falls back to the browser there, untested).
 **Overcome:** checked live on the owner's PC with `-window`: the window opens, a second start brings it to the
 front and exits, closing the window quits the player.
 
@@ -43,6 +42,10 @@ starts the exe without arguments and still gets the window. `-window` and `-brow
   raises its window (the second process first allows it the foreground). 404 means it runs in the
   browser, and the second start opens the page as before.
 - No WebView2 runtime: logged, and the browser opens instead.
+- The window comes back where it was closed (added 1.1.15): its restored rectangle and whether it
+  was maximized go to `config.json` (`window`) on close, by the close button (read before
+  go-webview2 destroys the window) or by Quit and takeovers. A rectangle no monitor shows any more
+  is dropped, and the window opens centred.
 - The window and its taskbar button get the icon from a copy of `assets/icon.ico` embedded into
   the exe (`window/icon.ico`, `go:embed`), at the sizes Windows asks for. The exe file itself
   still has no icon resource, so Explorer shows it without one; the shortcuts carry `icon.ico`.

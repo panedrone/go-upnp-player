@@ -16,6 +16,18 @@ type Config struct {
 	Renderer string              `json:"renderer"` // UDN
 	EQ       services.EQSettings `json:"eq"`
 	Playlist Playlist            `json:"playlist"`
+	// Window: where the player's own window was when it closed (ADR-018); nil until then
+	Window *Window `json:"window,omitempty"`
+}
+
+// Window is the own window's restored (normal) rectangle in screen pixels, and whether it
+// was maximized.
+type Window struct {
+	Left      int32 `json:"left"`
+	Top       int32 `json:"top"`
+	Right     int32 `json:"right"`
+	Bottom    int32 `json:"bottom"`
+	Maximized bool  `json:"maximized,omitempty"`
 }
 
 // Playlist is the playlist and the current track (library track IDs; an ID is stable

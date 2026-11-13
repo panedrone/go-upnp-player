@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, Spinner } from 'react-bootstrap'
-import { api, fmtTime, TreeNode } from './api'
+import { api, TreeNode } from './api'
 import { ToPlaylistIcon } from './icons'
 
 // Expanded tree nodes live in the browser localStorage, so they survive a page
@@ -255,7 +255,6 @@ function TreeItem({ node, depth, selectedPath, onMakePlaylist, initiallyOpen, re
         >
           <ToPlaylistIcon />
         </Button>
-        <span className="ms-auto text-body-secondary tree-dur">{node.duration ? fmtTime(node.duration) : ''}</span>
       </div>
       {open && children && (
         <Level nodes={children} depth={depth + 1} selectedPath={selectedPath} onMakePlaylist={onMakePlaylist} reloadKey={reloadKey} syncTick={syncTick} />

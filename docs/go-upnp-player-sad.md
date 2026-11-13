@@ -81,6 +81,7 @@ CI needs Go only.
 **State.** Everything that must survive a browser change lives in `config.json`:
 
 - library folders, the selected renderer and the equalizer;
+- where the player's own window was and whether it was maximized;
 - the playlist: track IDs, the current index, `source` (the tree node it was built from) and
   `position` (where Play resumes after a restart).
 
@@ -262,7 +263,8 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
   - Library tree, playlist, and on the right the Output, Equalizer and Library folders cards;
   - under the playlist, behind a splitter of its own, the Properties card.
 - **Library tree** ([ADR-011](adr-011-library-tree-navigation.md)):
-  - folders, cue sheets and track files; cue sheets and files are leaves;
+  - folders, cue sheets and track files, names only (lengths are in the playlist); cue sheets and
+    files are leaves;
   - → on a row builds the playlist from the node without touching playback;
   - the node the playlist was built from is highlighted.
 - **Library header:** the search box in place of a title, then the buttons:
