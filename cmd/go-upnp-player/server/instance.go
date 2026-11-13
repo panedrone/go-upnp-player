@@ -32,25 +32,26 @@ func BuildID() string {
 	return hex.EncodeToString(h.Sum(nil))[:12]
 }
 
-// RunningBuild reports whether the port is answered by go-upnp-player and which
-// build it is ("" for builds before /api/version existed).
-func RunningBuild(ui string) (running bool, build string) {
+// RunningBuild reports whether the port is answered by go-upnp-player, and its build
+// and version ("" for builds before /api/version existed).
+func RunningBuild(ui string) (running bool, build, version string) {
 	if !alreadyRunning(ui) {
-		return false, ""
+		return false, "", ""
 	}
 	c := http.Client{Timeout: 2 * time.Second}
 	resp, err := c.Get(ui + "api/version")
 	if err != nil {
-		return true, ""
+		return true, "", ""
 	}
 	defer func() { _ = resp.Body.Close() }()
 	var v struct {
-		Build string `json:"build"`
+		Build   string `json:"build"`
+		Version string `json:"version"`
 	}
 	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&v) != nil {
-		return true, ""
+		return true, "", ""
 	}
-	return true, v.Build
+	return true, v.Build, v.Version
 }
 
 // TakeOver asks the running player to quit (the same graceful path as the Quit

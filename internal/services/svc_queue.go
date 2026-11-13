@@ -212,9 +212,15 @@ func SwitchDone(rendererDur, rendererPos, targetDur float64) bool {
 
 // ShouldReplace decides whether a newly started exe replaces the player that is
 // already running: yes when the builds differ (an older one has no build id at
-// all), no when they are the same build or our own id is unknown.
-func ShouldReplace(running, ours string) bool {
-	return ours != "" && running != ours
+// all), no when they are the same build or our own id is unknown. An older version
+// never replaces a newer one: with both a setup copy and a go install copy on the
+// machine, starting the stale one took the fresh one down (2026-11-13). Equal versions
+// of different builds (a local rebuild) still replace.
+func ShouldReplace(runningBuild, runningVersion, ours, ourVersion string) bool {
+	if ours == "" || runningBuild == ours {
+		return false
+	}
+	return !NewerVersion(ourVersion, runningVersion)
 }
 
 // IsIndexPath reports whether a request path serves the UI's index.html.

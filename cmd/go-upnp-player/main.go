@@ -66,12 +66,16 @@ func main() {
 	addr := ":" + strconv.Itoa(*port)
 	ln, err := net.Listen("tcp4", addr)
 	if err != nil {
-		running, theirs := server.RunningBuild(ui)
+		running, theirs, theirVersion := server.RunningBuild(ui)
 		if !running {
 			setupLogFile() // the port belongs to some other program: no log of ours to keep
 			log.Fatalf("listen: %v", err)
 		}
-		if !services.ShouldReplace(theirs, build) {
+		if !services.ShouldReplace(theirs, theirVersion, build, server.Version) {
+			if services.NewerVersion(server.Version, theirVersion) {
+				setupLogFile()
+				log.Printf("%s runs already: this older %s leaves it alone and shows it", theirVersion, server.Version)
+			}
 			// the shortcut as "show the player": its window, or else the browser
 			if useWindow && server.ShowRunningWindow(ui) {
 				return
@@ -159,7 +163,7 @@ func main() {
 		window.Close()
 	}()
 	handlers.ShowWindow = window.Show
-	if !window.Run(ui, "go-upnp-player") {
+	if !window.Run(ui, "go-upnp-player "+server.Version) {
 		log.Printf("no WebView2 on this machine: the UI opens in the browser")
 		openBrowser(ui)
 	}

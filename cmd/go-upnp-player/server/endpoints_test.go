@@ -482,7 +482,7 @@ func TestEndpointsScenario(t *testing.T) {
 
 func TestRunningBuild(t *testing.T) {
 	state := `{"renderers":[],"library":{"tracks":0}}`
-	version, code := `{"build":"abc"}`, 200
+	version, code := `{"build":"abc","version":"1.1.17"}`, 200
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/state":
@@ -494,15 +494,15 @@ func TestRunningBuild(t *testing.T) {
 	}))
 	defer srv.Close()
 	ui := srv.URL + "/"
-	if ok, b := RunningBuild(ui); !ok || b != "abc" {
-		t.Fatalf("%v %q", ok, b)
+	if ok, b, v := RunningBuild(ui); !ok || b != "abc" || v != "1.1.17" {
+		t.Fatalf("%v %q %q", ok, b, v)
 	}
 	code = 404 // a build from before /api/version
-	if ok, b := RunningBuild(ui); !ok || b != "" {
-		t.Fatalf("%v %q", ok, b)
+	if ok, b, v := RunningBuild(ui); !ok || b != "" || v != "" {
+		t.Fatalf("%v %q %q", ok, b, v)
 	}
 	state = `{"something":"else"}`
-	if ok, _ := RunningBuild(ui); ok {
+	if ok, _, _ := RunningBuild(ui); ok {
 		t.Fatal("some other program is not our player")
 	}
 	if alreadyRunning("http://127.0.0.1:1/") {

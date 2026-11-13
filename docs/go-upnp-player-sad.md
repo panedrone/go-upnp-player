@@ -94,8 +94,9 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 
 **Process.**
 
-- One instance on port 8090. A newer build replaces the running one, and open pages reload
-  themselves ([ADR-012](adr-012-updates-in-place.md)).
+- One instance on port 8090. Another build replaces the running one, unless the running one is
+  a newer version: then the started copy just shows it and exits. Open pages reload themselves
+  ([ADR-012](adr-012-updates-in-place.md)). The own window's title carries the version.
 - No console window (`-H=windowsgui`). The log goes to
   `%LocalAppData%\go-upnp-player\go-upnp-player.log`.
 - Quit is the ⏻ button (two clicks) or Ctrl+C. Shutdown pauses the renderer, saves the playback

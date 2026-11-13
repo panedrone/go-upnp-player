@@ -1,7 +1,7 @@
 # ADR-012: Updating in place: one instance, no stale UI, playback position kept
 
 **Status:** Accepted 2026-11-09; resuming at the saved position added 2026-11-10 (written down
-2026-11-10).
+2026-11-10); an older version no longer replaces a newer one, added 2026-11-13 (1.1.17).
 **Overcome:** almost fully. **Open:** a browser that cached both the old `index.html` and the old
 bundle before the cache fix keeps showing the old UI until a hard reload (Ctrl+F5).
 
@@ -44,7 +44,12 @@ as go-upnp-player, the builds are compared via `/api/version`, a short SHA-256 o
 
 - same build: open the browser on the running player and exit;
 - different build, or no `/api/version` at all (older builds): call `/api/shutdown` on the
-  running player, then take the port as soon as it is free.
+  running player, then take the port as soon as it is free;
+- ~~any different build replaces the running one~~ (2026-11-13, 1.1.17): unless the running
+  player is a newer version. With a setup copy and a go install copy on one machine
+  ([ADR-019](adr-019-check-for-updates-on-demand.md)), starting the stale one took the fresh one
+  down. An older copy now shows the running player (its window, or the page) and exits; equal
+  versions of different builds, a local rebuild, still replace.
 
 If anything else holds the port, it is an error.
 

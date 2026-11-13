@@ -188,17 +188,19 @@ func TestSwitchDone(t *testing.T) {
 
 func TestShouldReplace(t *testing.T) {
 	cases := []struct {
-		running, ours string
-		want          bool
+		running, runningVer, ours, ourVer string
+		want                              bool
 	}{
-		{"abc", "abc", false}, // same build: just open the page
-		{"abc", "def", true},  // updated exe
-		{"", "def", true},     // a build from before /api/version
-		{"abc", "", false},    // own id unknown: do not kill anything
+		{"abc", "1.1.17", "abc", "1.1.17", false}, // same build: just show the player
+		{"abc", "1.1.16", "def", "1.1.17", true},  // updated exe
+		{"abc", "1.1.17", "def", "1.1.17", true},  // a local rebuild of the same version
+		{"abc", "1.1.17", "def", "1.1.16", false}, // a stale copy leaves the newer one alone
+		{"", "", "def", "1.1.17", true},           // a build from before /api/version
+		{"abc", "1.1.16", "", "1.1.17", false},    // own id unknown: do not kill anything
 	}
 	for _, c := range cases {
-		if got := ShouldReplace(c.running, c.ours); got != c.want {
-			t.Errorf("%q/%q: got %v", c.running, c.ours, got)
+		if got := ShouldReplace(c.running, c.runningVer, c.ours, c.ourVer); got != c.want {
+			t.Errorf("%+v: got %v", c, got)
 		}
 	}
 }
