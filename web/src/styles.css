@@ -135,3 +135,12 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
 /* a row button with a drawn icon (tree, search results, playlist): a small pill, the icon
    in its middle; after the playlist's own .hover-btn padding, so it wins */
 .btn.hover-btn.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 18px; padding: 0; border-radius: 9px; }
+
+/* the update message in the status bar: its action and its × as plain inline links */
+.status-bar .btn.status-link, .status-bar .btn.status-close { padding: 0 0 0 .5rem; border: 0; vertical-align: baseline; font-size: inherit; line-height: inherit; }
+.status-bar .btn.status-close { padding-left: .6rem; text-decoration: none; font-size: 1.1em; }
+/* the update answer blinks three times, then stays; still for those who ask for less motion */
+@keyframes status-blink { 0%, 100% { opacity: 1; } 50% { opacity: .15; } }
+.status-blink { animation: status-blink .5s ease-in-out 3; cursor: default; }
+.status-blink[role="button"] { cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .status-blink { animation: none; } }

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/panedrone/go-upnp-player/cmd/go-upnp-player/window"
 )
 
 // BuildID identifies this exe: a short hash of the executable file, so every
@@ -68,6 +70,19 @@ func TakeOver(ui, addr string) (net.Listener, error) {
 		time.Sleep(250 * time.Millisecond)
 	}
 	return nil, lastErr
+}
+
+// ShowRunningWindow asks the running player to bring its window to the front; false when
+// it has none (it runs in the browser) or is a build without windows.
+func ShowRunningWindow(ui string) bool {
+	window.AllowForeground()
+	c := http.Client{Timeout: 2 * time.Second}
+	resp, err := c.Post(ui+"api/window/show", "application/json", nil)
+	if err != nil {
+		return false
+	}
+	_ = resp.Body.Close()
+	return resp.StatusCode == http.StatusNoContent
 }
 
 // alreadyRunning reports whether the port is answered by go-upnp-player itself (its /api/state).

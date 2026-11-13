@@ -4,6 +4,7 @@ go 1.26.0
 
 require (
 	github.com/gofiber/fiber/v3 v3.6.1
+	github.com/jchv/go-webview2 v0.0.0-20260205173254-56598839c808
 	github.com/mewkiz/flac v1.0.14
 	golang.org/x/text v0.43.0
 )
@@ -13,6 +14,7 @@ require (
 	github.com/gofiber/utils/v2 v2.6.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/icza/bitio v1.1.0 // indirect
+	github.com/jchv/go-winloader v0.0.0-20250406163304-c1995be93bd1 // indirect
 	github.com/klauspost/compress v1.20.3 // indirect
 	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect

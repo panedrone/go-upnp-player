@@ -1,8 +1,8 @@
 import { ChangeEvent, useCallback, useEffect, useRef, useState, version as reactVersion } from 'react'
 import { Badge, Button, ButtonGroup, Card, Form, InputGroup, ListGroup, Spinner } from 'react-bootstrap'
-import { api, fmtTime, PlayerState, Track, TreeNode } from './api'
+import { api, fmtTime, PlayerState, Track, TreeNode, UpdateOffer } from './api'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { RefreshIcon, ToPlaylistIcon } from './icons'
+import { RefreshIcon, ToPlaylistIcon, UpdateIcon } from './icons'
 import Tree, { RevealRequest } from './Tree'
 import Playlist from './Playlist'
 import TrackProperties from './TrackProperties'
@@ -50,6 +50,28 @@ export default function App() {
       // no storage: the theme just is not remembered
     }
   }, [theme])
+
+  // "Check for updates": asked only on a click, the answer shown in the status bar until
+  // the user closes it (the × or a click on the message): it does not run away by itself
+  type UpdateNote =
+    | { kind: 'checking' }
+    | { kind: 'offer'; offer: UpdateOffer }
+    | { kind: 'latest'; version: string }
+    | { kind: 'installing'; version: string }
+    | { kind: 'error'; message: string }
+  const [updateNote, setUpdateNote] = useState<UpdateNote | null>(null)
+  const checkUpdate = () => {
+    setUpdateNote({ kind: 'checking' })
+    api
+      .checkUpdate()
+      .then((o) => setUpdateNote(o.newer ? { kind: 'offer', offer: o } : { kind: 'latest', version: o.current }))
+      .catch((e) => setUpdateNote({ kind: 'error', message: e instanceof Error ? e.message : String(e) }))
+  }
+  const installUpdate = (version: string) => {
+    setUpdateNote({ kind: 'installing', version })
+    // the page reloads itself once the new build answers the poll
+    api.installUpdate().catch((e) => setUpdateNote({ kind: 'error', message: e instanceof Error ? e.message : String(e) }))
+  }
 
   // an "armed" Quit button disarms itself after 3 s
   useEffect(() => {
@@ -356,6 +378,13 @@ export default function App() {
               <small className="text-body-secondary vol-num">{state && state.volume >= 0 ? volume : '–'}</small>
               <Button
                 size="sm" variant="outline-secondary" className="head-btn ms-2 flex-shrink-0"
+                title="Check for updates" disabled={updateNote?.kind === 'checking' || updateNote?.kind === 'installing'}
+                onClick={checkUpdate}
+              >
+                <UpdateIcon />
+              </Button>
+              <Button
+                size="sm" variant="outline-secondary" className="head-btn flex-shrink-0"
                 title={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               >
@@ -477,8 +506,9 @@ export default function App() {
       {/* status bar: what the player is busy with on the left, versions on the right */}
       <footer className="status-bar border-top bg-body-tertiary text-body-secondary d-flex align-items-center gap-3">
         <span className="status-msg text-truncate flex-grow-1" title={state?.waiting || ''}>
-          {/* a refused start being retried: said plainly, with the attempt and the time left */}
-          {state?.waiting && (
+          {updateNote ? (
+            <UpdateMessage note={updateNote} onClose={() => setUpdateNote(null)} onInstall={installUpdate} />
+          ) : state?.waiting && (
             <>
               <Spinner size="sm" className="me-2" />
               {state.waiting}
@@ -510,6 +540,44 @@ function BarIcon({ name }: { name: 'prev' | 'play' | 'pause' | 'stop' | 'next' |
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">
       {shape}
     </svg>
+  )
+}
+
+// The answer to "Check for updates" in the status bar, with what to do about it and a ×.
+// The answer blinks a few times so the eye finds it at the bottom of the window.
+// A setup copy downloads the new setup, a go install copy rebuilds itself with go install,
+// any other copy (the zip) gets the release page. Pages open in the system browser through
+// the backend: a link inside the player's own window would open another such window.
+function UpdateMessage({ note, onClose, onInstall }: {
+  note: { kind: string; offer?: UpdateOffer; version?: string; message?: string }
+  onClose: () => void
+  onInstall: (version: string) => void
+}) {
+  const close = (
+    <Button size="sm" variant="link" className="status-close text-body-secondary" title="Close" onClick={onClose}>×</Button>
+  )
+  const open = () => void api.openUpdate().catch(() => {})
+  switch (note.kind) {
+    case 'checking':
+      return <><Spinner size="sm" className="me-2" />Checking for updates…</>
+    case 'installing':
+      return <><Spinner size="sm" className="me-2" />Updating to {note.version} with go install; the player restarts when it is built…</>
+    case 'latest':
+      return <span className="status-blink" role="button" title="Click to close" onClick={onClose}>You have the latest version, {note.version}.{close}</span>
+    case 'error':
+      return <span className="text-danger">Could not check for updates: {note.message}{close}</span>
+  }
+  const o = note.offer!
+  return (
+    <span className="status-blink">
+      go-upnp-player {o.latest} is available.
+      {o.kind === 'go' ? (
+        <Button size="sm" variant="link" className="status-link" title={o.command} onClick={() => onInstall(o.latest)}>Update with go install</Button>
+      ) : (
+        <Button size="sm" variant="link" className="status-link" onClick={open}>{o.kind === 'setup' ? 'Download the setup' : 'Open the release page'}</Button>
+      )}
+      {close}
+    </span>
   )
 }
 

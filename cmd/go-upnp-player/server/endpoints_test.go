@@ -470,6 +470,14 @@ func TestEndpointsScenario(t *testing.T) {
 			t.Fatal("shutdown was not requested")
 		}
 	})
+
+	t.Run("window", func(t *testing.T) {
+		handlers.ShowWindow = nil
+		c.status(404, "POST", "/api/window/show", "") // a player in the browser
+		handlers.ShowWindow = func() bool { return true }
+		t.Cleanup(func() { handlers.ShowWindow = nil })
+		c.status(204, "POST", "/api/window/show", "")
+	})
 }
 
 func TestRunningBuild(t *testing.T) {

@@ -34,6 +34,10 @@ func InitRoutes(app *fiber.App) {
 	api.Post("/player/seek", handlers.Seek)
 	api.Post("/player/volume", handlers.Volume)
 	api.Post("/shutdown", handlers.Shutdown)
+	api.Post("/window/show", handlers.Window)
+	api.Get("/update", handlers.CheckUpdate)
+	api.Post("/update/open", handlers.OpenUpdate)
+	api.Post("/update/install", handlers.InstallUpdate)
 	api.Get("/eq", handlers.GetEQ)
 	api.Put("/eq", handlers.PutEQ)
 

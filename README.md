@@ -10,7 +10,8 @@
 A bit-perfect player for a lossless library (FLAC files and FLAC images with `.cue` sheets) that
 plays to network UPnP/DLNA streamers (tested with gmrender-resurrect: a home-made streamer on a
 BeagleBone Green and a FiiO SR11). A single executable: a Go/Fiber v3 backend with a
-React-Bootstrap UI embedded in it, opened in the browser. Windows and Linux are tested; macOS
+React-Bootstrap UI embedded in it, shown in a window of its own when installed on Windows and in
+the browser otherwise. Windows and Linux are tested; macOS
 builds and is expected to work, but has not been run yet.
 
 It does not try to play to everything. Its outputs are the network streamers of the home network
@@ -63,7 +64,8 @@ files and/or FLAC images with `.cue` sheets.
 3. Windows Firewall asks about network access: **allow it for private networks**. Renderers
    download tracks from the player themselves; without the rule you get "the command went through,
    but silence".
-4. The player opens in the browser at `http://localhost:8090/`. In the **Library folders** card
+4. The player opens in a window of its own (the zip version: in the browser at
+   `http://localhost:8090/`). In the **Library folders** card
    enter your music folders (one per line) and press **Save**; the library is scanned.
 5. Pick a renderer in the **Output** card (press **Use** on hover), build a playlist with the
    **→** button next to a folder, a cue sheet or a track, and press **▶**.
@@ -73,8 +75,8 @@ Optional:
 - **Desktop shortcut for the zip:** right-click `go-upnp-player.exe` → *Send to → Desktop (create
   shortcut)*. For a nicer icon: shortcut *Properties → Change Icon…* → `icon.ico` from the same
   folder.
-- **Pin to the taskbar:** right-click the shortcut → *Show more options → Pin to taskbar*.
-  The player has no window of its own, so it cannot be pinned while running.
+- **Pin to the taskbar:** right-click the Start menu shortcut → *Pin to taskbar*. The zip version
+  has no window of its own, so pin its desktop shortcut the same way.
 - **Phone as a remote:** open `http://<this PC's IP>:8090/` on a phone in the same network.
 
 Settings live in `%AppData%\go-upnp-player\config.json`, the log and the metadata cache in
@@ -131,21 +133,31 @@ and no renderers show up, allow the home network, e.g. `sudo ufw allow from 192.
 
 ## Use
 
-- Only one copy runs per machine: starting it again just opens the page. After an update, the
-  new exe stops the old one gracefully and takes over; an open page reloads itself.
-- The program has no window: stop it with the **⏻ Quit** button on the page (two clicks). It
-  pauses the renderer first, then exits.
+- Only one copy runs per machine: starting it again brings its window to the front (or opens the
+  page). After an update, the new exe stops the old one gracefully and takes over; an open page
+  reloads itself.
+- Installed with the setup, the player shows its UI in a window of its own (WebView2, the Edge
+  engine built into Windows 10/11); closing the window quits it, minimizing just minimizes. The
+  zip and `go install` versions have no window and use the browser: stop them with the **⏻ Quit**
+  button on the page (two clicks). Either way the renderer is paused first, then the player exits.
+- **Check for updates:** the cloud button next to the theme switch. The player asks GitHub only
+  when it is pressed. A newer version shows in the status bar with the way to get it: the setup
+  copy downloads the new setup, a `go install` copy updates itself with `go install` and restarts,
+  the zip version opens the release page.
 - Started from cmd or PowerShell, it attaches to that console and prints Fiber's startup banner.
 - Command line options:
   - `-root` — library folders separated by `;` (remembered; can be changed later on the page);
   - `-port` — port for the UI, the API and the track streams, 8090 by default;
-  - `-no-browser` — do not open the browser.
+  - `-no-browser` — do not open the browser or a window;
+  - `-window` — the UI in a window of its own even outside an installed copy (Windows);
+  - `-browser` — the UI in the browser even in an installed copy.
 
 ## Icon
 
 `web/public/favicon.svg` is the source (an original drawing: a streamer box with a play badge).
 `web/public/favicon-32.png`, `assets/icon-256.png` and `assets/icon.ico` are rendered from it; the
-`.ico` is meant for a desktop shortcut. The exe itself has no embedded icon yet: that needs a
+`.ico` is meant for a desktop shortcut; a copy in `cmd/go-upnp-player/window` gives the player's
+window its icon. The exe file itself has no embedded icon yet: that needs a
 Windows resource (`.syso`), e.g. `go-winres simply --icon assets/icon-256.png` in `cmd/go-upnp-player`.
 
 The Go gopher in the title (`docs/img/gopher.svg`) was designed by Renee French and is licensed

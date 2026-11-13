@@ -57,6 +57,16 @@ export interface PlayerState {
   version?: string
 }
 
+// the answer to "check for updates"; kind says how this copy is updated
+export interface UpdateOffer {
+  current: string
+  latest: string
+  newer: boolean
+  kind: 'setup' | 'go' | 'page'
+  url?: string
+  command?: string
+}
+
 async function req<T>(method: string, url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const r = await fetch(url, {
     method,
@@ -100,6 +110,9 @@ export const api = {
   shutdown: () => req<void>('POST', '/api/shutdown'),
   properties: (id: string) => req<TrackProps>('GET', `/api/track/${q(id)}/properties`),
   eq: () => req<EQ>('GET', '/api/eq'),
+  checkUpdate: () => req<UpdateOffer>('GET', '/api/update'),
+  openUpdate: () => req<void>('POST', '/api/update/open'),
+  installUpdate: () => req<void>('POST', '/api/update/install'),
   saveEq: (enabled: boolean, gains: number[]) => req<void>('PUT', '/api/eq', { enabled, gains }),
 }
 

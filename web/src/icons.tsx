@@ -37,3 +37,13 @@ export function PlayIcon() {
     </svg>
   )
 }
+
+// "Check for updates": a cloud with an arrow down
+export function UpdateIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4.5 11.5H4a3 3 0 0 1-.4-6 4.5 4.5 0 0 1 8.7 1A2.5 2.5 0 0 1 12 11.5h-.5" />
+      <path d="M8 7.5v6M5.8 11.3L8 13.5l2.2-2.2" />
+    </svg>
+  )
+}

@@ -48,6 +48,7 @@ pulls the track from the player over HTTP. Both renderers in use run gmrender-re
 cmd/go-upnp-player      main.go only: flags, log file, startup and shutdown order
 cmd/go-upnp-player/server  routes, embedded UI (static middleware), one-instance
                         takeover, console check, version
+cmd/go-upnp-player/window  the UI in a window of its own (WebView2, Windows only)
 internal/handlers/h_*   transport: request parsing, responses
 internal/services/svc_* pure logic with tests: CUE, WAV geometry, Range, DIDL,
                         queue advance decision, equalizer, MIME choice
@@ -57,6 +58,8 @@ internal/library        folder walk, cue, tags, cover art, metadata cache
 internal/player         queue and commands to the selected renderer (package-level state)
 internal/bg_workers     renderer poll every second, re-discovery every minute
 internal/power          keeping the PC awake while playing (Windows only)
+internal/selfupdate     the update check (GitHub's latest release) and go install of a new
+                        version, only on the user's click
 internal/config         settings in %AppData%\go-upnp-player\config.json
 internal/testkit        for tests only: generated FLAC files, a fake gmrender renderer
 web/                    React + React-Bootstrap (Vite); web/dist is built at design time,
@@ -67,7 +70,9 @@ installer/              Windows installer script (Inno Setup 6), built at design
 **Windows installer.** `ISCC /DAppVersion=X.Y.Z installer\go-upnp-player.iss` from the repository
 root, after the release exe is built into `bin\`, gives `bin\go-upnp-player-setup.exe`. It
 installs per user, without administrator rights, into `%LocalAppData%\Programs\go-upnp-player`,
-with Start menu and desktop shortcuts and an entry in Settings → Apps. A running player on port
+with Start menu and desktop shortcuts and an entry in Settings → Apps. An installed copy (an `unins000.exe` next to
+the exe) shows the UI in its own window ([ADR-018](adr-018-own-window-via-webview2.md)): closing
+it quits the player, a second start brings it to the front; `-browser` and `-window` override. A running player on port
 8090 is stopped through `/api/shutdown`, like its Quit (renderer paused, position saved), not
 killed: the Restart Manager is off. The uninstaller removes the program and its shortcuts; it asks
 whether to delete the settings and the library cache too, and keeps them when silent. Not in CI:
@@ -243,6 +248,11 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
 
 ## 7. UI
 
+- **Check for updates** (the cloud button by the theme switch, [ADR-019](adr-019-check-for-updates-on-demand.md)):
+  the player asks GitHub only on this click. A newer version is offered in the status bar, with a
+  ×, the way this copy updates: the setup copy downloads the new setup, a `go install` copy
+  rebuilds itself and restarts, the zip opens the release page. Pages open in the system browser
+  through `POST /api/update/open`.
 - **State polling.** The page polls `GET /api/state` once a second and again right after every
   command ([ADR-010](adr-010-ui-polls-state.md)). A changed `library.scans` reloads the tree and
   the playlist. The backend's state is shown as it is: a seek or volume slider shows the value
@@ -310,6 +320,8 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [015](adr-015-start-at-position-as-a-stream.md) | A start at a position is a stream that begins there |
 | [016](adr-016-clicks-between-tracks-on-fiio-coax.md) | One stream for the tracks of one format, as foobar2000 sends it: no clicks between tracks |
 | [017](adr-017-old-position-after-seek.md) | The renderer's old position after a seek is not taken for where it plays |
+| [018](adr-018-own-window-via-webview2.md) | The installed player shows its UI in a window of its own (WebView2) |
+| [019](adr-019-check-for-updates-on-demand.md) | Updates are checked only on a click, and each kind of copy updates its own way |
 
 ## 9. Testing
 
