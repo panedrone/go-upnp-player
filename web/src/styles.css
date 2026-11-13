@@ -125,3 +125,13 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
 .renderer-row .badge { font-size: .65em; padding: .3em .45em; }
 .output-info { font-size: .75em; line-height: 1.3; }
 .output-dot { margin: 0 .35em; }
+
+/* the three top headers (search, transport, volume) in one line: one height, and the
+   search box and its clear button as tall as the 24 px header buttons */
+.card-header.top-head { flex: none; height: 41px; padding-top: 0; padding-bottom: 0; }
+.top-head .input-group-sm > .form-control, .top-head .input-group-sm > .btn { height: 24px; min-height: 24px; padding-top: 0; padding-bottom: 0; line-height: 22px; }
+.top-head .form-range { height: 24px; }
+
+/* a row button with a drawn icon (tree, search results, playlist): a small pill, the icon
+   in its middle; after the playlist's own .hover-btn padding, so it wins */
+.btn.hover-btn.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 18px; padding: 0; border-radius: 9px; }

@@ -2,7 +2,7 @@ import { ChangeEvent, useCallback, useEffect, useRef, useState, version as react
 import { Badge, Button, ButtonGroup, Card, Form, InputGroup, ListGroup, Spinner } from 'react-bootstrap'
 import { api, fmtTime, PlayerState, Track, TreeNode } from './api'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { RefreshIcon } from './icons'
+import { RefreshIcon, ToPlaylistIcon } from './icons'
 import Tree, { RevealRequest } from './Tree'
 import Playlist from './Playlist'
 import TrackProperties from './TrackProperties'
@@ -237,7 +237,7 @@ export default function App() {
         {/* library */}
         <Card className="col-library h-100">
           {/* the search box is the card's title */}
-          <Card.Header className="d-flex align-items-center">
+          <Card.Header className="top-head d-flex align-items-center">
             <InputGroup size="sm" className="me-2 flex-grow-1 min-w-0">
               <Form.Control
                 value={filter} placeholder="Search artist, album, title…"
@@ -296,7 +296,7 @@ export default function App() {
         <Panel defaultSize={50} minSize={20} order={1}>
         <Card className="col-tracks h-100">
           {/* the playlist's own controls, no title: transport, then the position of the playing track */}
-          <Card.Header className="d-flex align-items-center gap-2">
+          <Card.Header className="top-head d-flex align-items-center gap-2">
             <ButtonGroup className="flex-shrink-0">
               <Button size="sm" variant="outline-secondary" className="head-btn" title="Previous" onClick={() => run(api.prev())}>
                 <BarIcon name="prev" />
@@ -350,7 +350,7 @@ export default function App() {
         <div className="col-side d-flex flex-column gap-2 overflow-auto h-100">
           {/* volume of the selected device, theme and Quit */}
           <Card>
-            <Card.Header className="d-flex align-items-center gap-2">
+            <Card.Header className="top-head d-flex align-items-center gap-2">
               <span>Vol</span>
               <Form.Range className="flex-grow-1" min={0} max={100} value={volume} title="Volume" {...volProps} />
               <small className="text-body-secondary vol-num">{state && state.volume >= 0 ? volume : '–'}</small>
@@ -528,8 +528,8 @@ function SearchResults({ hits, playingId, onMakePlaylist }: { hits: Track[]; pla
           <span className="tree-name text-truncate">
             {t.title} <small className="text-body-secondary">— {[t.artist, t.album].filter(Boolean).join(' · ')}</small>
           </span>
-          <Button size="sm" variant="secondary" className="hover-btn" title="Make a playlist of this track" onClick={() => onMakePlaylist([t.id])}>
-            →
+          <Button size="sm" variant="secondary" className="hover-btn icon-btn" title="Make a playlist of this track" onClick={() => onMakePlaylist([t.id])}>
+            <ToPlaylistIcon />
           </Button>
           <span className="ms-auto text-body-secondary tree-dur">{fmtTime(t.duration)}</span>
         </div>

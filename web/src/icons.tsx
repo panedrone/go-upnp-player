@@ -18,3 +18,22 @@ export function ChevronIcon({ open }: { open: boolean }) {
     </svg>
   )
 }
+
+// the row button that makes a playlist of a tree node or a search hit: an arrow drawn
+// like the other icons; the "→" character sat low and thin (2026-11-13)
+export function ToPlaylistIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2.5 8h10.5M9 3.5L13.5 8 9 12.5" />
+    </svg>
+  )
+}
+
+// the playlist row's Play button: a filled triangle, nudged right so it looks centred
+export function PlayIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <path d="M4.5 2.2v11.6c0 .5.5.8 1 .5l9-5.8a.6.6 0 0 0 0-1L5.5 1.7c-.5-.3-1 0-1 .5z" />
+    </svg>
+  )
+}

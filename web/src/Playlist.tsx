@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Badge, Button, Image, Spinner, Table } from 'react-bootstrap'
 import { artUrl, fmtTime, Track } from './api'
+import { PlayIcon } from './icons'
 
 interface Props {
   tracks: Track[]
@@ -88,13 +89,13 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay, sele
                             <Spinner size="sm" className="ms-2 flex-shrink-0 text-body-secondary" />
                           ) : (
                             <Button
-                              size="sm" variant="secondary" className="hover-btn" title="Play"
+                              size="sm" variant="secondary" className="hover-btn icon-btn" title="Play"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 onPlay(i)
                               }}
                             >
-                              ▶
+                              <PlayIcon />
                             </Button>
                           )}
                         </div>

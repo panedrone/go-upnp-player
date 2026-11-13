@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, Spinner } from 'react-bootstrap'
 import { api, fmtTime, TreeNode } from './api'
+import { ToPlaylistIcon } from './icons'
 
 // Expanded tree nodes live in the browser localStorage, so they survive a page
 // reload and an app restart. Storage may be unavailable (private window,
@@ -245,14 +246,14 @@ function TreeItem({ node, depth, selectedPath, onMakePlaylist, initiallyOpen, re
         <span className="tree-name text-truncate">{node.name}</span>
         {/* the button appears on hover, right after the label */}
         <Button
-          size="sm" variant="secondary" className="hover-btn"
+          size="sm" variant="secondary" className="hover-btn icon-btn"
           title={expandable ? 'Make a playlist of everything inside' : 'Make a playlist of this track'}
           onClick={(e) => {
             e.stopPropagation()
             onMakePlaylist(node)
           }}
         >
-          →
+          <ToPlaylistIcon />
         </Button>
         <span className="ms-auto text-body-secondary tree-dur">{node.duration ? fmtTime(node.duration) : ''}</span>
       </div>
