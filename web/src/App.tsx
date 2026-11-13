@@ -58,6 +58,7 @@ export default function App() {
     | { kind: 'offer'; offer: UpdateOffer }
     | { kind: 'latest'; version: string }
     | { kind: 'installing'; version: string }
+    | { kind: 'installed'; version: string }
     | { kind: 'error'; message: string }
   const [updateNote, setUpdateNote] = useState<UpdateNote | null>(null)
   const checkUpdate = () => {
@@ -69,8 +70,13 @@ export default function App() {
   }
   const installUpdate = (version: string) => {
     setUpdateNote({ kind: 'installing', version })
-    // the page reloads itself once the new build answers the poll
-    api.installUpdate().catch((e) => setUpdateNote({ kind: 'error', message: e instanceof Error ? e.message : String(e) }))
+    // the page reloads itself once the new build answers the poll; if it has not after
+    // 30 s, the restart did not take, and the user is told to restart by hand rather than
+    // left with "Updating…" for ever
+    api
+      .installUpdate()
+      .then(() => setTimeout(() => setUpdateNote((n) => (n?.kind === 'installing' ? { kind: 'installed', version } : n)), 30000))
+      .catch((e) => setUpdateNote({ kind: 'error', message: e instanceof Error ? e.message : String(e) }))
   }
 
   // an "armed" Quit button disarms itself after 3 s
@@ -562,6 +568,8 @@ function UpdateMessage({ note, onClose, onInstall }: {
       return <><Spinner size="sm" className="me-2" />Checking for updates…</>
     case 'installing':
       return <><Spinner size="sm" className="me-2" />Updating to {note.version} with go install; the player restarts when it is built…</>
+    case 'installed':
+      return <span className="status-blink">go-upnp-player {note.version} is installed, but the player did not restart by itself: quit it and start it again.{close}</span>
     case 'latest':
       return <span className="status-blink" role="button" title="Click to close" onClick={onClose}>You have the latest version, {note.version}.{close}</span>
     case 'error':

@@ -1,10 +1,10 @@
 # ADR-019: Updates are checked only on a click, and each kind of copy updates its own way
 
-**Status:** Accepted 2026-11-13 (1.1.14). **Open:** the offer of a newer version was not seen
-live (no release newer than the running build existed yet); "Update with go install" and the
-setup download were not run end to end.
-**Overcome:** in tests (version comparison, the kind of copy, GitHub's answer, go install moving
-the running exe aside and back); "you have the latest version" checked live against GitHub.
+**Status:** Accepted 2026-11-13 (1.1.14); the Linux restart fixed in 1.1.16. **Open:** the fixed
+"Update with go install" not yet run on Linux.
+**Overcome:** on Windows end to end (1.1.14 → 1.1.15 by the setup and by go install); in tests
+(version comparison, the kind of copy, GitHub's answer, go install moving the running exe aside
+and back).
 
 ## Context
 
@@ -37,6 +37,12 @@ bar and closable. The player must not contact anything by itself.
     put back if the build fails. The new exe is then started with `-no-browser` and takes over
     the port (ADR-012); the open page reloads itself;
   - **page** (the zip, a local build): "Open the release page".
+- The restart uses the exe path taken when the process started. On Linux `os.Executable` reads
+  `/proc/self/exe`, which follows the file once it is moved aside: the 1.1.15 restart started the
+  old exe again, which saw its own build running and quit, and the page waited for ever
+  (2026-11-13, a go install copy started from a terminal). The new process gets a session of its
+  own (`setsid`), so a Ctrl+C in that terminal does not take it down. If the page has not
+  reloaded 30 s after the build, it says the update is installed and asks for a restart by hand.
 - Versions compare as three numbers; anything else is never "newer".
 - The answer blinks three times in the status bar and stays until closed, by its × or, for
   "You have the latest version", by a click on it (owner: it must not run away by itself).

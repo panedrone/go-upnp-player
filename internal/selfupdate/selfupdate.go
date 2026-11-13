@@ -37,8 +37,13 @@ var (
 		hideWindow(cmd)
 		return cmd.CombinedOutput()
 	}
-	executable = os.Executable
+	// executable is the exe's path as it was when the process started. Asked later, Linux
+	// answers from /proc/self/exe, which follows the file when an update has moved it
+	// aside: the restart then started the old exe again (1.1.15, 2026-11-13).
+	executable = func() (string, error) { return startedAs, startedErr }
 )
+
+var startedAs, startedErr = os.Executable()
 
 // Latest asks GitHub for the latest release.
 func Latest(ctx context.Context) (services.Release, error) {
@@ -161,6 +166,7 @@ func Restart(args []string) error {
 		return err
 	}
 	cmd := exec.Command(exe, append(append([]string(nil), args...), "-no-browser")...)
+	detach(cmd)
 	return cmd.Start()
 }
 
