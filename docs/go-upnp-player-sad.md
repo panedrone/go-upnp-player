@@ -61,7 +61,17 @@ internal/config         settings in %AppData%\go-upnp-player\config.json
 internal/testkit        for tests only: generated FLAC files, a fake gmrender renderer
 web/                    React + React-Bootstrap (Vite); web/dist is built at design time,
                         committed, and embedded with go:embed (so go install needs no Node)
+installer/              Windows installer script (Inno Setup 6), built at design time
 ```
+
+**Windows installer.** `ISCC /DAppVersion=X.Y.Z installer\go-upnp-player.iss` from the repository
+root, after the release exe is built into `bin\`, gives `bin\go-upnp-player-setup.exe`. It
+installs per user, without administrator rights, into `%LocalAppData%\Programs\go-upnp-player`,
+with Start menu and desktop shortcuts and an entry in Settings → Apps. A running player on port
+8090 is stopped through `/api/shutdown`, like its Quit (renderer paused, position saved), not
+killed: the Restart Manager is off. The uninstaller removes the program and its shortcuts; it asks
+whether to delete the settings and the library cache too, and keeps them when silent. Not in CI:
+CI needs Go only.
 
 **State.** Everything that must survive a browser change lives in `config.json`:
 

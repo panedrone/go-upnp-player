@@ -49,11 +49,17 @@ which renderer quirks forced it and how far each is overcome: the ADRs listed in
 Requirements: Windows 10/11 x64, a UPnP/DLNA renderer on the same network, a library of FLAC
 files and/or FLAC images with `.cue` sheets.
 
-1. Download `go-upnp-player-windows-amd64.zip` from
-   [Releases](https://github.com/panedrone/go-upnp-player/releases) and unpack it into any folder,
-   e.g. `C:\Programs\go-upnp-player`. Nothing else is installed.
-2. Run `go-upnp-player.exe`. The exe is not signed, so on the first start Windows SmartScreen may
-   say "Windows protected your PC": click **More info → Run anyway**.
+1. Download `go-upnp-player-setup.exe` from
+   [Releases](https://github.com/panedrone/go-upnp-player/releases) and run it. It installs for
+   the current user, with no administrator rights: the program goes to
+   `%LocalAppData%\Programs\go-upnp-player`, shortcuts to the Start menu and the desktop. Neither
+   the setup nor the exe is signed, so Windows SmartScreen may say "Windows protected your PC":
+   click **More info → Run anyway**. A newer setup run over an older install updates it, stopping a
+   running player first.
+2. Start go-upnp-player from the shortcut; the setup offers to start it at the end.
+
+   No installer wanted: `go-upnp-player-windows-amd64.zip` from the same release holds the exe and
+   its icon; unpack it into any folder and run `go-upnp-player.exe`.
 3. Windows Firewall asks about network access: **allow it for private networks**. Renderers
    download tracks from the player themselves; without the rule you get "the command went through,
    but silence".
@@ -64,14 +70,16 @@ files and/or FLAC images with `.cue` sheets.
 
 Optional:
 
-- **Desktop shortcut:** right-click `go-upnp-player.exe` → *Send to → Desktop (create shortcut)*.
-  For a nicer icon: shortcut *Properties → Change Icon…* → `icon.ico` from the same folder.
+- **Desktop shortcut for the zip:** right-click `go-upnp-player.exe` → *Send to → Desktop (create
+  shortcut)*. For a nicer icon: shortcut *Properties → Change Icon…* → `icon.ico` from the same
+  folder.
 - **Pin to the taskbar:** right-click the shortcut → *Show more options → Pin to taskbar*.
   The player has no window of its own, so it cannot be pinned while running.
 - **Phone as a remote:** open `http://<this PC's IP>:8090/` on a phone in the same network.
 
 Settings live in `%AppData%\go-upnp-player\config.json`, the log and the metadata cache in
-`%LocalAppData%\go-upnp-player`. To uninstall, delete the program folder and those two folders.
+`%LocalAppData%\go-upnp-player`. To uninstall: *Settings → Apps → go-upnp-player → Uninstall*; it
+asks whether to delete those two folders too. The zip version: delete its folder and those two.
 
 ### With Go (any OS)
 
