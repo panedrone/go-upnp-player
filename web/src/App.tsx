@@ -15,7 +15,7 @@ import Settings from './Settings'
 // is a livelier green and every quiet state a lighter gray.
 const transportVariant: Record<string, string> = {
   PLAYING: 'playing',
-  PAUSED_PLAYBACK: 'warning',
+  PAUSED_PLAYBACK: 'paused',
   OFFLINE: 'danger',
   STALLED: 'danger',
   'BACKEND OFFLINE': 'danger',
@@ -82,57 +82,51 @@ export default function App() {
   const seenBuild = useRef('')
   const seenScans = useRef(-1)
 
-  // player state: the page asks /api/state once a second (the backend polls the
-  // renderer at the same rate) and right after every command, so a click shows its
-  // result at once. No long-lived channel: every reading is a plain request.
+  // player state: pushed by the backend as Server-Sent Events (GET /api/events, ADR-026),
+  // one event per change; the backend polls the renderer once a second. After every
+  // command the page also asks /api/state once: a state read after the command's answer
+  // is what hands a held slider back (useHeld), and a paused player sends no event.
+  // The browser reconnects a dropped stream by itself.
   const refresh = useRef<() => void>(() => {})
-  const stateAskedAt = useRef(0) // when the request behind the current state was sent
+  const stateAskedAt = useRef(0) // when the current state was read (received or asked for)
   useEffect(() => {
-    let timer = 0
     let stopped = false
-    let busy = false // one request at a time: a refresh during one asks for another after it
-    let again = false
-    const poll = async () => {
-      if (busy) {
-        again = true
-        return
-      }
-      busy = true
-      clearTimeout(timer)
-      try {
-        const asked = Date.now()
-        const st = await api.state()
-        if (stopped) return
-        setConnected(true)
-        // the player under the page was replaced by another build (an update):
-        // reload, otherwise the old UI keeps its stale state, e.g. tree folders
-        // expanded before the update never refetch (2026-11-09)
-        if (st.build) {
-          if (seenBuild.current && seenBuild.current !== st.build) {
-            window.location.reload()
-            return
-          }
-          seenBuild.current = st.build
+    const apply = (st: PlayerState, at: number) => {
+      setConnected(true)
+      // the player under the page was replaced by another build (an update): reload,
+      // otherwise the old UI keeps its stale state, e.g. tree folders expanded before
+      // the update never refetch (2026-11-09)
+      if (st.build) {
+        if (seenBuild.current && seenBuild.current !== st.build) {
+          window.location.reload()
+          return
         }
-        stateAskedAt.current = asked
-        setState(st)
-      } catch {
-        if (!stopped) setConnected(false)
+        seenBuild.current = st.build
       }
-      busy = false
-      if (stopped) return
-      if (again) {
-        again = false
-        void poll()
-      } else {
-        timer = window.setTimeout(poll, 1000)
+      if (at >= stateAskedAt.current) {
+        stateAskedAt.current = at
+        setState(st)
       }
     }
-    refresh.current = () => void poll()
-    void poll()
+    const events = new EventSource('/api/events')
+    events.onmessage = (e) => {
+      if (!stopped) apply(JSON.parse(e.data) as PlayerState, Date.now())
+    }
+    events.onerror = () => {
+      if (!stopped) setConnected(false)
+    }
+    refresh.current = () => {
+      const asked = Date.now()
+      api
+        .state()
+        .then((st) => {
+          if (!stopped) apply(st, asked)
+        })
+        .catch(() => {})
+    }
     return () => {
       stopped = true
-      clearTimeout(timer)
+      events.close()
     }
   }, [])
 
@@ -488,19 +482,16 @@ export default function App() {
                 )
               })}
             </ListGroup>
-            {error && (
-              <Card.Body className="pt-2">
-                <small className="text-danger d-block text-break">{error}</small>
-              </Card.Body>
-            )}
           </Card>
           <Equalizer onError={showErr} />
           <Settings scanning={!!state?.library.scanning} tracks={state?.library.tracks ?? 0} />
         </div>
         </Panel>
       </PanelGroup>
-      {/* status bar: what the player is busy with on the left, its version on the right; no
-          React or Vite versions, which only tell an outsider what the UI is built with */}
+      {/* status bar: what the player is busy with on the left, then an error in an area of its
+          own (it used to stretch the Output card under the devices and shift the layout, and
+          here it overwrites nothing), its version on the right; no React or Vite versions, which
+          only tell an outsider what the UI is built with */}
       <footer className="status-bar border-top bg-body-tertiary text-body-secondary d-flex align-items-center gap-3">
         <span className="status-msg text-truncate flex-grow-1" title={state?.waiting || ''}>
           {updateNote ? (
@@ -512,6 +503,7 @@ export default function App() {
             </>
           )}
         </span>
+        {error && <span className="status-err text-danger text-truncate" title={error}>{error}</span>}
         <span className="flex-shrink-0">go-upnp-player {state?.version}</span>
       </footer>
     </div>

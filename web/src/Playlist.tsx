@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
-import { Badge, Button, Image, Spinner, Table } from 'react-bootstrap'
+import { Badge, Image, Spinner, Table } from 'react-bootstrap'
 import { artUrl, fmtTime, Track } from './api'
-import { PlayIcon } from './icons'
+import { InfoIcon, PlayIcon } from './icons'
 
 interface Props {
   tracks: Track[]
@@ -38,7 +38,7 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay, sele
   }, [tracks])
 
   if (tracks.length === 0) {
-    return <div className="p-4 text-center text-body-secondary">Playlist is empty. Press → next to a folder, a cue sheet or a track in the library. Hover a track here and press ▶ to play it.</div>
+    return <div className="p-4 text-center text-body-secondary">Playlist is empty. Press → next to a folder, a cue sheet or a track in the library. Click a track here to play it; the i after its length shows its properties.</div>
   }
   return (
     <div className="playlist">
@@ -69,30 +69,22 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay, sele
                     <tr
                       key={t.id}
                       className={playing ? 'table-active fw-bold' : t.id === selectedId ? 'table-active' : ''}
-                      onClick={() => onSelect(t.id)}
+                      onClick={() => onPlay(i)}
                     >
                       <td className="col-num text-body-secondary text-nowrap">
-                        {/* left of the number: the ▶ mark of the playing track, and on row hover the
-                            Play button in its place */}
+                        {/* the mark of the playing track, centred in the room left of the number */}
                         <div className="num-cell">
                           <span className="play-slot">
                             {playing && <span className="play-mark" title="Playing"><PlayIcon /></span>}
-                            <Button
-                              size="sm" variant="secondary" className="hover-btn icon-btn" title="Play"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                onPlay(i)
-                              }}
-                            >
-                              <PlayIcon />
-                            </Button>
                           </span>
                           {t.number > 0 ? t.number : ''}
                         </div>
                       </td>
                       <td>
                         <div className="row-label">
-                          <span className={'text-truncate' + (playing ? '' : ' text-body-secondary')}>
+                          {/* a click anywhere on the row plays it; the i after the duration shows the
+                              track's properties */}
+                          <span className={'text-truncate track-title' + (playing ? '' : ' text-body-secondary')}>
                             {t.title}
                             {t.artist && t.artist !== g.artist ? <small className="text-body-secondary"> — {t.artist}</small> : null}
                           </span>
@@ -101,6 +93,15 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay, sele
                         </div>
                       </td>
                       <td className="col-dur text-end text-body-secondary">{fmtTime(t.duration)}</td>
+                      <td
+                        className="col-props text-body-secondary" title="Show properties"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onSelect(t.id)
+                        }}
+                      >
+                        <span className="props-icon"><InfoIcon /></span>
+                      </td>
                     </tr>
                   )
                 })}

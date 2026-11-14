@@ -15,6 +15,8 @@ body { overflow: hidden; font-size: 14px; }
 /* status bar at the bottom of the window */
 .status-bar { flex: none; padding: 4px 12px; font-size: 0.875rem; white-space: nowrap; min-height: 30px; }
 .status-msg { min-width: 0; }
+/* the error area: as wide as its text, at most half the bar; the full text is its tooltip */
+.status-err { flex: 0 1 auto; min-width: 0; max-width: 50%; }
 
 /* columns and splitters */
 .col-library, .col-tracks { display: flex; flex-direction: column; }
@@ -50,15 +52,17 @@ body { overflow: hidden; font-size: 14px; }
 .track-table { table-layout: fixed; }
 /* a click on a row shows its properties */
 .track-table tr { cursor: pointer; user-select: none; }
-.track-table .col-num { width: 52px; padding-left: 0; }
+.track-table .col-num { width: 44px; padding-left: 0; }
+/* properties: an i in a column of its own after the duration, shown on row hover */
+.track-table .col-props { width: 28px; padding-left: 0; padding-right: 0; text-align: center; }
+/* the row under the pointer: its title underlined (a click plays it) and its i shown */
+.props-icon { display: inline-flex; align-items: center; vertical-align: middle; visibility: hidden; }
+.track-table tr:hover .track-title { text-decoration: underline; }
+.track-table tr:hover .props-icon { visibility: visible; }
+.track-table .col-props:hover .props-icon { color: var(--bs-body-color); }
 /* the number at the right of its cell; the room left of it holds the playing mark, centred */
 .num-cell { display: flex; align-items: center; }
-.play-slot { flex: 1; display: flex; justify-content: center; align-items: center; margin-right: 4px; }
-/* the Play button stands in the slot left of the number, in place of the ▶ mark while the
-   row is hovered (always shown on touch screens, see below) */
-.play-slot .btn.hover-btn.icon-btn { display: none; margin-left: 0; visibility: visible; }
-.track-table tr:hover .play-slot .btn.hover-btn.icon-btn { display: inline-flex; }
-.track-table tr:hover .play-slot .play-mark { display: none; }
+.play-slot { flex: 1; display: flex; justify-content: center; align-items: center; }
 /* the playing track: the ▶ of the playlist's hover button, without the button: it is a mark */
 /* the same arrow as the Play button's (PlayIcon), not a font ▶ */
 .play-mark { display: inline-flex; align-items: center; }
@@ -91,8 +95,7 @@ body { overflow: hidden; font-size: 14px; }
 /* touch screens: no hover, so row buttons are always visible */
 @media (hover: none) {
   .btn.hover-btn { visibility: visible; }
-  .play-slot .btn.hover-btn.icon-btn { display: inline-flex; }
-  .play-slot .play-mark ~ .btn.hover-btn.icon-btn { display: none; } /* the playing row keeps its ▶ */
+  .props-icon { visibility: visible; }
 }
 
 
@@ -136,6 +139,8 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
    states (STOPPED, CONNECTING, …); stock success and secondary were hard to tell apart */
 .badge.bg-playing { background-color: #22b35e; color: #fff; }
 .badge.bg-idle { background-color: #b4bcc4; color: #1f2328; }
+/* PAUSED: a dark amber, Bootstrap's warning yellow left its white text unreadable */
+.badge.bg-paused { background-color: #9a6700; color: #fff; }
 /* on a device row the badge sits next to the name: a size smaller, so the name fits */
 .renderer-row .badge { font-size: .65em; padding: .3em .45em; }
 .output-info { font-size: .75em; line-height: 1.3; }

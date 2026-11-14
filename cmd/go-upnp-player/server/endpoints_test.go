@@ -478,6 +478,23 @@ func TestEndpointsScenario(t *testing.T) {
 		t.Cleanup(func() { handlers.ShowWindow = nil })
 		c.status(204, "POST", "/api/window/show", "")
 	})
+
+	// last: ending the streams, as at process shutdown, is once per process
+	t.Run("events", func(t *testing.T) {
+		player.EndStreams() // the stream sends the state now and ends: a finite response
+		resp, data := c.do("GET", "/api/events", "")
+		if resp.StatusCode != 200 || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
+			t.Fatalf("status %d, content type %q", resp.StatusCode, resp.Header.Get("Content-Type"))
+		}
+		body := string(data)
+		if !strings.HasPrefix(body, "data: {") || !strings.HasSuffix(body, "}\n\n") || strings.Count(body, "data: ") != 1 {
+			t.Fatalf("want one event with the state, got %q", body)
+		}
+		var st player.State
+		if err := json.Unmarshal([]byte(strings.TrimSpace(strings.TrimPrefix(body, "data: "))), &st); err != nil || st.Build == "" {
+			t.Fatalf("event %q: %v", body, err)
+		}
+	})
 }
 
 func TestRunningBuild(t *testing.T) {

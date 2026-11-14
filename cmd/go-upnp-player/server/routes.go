@@ -13,6 +13,7 @@ import (
 func InitRoutes(app *fiber.App) {
 	api := app.Group("/api")
 	api.Get("/state", handlers.State)
+	api.Get("/events", handlers.Events)
 	api.Get("/version", handlers.Version)
 	api.Get("/queue", handlers.Queue)
 	api.Put("/queue", handlers.SetQueue)

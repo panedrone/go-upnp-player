@@ -16,6 +16,7 @@ func Tick() {
 	if !cmdMu.TryLock() {
 		return // a command is in progress; poll next time
 	}
+	defer Notify() // after the unlock: the page's event streams read the new state
 	defer cmdMu.Unlock()
 	d, ok := device()
 	if !ok {

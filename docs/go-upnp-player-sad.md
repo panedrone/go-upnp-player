@@ -21,7 +21,7 @@ flowchart LR
     FILES[("FLAC / CUE<br/>files")]
     R["UPnP renderer<br/>(FiiO, BeagleBone)"]
 
-    UI -- "REST, /api/state polled every 1 s" --> API
+    UI -- "REST commands; state as SSE, /api/events" --> API
     API --> PL
     API --> LIB
     LIB --> FILES
@@ -104,8 +104,9 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 - On start the playlist is restored but not played. Play continues the current track at the saved
   position, or from the start after a user Stop.
 - The status bar shows on the left what the player is busy with (a refused start being retried,
-  with the attempt and the seconds left) and on the right the player's version (no `v`, no build
-  id). React and Vite versions are not shown: they only tell an outsider what the UI is built
+  with the attempt and the seconds left), then the latest error in red in an area of its own
+  (at most half the bar, the full text in its tooltip; it overwrites nothing, and the Output card
+  no longer stretches for it), and on the right the player's version (no `v`, no build id). React and Vite versions are not shown: they only tell an outsider what the UI is built
   with.
 
 ## 3. Playback flow
@@ -260,10 +261,14 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
   ×, the way this copy updates: the setup copy downloads the new setup, a `go install` copy
   rebuilds itself and restarts, the zip opens the release page. Pages open in the system browser
   through `POST /api/update/open`.
-- **State polling.** The page polls `GET /api/state` once a second and again right after every
-  command ([ADR-010](adr-010-ui-polls-state.md)). A changed `library.scans` reloads the tree and
-  the playlist. The backend's state is shown as it is: a seek or volume slider shows the value
-  being dragged, and from the first state asked for after the command answered, the backend's.
+- **State.** The page reads `GET /api/events` (Server-Sent Events): the state now, then one event
+  per change, the same JSON as `GET /api/state`. The backend wakes the stream after every poll of
+  the renderer (once a second) and after every command, and sends a snapshot only if it differs
+  from the last; a keepalive comment every 15 s. After every command the page also asks
+  `GET /api/state` once ([ADR-026](adr-026-state-as-server-sent-events.md)). A changed
+  `library.scans` reloads the tree and the playlist. The backend's state is shown as it is: a seek
+  or volume slider shows the value being dragged, and from the first state read after the command
+  answered, the backend's.
 - **Layout.** One page, no modal dialogs:
   - three columns with splitters (`react-resizable-panels`; they stack on screens ≤ 900 px);
   - Library tree, playlist, and on the right the Output, Equalizer and Library folders cards;
@@ -284,23 +289,25 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
   tree (the page does it once by itself when it opens), then the seek slider, and the transport on
   the right; volume, theme and Quit in a card above Output
   (volume is the selected device's). What plays is shown in the playlist: its row is bold and
-  marked ▶ left of the track number, as in foobar2000; on row hover the Play button takes that
-  place, drawn with the same arrow. Album headers show the total time.
-- **Properties** of the playlist row clicked last (the playing track until one is clicked), as
+  marked ▶ left of the track number. A click anywhere on a row plays it; under the pointer its title
+  is underlined. The i in a column of its own after the duration, shown on row hover, shows the
+  track's properties and leaves playback alone. Album headers show
+  the total time.
+- **Properties** of the playlist track whose i was clicked last (the playing track until then), as
   foobar2000's Properties without Location: Metadata (artist, title, album, date, genre, track
   number, comment) and General (duration with samples, rate, channels, bits, bitrate, codec,
   encoding, tool, embedded cuesheet, audio MD5). `GET /api/track/:id/properties` reads the FLAC
   header again on each request; vendor, MD5 and comment are not kept in the index. The bitrate of
   a cue track is its file's average.
-- **Playlist and devices.** Only the playlist plays (its ▶, or Play in its header). Devices are a
+- **Playlist and devices.** Only the playlist plays (a click on its row, or Play in its header). Devices are a
   list in the Output card with a Use button. The selected device's row carries its transport badge after its name
-  (a lively green for PLAYING, light gray for quiet states, PAUSED for PAUSED_PLAYBACK); the
+  (a lively green for PLAYING, light gray for quiet states, PAUSED on dark amber with white text for PAUSED_PLAYBACK); the
   Output header shows a badge only when the player itself is offline. The Output title line
   also carries what is streamed and from where (local IP, rate, bits, channels, WAV or FLAC),
   parts separated by bold dots. Row buttons appear on hover and are always visible on
   touch screens.
-- **Waiting for the renderer.** The ▶ and Use buttons turn into a spinner while their request
-  runs. Those requests answer only after the renderer has really switched.
+- **Waiting for the renderer.** A spinner shows after the title of the row being started, and the
+  Use button turns into one, while their request runs. Those requests answer only after the renderer has really switched.
 - **Look.** Stock Bootstrap, gray instead of blue:
   - the active row is a gray band with bold text, other rows are `text-body-secondary`;
   - buttons are `secondary` or `outline-secondary`;
@@ -328,7 +335,7 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [007](adr-007-racing-gmrender.md) | A racing gmrender: no sound, position running ahead |
 | [008](adr-008-cue-tracks-as-virtual-wav.md) | CUE tracks as virtual WAV; seeking without a SEEKTABLE |
 | [009](adr-009-equalizer-on-player-side.md) | Equalizer on the player side, soft limiter instead of preamp |
-| [010](adr-010-ui-polls-state.md) | The page polls `/api/state` instead of a push channel |
+| [010](adr-010-ui-polls-state.md) | ~~The page polls `/api/state` instead of a push channel~~ (superseded by ADR-026) |
 | [011](adr-011-library-tree-navigation.md) | The library tree is for choosing, the playlist is for playing |
 | [012](adr-012-updates-in-place.md) | Updating in place: one instance, no stale UI, position kept |
 | [013](adr-013-stop-safe-renderers-start-like-foobar.md) | Renderers that survive Stop are driven the way foobar2000 drives them |
@@ -344,6 +351,7 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [023](adr-023-the-end-of-the-playlist-switches-off.md) | The end of the playlist switches the renderer off, as foobar2000 does |
 | [024](adr-024-a-start-takes-what-the-renderer-holds.md) | A start goes by what the renderer holds: from STOPPED, no lead and no seek |
 | [025](adr-025-stop-is-stop.md) | Stop is Stop, on every renderer; transitions between tracks are their own |
+| [026](adr-026-state-as-server-sent-events.md) | The page gets the state as Server-Sent Events |
 
 ## 9. Testing
 

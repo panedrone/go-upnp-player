@@ -23,7 +23,7 @@ func SetQueue(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	player.SetQueue(in.IDs, in.Source)
-	return c.SendStatus(fiber.StatusNoContent)
+	return result(c, nil)
 }
 
 // Queue — GET /api/queue
@@ -98,6 +98,7 @@ func SelectRenderer(c fiber.Ctx) error {
 }
 
 func result(c fiber.Ctx, err error) error {
+	player.Notify() // the command's effect goes to the page's event streams at once
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
 	}

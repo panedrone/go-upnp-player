@@ -68,7 +68,8 @@ files and/or FLAC images with `.cue` sheets.
    `http://localhost:8090/`). In the **Library folders** card
    enter your music folders (one per line) and press **Save**; the library is scanned.
 5. Pick a renderer in the **Output** card (press **Use** on hover), build a playlist with the
-   **→** button next to a folder, a cue sheet or a track, and press **▶**.
+   **→** button next to a folder, a cue sheet or a track, and click a track in the playlist to
+   play it (the i after a track's length shows its properties).
 
 Optional:
 

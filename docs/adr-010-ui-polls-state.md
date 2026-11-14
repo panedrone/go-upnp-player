@@ -1,6 +1,8 @@
 # ADR-010: The page polls /api/state instead of a push channel
 
-**Status:** Accepted 2026-11-09 (written down 2026-11-10).
+**Status:** ~~Accepted 2026-11-09~~ superseded by
+[ADR-026](adr-026-state-as-server-sent-events.md) (2026-11-14): with the click hunt over, the
+state goes to the page as Server-Sent Events again. Accepted 2026-11-09 (written down 2026-11-10).
 **Overcome:** fully, nothing open.
 
 ## Context

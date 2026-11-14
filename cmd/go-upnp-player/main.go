@@ -134,6 +134,7 @@ func main() {
 		// hits a vanished server), then stop the server. Track streams
 		// are long-lived, so wait for them no longer than 3 s.
 		player.Shutdown()
+		player.EndStreams() // the page's event streams would hold the stop for its whole timeout
 		_ = app.ShutdownWithTimeout(3 * time.Second)
 	}()
 
