@@ -49,6 +49,10 @@ cmd/go-upnp-player      main.go only: flags, log file, startup and shutdown orde
 cmd/go-upnp-player/server  routes, embedded UI (static middleware), one-instance
                         takeover, console check, version
 cmd/go-upnp-player/window  the UI in a window of its own (WebView2, Windows only)
+cmd/go-upnp-player-qt   the player with a Qt window (miqt) calling the packages directly;
+                        built only with the qt tag (ADR-027)
+cli/pkg-config          design-time: answers cgo from Qt's .pc files when building the Qt window
+installer/*.iss         Inno Setup scripts: the web player's setup and the Qt player's (ADR-027)
 internal/handlers/h_*   transport: request parsing, responses
 internal/services/svc_* pure logic with tests: CUE, WAV geometry, Range, DIDL,
                         queue advance decision, equalizer, MIME choice
@@ -96,7 +100,7 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 
 - One instance on port 8090. Another build replaces the running one, unless the running one is
   a newer version: then the started copy just shows it and exits. Open pages reload themselves
-  ([ADR-012](adr-012-updates-in-place.md)). The own window's title carries the version.
+  ([ADR-012](adr-012-updates-in-place.md)). The own window's title is the name alone, no version.
 - No console window (`-H=windowsgui`). The log goes to
   `%LocalAppData%\go-upnp-player\go-upnp-player.log`.
 - Quit is the ⏻ button (one click, no confirmation) or Ctrl+C. Shutdown stops the renderer
@@ -106,7 +110,7 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 - The status bar shows on the left what the player is busy with (a refused start being retried,
   with the attempt and the seconds left), then the latest error in red in an area of its own
   (at most half the bar, the full text in its tooltip; it overwrites nothing, and the Output card
-  no longer stretches for it), and on the right the player's version (no `v`, no build id). React and Vite versions are not shown: they only tell an outsider what the UI is built
+  no longer stretches for it), and on the right the player's version alone (no name, no `v`, no build id). React and Vite versions are not shown: they only tell an outsider what the UI is built
   with.
 
 ## 3. Playback flow
@@ -256,6 +260,22 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
 
 ## 7. UI
 
+The web page below is the player's UI. A Qt window, `cmd/go-upnp-player-qt`, is being built beside
+it from the same layout and behaviour ([ADR-027](adr-027-qt-window-with-miqt.md)). So far it has the
+search box over the library tree, with refresh (rescan) and Collapse All by it (the results in its place while it has text: → makes a playlist
+of one, a button of them all, a click shows the track in the tree), the tree with → to make a
+playlist, the playlist grouped by album as on the page (a header with the cover, the title, artist and
+year and the total time; a click on a row plays it, the playing row bold, its i shows the
+properties), the Properties pane under it (following the playing track until an i is clicked),
+the crosshair (Alt+F1) that shows the playlist's source in the tree, once by itself on start,
+the transport and seek slider, the devices (a click uses one) with the volume, the Equalizer card
+(presets and `.feq` files from `services`), the Library folders card, and the status bar with the
+busy message, the error and the version. The theme (dark by default, the page's Bootstrap colours
+on Qt's Fusion style), the window's place and size, the splitters, the folded cards and the tree's open nodes
+(the roots open on the first run) are kept in the config's `ui` section. Check for updates (⭳ by the volume) asks GitHub on the click and offers
+the release page in the status bar: the Qt copy has no setup yet, and `go install` would build the
+web player.
+
 - **Check for updates** (the cloud button by the theme switch, [ADR-019](adr-019-check-for-updates-on-demand.md)):
   the player asks GitHub only on this click. A newer version is offered in the status bar, with a
   ×, the way this copy updates: the setup copy downloads the new setup, a `go install` copy
@@ -352,6 +372,7 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [024](adr-024-a-start-takes-what-the-renderer-holds.md) | A start goes by what the renderer holds: from STOPPED, no lead and no seek |
 | [025](adr-025-stop-is-stop.md) | Stop is Stop, on every renderer; transitions between tracks are their own |
 | [026](adr-026-state-as-server-sent-events.md) | The page gets the state as Server-Sent Events |
+| [027](adr-027-qt-window-with-miqt.md) | A Qt window (miqt) beside the web page, calling the player directly |
 
 ## 9. Testing
 

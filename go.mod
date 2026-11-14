@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/gofiber/fiber/v3 v3.6.1
 	github.com/jchv/go-webview2 v0.0.0-20260205173254-56598839c808
+	github.com/mappu/miqt v0.15.0
 	github.com/mewkiz/flac v1.0.14
 	golang.org/x/text v0.43.0
 )

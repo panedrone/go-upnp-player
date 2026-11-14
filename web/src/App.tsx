@@ -504,7 +504,7 @@ export default function App() {
           )}
         </span>
         {error && <span className="status-err text-danger text-truncate" title={error}>{error}</span>}
-        <span className="flex-shrink-0">go-upnp-player {state?.version}</span>
+        <span className="flex-shrink-0">{state?.version}</span>
       </footer>
     </div>
   )

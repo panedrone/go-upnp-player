@@ -18,6 +18,23 @@ type Config struct {
 	Playlist Playlist            `json:"playlist"`
 	// Window: where the player's own window was when it closed (ADR-018); nil until then
 	Window *Window `json:"window,omitempty"`
+	// UI: what the Qt window remembers (ADR-027), the page keeping the same in its
+	// browser's storage; nil until the Qt window first saves it
+	UI *UI `json:"ui,omitempty"`
+}
+
+// UI is the Qt window's look and layout as it was left.
+type UI struct {
+	Theme string `json:"theme,omitempty"` // "dark" (the default) or "light"
+	// Geometry: the window's place and size, maximized or not, as Qt saves it
+	Geometry []byte `json:"geometry,omitempty"`
+	// Splitters: the sizes of each splitter's parts, by splitter name
+	Splitters map[string][]int `json:"splitters,omitempty"`
+	// Folded: the cards whose body is hidden, by card name
+	Folded map[string]bool `json:"folded,omitempty"`
+	// Expanded: the library tree's open nodes, by path. nil: nothing saved yet, the roots
+	// open; empty: all closed.
+	Expanded []string `json:"expanded"`
 }
 
 // Window is the own window's restored (normal) rectangle in screen pixels, and whether it

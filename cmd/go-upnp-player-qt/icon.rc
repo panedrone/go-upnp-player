@@ -1,0 +1,8 @@
+// The Qt player exe's icon (Explorer, the taskbar), as a Windows resource. Go links the
+// compiled rsrc_windows_amd64.syso next to it by itself; regenerate it after the icon changes,
+// from the repository root:
+//
+//   windres -O coff -i cmd/go-upnp-player-qt/icon.rc -o cmd/go-upnp-player-qt/rsrc_windows_amd64.syso
+//
+// (windres comes with MinGW, the compiler the Qt build uses.)
+1 ICON "../../assets/icon.ico"

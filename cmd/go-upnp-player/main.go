@@ -164,7 +164,7 @@ func main() {
 		window.Close()
 	}()
 	handlers.ShowWindow = window.Show
-	if !window.Run(ui, "go-upnp-player "+server.Version) {
+	if !window.Run(ui, "go-upnp-player") {
 		log.Printf("no WebView2 on this machine: the UI opens in the browser")
 		openBrowser(ui)
 	}
