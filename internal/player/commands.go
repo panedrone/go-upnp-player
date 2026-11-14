@@ -75,30 +75,42 @@ func Resume() error {
 // the whole UPnP service until a power cycle (seen live 2026-11-09).
 // The next Play restarts the current track from the beginning.
 func Stop() error {
-	return do(func(c context.Context, d upnp.Device) error {
-		mu.Lock()
-		wantPlaying, paused = false, false
-		pendingSince = time.Time{} // also ends the retries of a refused start
-		resumeAt = -1              // Stop means "start the track over" next time
-		nextURL, nextRun = "", runPlan{}
-		position = 0 // and the slider says so: the next Play starts the track over
-		cur, at := runURI, streamPos
-		mu.Unlock()
-		if err := halt(c, d); err != nil {
-			return err
-		}
-		if !usesStop(d.Model) {
-			// Paused, not stopped (ADR-002): it keeps the stream and a moment of it
-			// ready to play, which the next Play let be heard before its own start (the
-			// FiiO, 2026-11-10). The stream is let go and the renderer seeked where it
-			// is: what it holds now is silence.
-			if id, ok := runIDOf(cur); ok {
-				stream.RetireRun(id)
-				_ = seekRenderer(c, d, at)
+	return do(stopLocked)
+}
+
+// stopLocked is Stop under cmdMu. Every step waits for the renderer to report what it
+// leads to (confirm): halted, then, for a renderer only paused, standing where it was.
+func stopLocked(c context.Context, d upnp.Device) error {
+	mu.Lock()
+	wantPlaying, paused = false, false
+	pendingSince = time.Time{} // also ends the retries of a refused start
+	resumeAt = -1              // Stop means "start the track over" next time
+	nextURL, nextRun = "", runPlan{}
+	position = 0 // and the slider says so: the next Play starts the track over
+	cur, at := runURI, streamPos
+	mu.Unlock()
+	if err := halt(c, d); err != nil {
+		return err
+	}
+	if !confirm(d, func(st renderState) bool {
+		return (st.state == "PAUSED_PLAYBACK" || st.state == "STOPPED") && st.still
+	}) {
+		log.Printf("player: %s did not report itself halted", d.Name)
+	}
+	if !usesStop(d.Model) {
+		// Paused, not stopped (ADR-002): it keeps the stream and a moment of it
+		// ready to play, which the next Play let be heard before its own start (the
+		// FiiO, 2026-11-10). The stream is let go and the renderer seeked where it
+		// is: what it holds now is silence.
+		if id, ok := runIDOf(cur); ok {
+			stream.RetireRun(id)
+			sent := time.Now()
+			if seekRenderer(c, d, at) == nil && !confirmAt(d, at, sent) {
+				log.Printf("player: %s did not report the position %.0f s after Stop", d.Name, at)
 			}
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
 // halt takes a renderer out of play: a real Stop where that is safe, Pause otherwise
@@ -147,6 +159,18 @@ func Seek(sec float64) error {
 		cmdMu.Lock()
 		defer cmdMu.Unlock()
 		err := startLocked(i, sec)
+		setErr(err)
+		return err
+	}
+	mu.Lock()
+	playing := wantPlaying && !paused
+	mu.Unlock()
+	if playing {
+		// over playing music: the way a jump to a track goes, Stop and a start there
+		// (jumpLocked); the FiiO stuttered through a plain seek, the slider's too
+		cmdMu.Lock()
+		defer cmdMu.Unlock()
+		err := jumpLocked(i, sec)
 		setErr(err)
 		return err
 	}

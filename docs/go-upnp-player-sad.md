@@ -125,7 +125,10 @@ The browser's `localStorage` keeps only per-viewer conveniences:
    run's layout and turns the renderer's position in the stream into the track and the position in
    it for the page. A run ends where the format changes or before 3.75 GB of PCM (the RIFF size
    field); the next run is queued gapless (step 5).
-   - Next, Prev, a click on a track of the run and a seek within it are a `Seek` in the stream.
+   - Next, Prev, a click on a track of the run and a seek within it reach it within the stream.
+     While music plays, that is the player's own Stop and then a start there, every step sent
+     only once the renderer reported the previous one done
+     ([ADR-022](adr-022-a-jump-is-stop-then-start.md)); while paused, a plain `Seek`.
      Prev goes to the previous track from anywhere in the current one, as foobar2000 does; on the
      first track, to its start.
    - A track outside the run, or a point before the stream's start, starts a new run.
@@ -342,6 +345,7 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [019](adr-019-check-for-updates-on-demand.md) | Updates are checked only on a click, and each kind of copy updates its own way |
 | [020](adr-020-every-jump-within-an-album-is-a-seek.md) | Every jump within an album is a seek: no new stream, no click on coax |
 | [021](adr-021-keep-the-sound-output-open.md) | Stop keeps the renderer's sound output open |
+| [022](adr-022-a-jump-is-stop-then-start.md) | A jump over playing music is the player's Stop, then a start there |
 
 ## 9. Testing
 

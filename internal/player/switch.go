@@ -98,12 +98,19 @@ func startLocked(i int, seek float64) (err error) {
 		// the renderer already has this very stream: restart it in place. The URI
 		// alone is not proof — gmrender reports the queued next URI early — so the
 		// audible length must match too.
+		sent := time.Now()
 		if err := seekRenderer(c, d, rp.lead); err != nil {
 			return err
 		}
 		if plan.Resume {
+			if !confirmAt(d, rp.lead, sent) {
+				log.Printf("player: %s did not report the position %.0f s; playing anyway", d.Name, rp.lead)
+			}
 			if err := playRetried(d); err != nil {
 				return err
+			}
+			if !confirm(d, func(st renderState) bool { return st.state == "PLAYING" }) {
+				log.Printf("player: %s did not report itself playing", d.Name)
 			}
 		}
 		plan.ViaNext = false
@@ -166,28 +173,56 @@ func startLocked(i int, seek float64) (err error) {
 // stream stands at the chosen place; it is repeated until then. Meanwhile the lead
 // plays silence, never the tracks before the chosen one.
 func seekLead(d upnp.Device, uri string, length, at float64) {
-	sent := false
-	for try := range 30 {
+	sent := 0
+	var sentAt time.Time
+	last := -1.0 // the position at the previous poll
+	for range 40 {
 		sleep(300 * time.Millisecond)
 		c, cancel := ctx()
 		pi, err := getPositionInfo(c, d)
 		cancel()
 		// gmrender reports a queued URI early, so its length must match too
 		if err != nil || pi.TrackURI != uri || !services.SameLength(pi.Duration, length) {
+			last = -1
 			continue // still the old stream
 		}
-		if pi.Position >= at-2 {
-			if sent {
-				return // landed
+		if sent > 0 && pi.Position >= at-2 {
+			return // landed
+		}
+		if sent == 0 {
+			// The seek waits for the new stream to settle: the renderer reports it
+			// playing, more than a second in, its position going on from the previous
+			// poll. A seek while the FiiO was still starting the stream made it stutter
+			// at every switch (1.1.20, 2026-11-14).
+			settled := last >= 1 && pi.Position > last
+			last = pi.Position
+			if !settled {
+				continue
 			}
-		} else if !sent && pi.Position < 1 && try < 3 {
-			continue // the new stream has not started playing yet
+		}
+		if sent > 0 {
+			// A seek is out: wait for it. The FiiO goes on reporting its old position for
+			// a while after a seek, and a seek repeated on every such report restarted its
+			// buffer again and again: a stutter at every switch (1.1.20, 2026-11-14).
+			// Another seek only when, 3 s on, the renderer is clearly still playing the
+			// lead, its position moving on from where it was.
+			moving := last >= 0 && pi.Position > last
+			last = pi.Position
+			if time.Since(sentAt) < 3*time.Second || !moving {
+				continue
+			}
+			if sent >= 4 {
+				break
+			}
+			log.Printf("player: the seek past the silent lead to %.0f s did not land (the renderer is at %.0f s): once more", at, pi.Position)
 		}
 		c, cancel = ctx()
 		err = seekRenderer(c, d, at)
 		cancel()
-		sent = sent || err == nil
-		sleep(300 * time.Millisecond)
+		if err == nil {
+			sent++
+			sentAt = time.Now()
+		}
 	}
 	log.Printf("player: the seek past the silent lead to %.0f s did not land", at)
 }

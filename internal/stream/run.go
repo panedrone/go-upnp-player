@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/panedrone/go-upnp-player/internal/library"
 	"github.com/panedrone/go-upnp-player/internal/services"
@@ -75,7 +76,28 @@ var (
 	runOrder []string
 	// retired runs serve silence: the renderer is being moved off them (RetireRun)
 	retired = map[string]bool{}
+	// the latest request for each run: where in the stream it started and when
+	lastOpen = map[string]openedAt{}
 )
+
+type openedAt struct {
+	sec float64
+	at  time.Time
+}
+
+// OpenedSince reports where in the run's stream, in seconds, the renderer's latest request
+// started, if it came after since. A seek is a request from the target: the renderer's
+// own sign that it took the seek, even where it does not report the new position while
+// paused (the BeagleBone, 2026-11-14).
+func OpenedSince(id string, since time.Time) (float64, bool) {
+	runsMu.Lock()
+	defer runsMu.Unlock()
+	o, ok := lastOpen[id]
+	if !ok || o.at.Before(since) {
+		return 0, false
+	}
+	return o.sec, true
+}
 
 // keptRuns: the renderer may come back for a run it is playing (a seek is a Range
 // request), and the next one is queued ahead; a few more than that is plenty.
@@ -134,8 +156,14 @@ func ForRun(id string) (Source, bool) {
 		return Source{}, false
 	}
 	return Source{Size: r.Layout().TotalLen(), Open: func(offset int64) (io.ReadCloser, error) {
+		layout := r.Layout()
+		sec := 0.0
+		if data := offset - services.WavHeaderLen; data > 0 {
+			sec = float64(data/layout.BlockAlign()) / float64(r.Spans[0].SampleRate)
+		}
 		runsMu.Lock()
 		silent := retired[id]
+		lastOpen[id] = openedAt{sec, time.Now()}
 		runsMu.Unlock()
 		if silent {
 			return openSilence(r, offset)

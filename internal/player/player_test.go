@@ -852,8 +852,9 @@ func TestSetEQReseeksWhilePlaying(t *testing.T) {
 	if !config.Get().EQ.Active() || !stream.EQActive() {
 		t.Fatal("settings not applied")
 	}
-	if r.Get().Pos != 30 || r.Count("SetNextAVTransportURI") != 0 {
-		t.Fatalf("pos %v setnext %d", r.Get().Pos, r.Count("SetNextAVTransportURI"))
+	// over playing music the reseek is a Stop and a start at the same place (jumpLocked)
+	if at(r.Get()) != 30 || index != 0 || r.Get().State != "PLAYING" {
+		t.Fatalf("at %v index %d state %s", at(r.Get()), index, r.Get().State)
 	}
 }
 
@@ -867,8 +868,8 @@ func TestSetEQReseeksCueTrack(t *testing.T) {
 	if err := SetEQ(eqOn()); err != nil {
 		t.Fatal(err)
 	}
-	if r.Get().Pos != 30 || r.Count("SetNextAVTransportURI") != 0 {
-		t.Fatalf("pos %v", r.Get().Pos)
+	if at(r.Get()) != 30 || r.Get().State != "PLAYING" {
+		t.Fatalf("at %v state %s", at(r.Get()), r.Get().State)
 	}
 }
 
@@ -1019,6 +1020,7 @@ func TestResumeAfterRestartContinuesAtPosition(t *testing.T) {
 	_ = config.Update(func(c *config.Config) { c.Renderer = "r1" })
 	queue, index, wantPlaying, paused, resumeAt = nil, -1, false, false, -1
 	Init(8090)
+	playsOn(t, r)
 	if index != 1 || resumeAt != 42 {
 		t.Fatalf("index %d resumeAt %v", index, resumeAt)
 	}
@@ -1028,7 +1030,7 @@ func TestResumeAfterRestartContinuesAtPosition(t *testing.T) {
 	st := r.Get()
 	// the run opens at track a, before the paused one (ADR-020): one more seek takes the
 	// renderer past it to b at 42 s
-	if st.State != "PLAYING" || at(st) != 42 || r.Count("Seek") != 2 {
+	if st.State != "PLAYING" || at(st) < 42 || at(st) > 45 || r.Count("Seek") != 2 {
 		t.Fatalf("%+v seeks %d", st, r.Count("Seek"))
 	}
 	if got := config.Get().Playlist.Position; got != 0 || resumeAt != -1 {
@@ -1046,6 +1048,19 @@ func TestShutdownWhenStoppedSavesNoPosition(t *testing.T) {
 	Shutdown()
 	if got := config.Get().Playlist.Position; got != 0 {
 		t.Fatalf("saved position %v", got)
+	}
+}
+
+// playsOn makes the fake renderer's position go on through the player's waits, as a real
+// renderer's does while it plays: a start mid-album waits for that before its seek.
+func playsOn(t *testing.T, r *testkit.Renderer) {
+	t.Helper()
+	sleep = func(d time.Duration) {
+		r.With(func(s *testkit.RendererState) {
+			if s.State == "PLAYING" {
+				s.Pos += d.Seconds()
+			}
+		})
 	}
 }
 
@@ -1232,6 +1247,7 @@ func TestSeekWithAStreamFromAPosition(t *testing.T) {
 	if err := startLocked(0, 50); err != nil {
 		t.Fatal(err)
 	}
+	pausedAt(r) // paused: a plain seek (over playing music it is a Stop and a start there)
 	if err := Seek(70); err != nil {
 		t.Fatal(err)
 	}

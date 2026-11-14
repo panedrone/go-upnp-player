@@ -2,10 +2,12 @@ package player
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/panedrone/go-upnp-player/internal/library"
+	"github.com/panedrone/go-upnp-player/internal/stream"
 	"github.com/panedrone/go-upnp-player/internal/testkit"
 	"github.com/panedrone/go-upnp-player/internal/upnp"
 )
@@ -86,10 +88,12 @@ func TestJumpBackInRunSurvivesStalePositions(t *testing.T) {
 }
 
 // The seek slider: the old position must not pull the knob back for a poll
-// (live: 120, then 8, then 120 again).
+// (live: 120, then 8, then 120 again). Paused: a seek over playing music is a Stop and a
+// start there (jumpLocked).
 func TestSeekSurvivesStalePositions(t *testing.T) {
 	r := setup(t)
 	playingAt(r, []string{"a", "b"}, 0, 8)
+	pausedAt(r)
 	staleAfterSeek(t, 2)
 	if err := Seek(120); err != nil {
 		t.Fatal(err)
@@ -109,6 +113,7 @@ func TestSeekSurvivesStalePositions(t *testing.T) {
 func TestDroppedSeekIsTakenAtTheRenderersWord(t *testing.T) {
 	r := setup(t)
 	playingAt(r, []string{"a", "b"}, 0, 8)
+	pausedAt(r)
 	staleAfterSeek(t, 1000)
 	if err := Seek(120); err != nil {
 		t.Fatal(err)
@@ -244,5 +249,145 @@ func TestStartMidAlbumThenJumpBackIsASeek(t *testing.T) {
 	}
 	if index != 0 || at(r.Get()) != 0 {
 		t.Fatalf("index %d at %v, want a from its start", index, at(r.Get()))
+	}
+}
+
+// The FiiO goes on reporting its old position for a while after a seek. The seek past a
+// start's silent lead was repeated on every such report, and each repeat restarted the
+// FiiO's buffer: a stutter at every switch (1.1.20, 2026-11-14). One seek, then wait.
+func TestLeadSeekIsNotRepeatedOnStaleReports(t *testing.T) {
+	r := setup(t)
+	playsOn(t, r)
+	staleAfterSeek(t, 5)
+	if err := PlayQueue([]string{"a", "b", "c"}, 2); err != nil {
+		t.Fatal(err)
+	}
+	if n := r.Count("Seek"); n != 1 {
+		t.Fatalf("%d seeks past the lead, want 1", n)
+	}
+	if index != 2 || at(r.Get()) > 3 {
+		t.Fatalf("index %d at %v, want c from its start", index, at(r.Get()))
+	}
+}
+
+// The seek past the lead waits for the new stream to settle: playing, more than a second
+// in. Sent while the stream was still starting, it made the FiiO stutter (2026-11-14).
+func TestLeadSeekWaitsForTheStreamToSettle(t *testing.T) {
+	r := setup(t)
+	var posAtSeek float64
+	seekRenderer = func(c context.Context, d upnp.Device, sec float64) error {
+		pi, _ := upnp.GetPositionInfo(c, d)
+		posAtSeek = pi.Position
+		return upnp.Seek(c, d, sec)
+	}
+	t.Cleanup(func() { seekRenderer = upnp.Seek })
+	playsOn(t, r)
+	if err := PlayQueue([]string{"a", "b", "c"}, 2); err != nil {
+		t.Fatal(err)
+	}
+	if posAtSeek < 1 {
+		t.Fatalf("the seek went %.1f s into the new stream, want after it settled (> 1 s)", posAtSeek)
+	}
+}
+
+// A jump within the stream while music plays: Pause, Seek, Play, each sent only after the
+// renderer reported the state the previous one leads to (2026-11-14, the FiiO stuttered).
+func TestJumpInStreamConfirmsEveryStep(t *testing.T) {
+	r := setup(t)
+	playsOn(t, r)
+	playingAt(r, []string{"a", "b", "c"}, 0, 10)
+	// the renderer reports itself PLAYING for a few polls after the Pause
+	lag := 0
+	var seekState string
+	getTransportInfo = func(c context.Context, d upnp.Device) (upnp.TransportInfo, error) {
+		ti, err := upnp.GetTransportInfo(c, d)
+		if err == nil && ti.State == "PAUSED_PLAYBACK" && lag < 3 {
+			lag++
+			ti.State = "PLAYING"
+		}
+		return ti, err
+	}
+	seekRenderer = func(c context.Context, d upnp.Device, sec float64) error {
+		ti, _ := getTransportInfo(c, d)
+		seekState = ti.State
+		return upnp.Seek(c, d, sec)
+	}
+	t.Cleanup(func() { getTransportInfo, seekRenderer = upnp.GetTransportInfo, upnp.Seek })
+	if err := PlayIndex(2); err != nil {
+		t.Fatal(err)
+	}
+	var order []string
+	for _, a := range r.Actions() {
+		if a == "Seek" || a == "Pause" || a == "Play" {
+			order = append(order, a)
+		}
+	}
+	// Stop: Pause, the stream let go and the renderer seeked where it is; then the start:
+	// a seek to the track and Play
+	if got := strings.Join(order, " "); !strings.HasSuffix(got, "Pause Seek Seek Play") || r.Get().State != "PLAYING" {
+		t.Fatalf("order %v, state %s: want Pause, Seek, Seek, Play and playing", order, r.Get().State)
+	}
+	if lag < 3 || seekState != "PAUSED_PLAYBACK" {
+		t.Fatalf("the seek went with the renderer reporting %q after %d lagging polls: it must wait for PAUSED", seekState, lag)
+	}
+	mu.Lock()
+	target, _ := streamTimeLocked(2, 0)
+	mu.Unlock()
+	if got := r.Get().Pos; got < target || got > target+2 {
+		t.Fatalf("at %.1f, want the track's start %.1f", got, target)
+	}
+}
+
+// pausedAt pauses what playingAt set up, in the player and in the fake.
+func pausedAt(r *testkit.Renderer) {
+	paused = true
+	r.With(func(s *testkit.RendererState) { s.State = "PAUSED_PLAYBACK" })
+}
+
+// The BeagleBone, paused, takes a seek and fetches the stream from the target, but goes on
+// reporting its old position until Play. Its request from the target confirms the seek:
+// waiting for the position alone ran out the polls on every jump, some 8 s (2026-11-14).
+func TestPausedSeekIsConfirmedByTheRequestFromTheTarget(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"a", "b", "c"}, 0, 10)
+	polls := 0
+	frozen := -1.0
+	getPositionInfo = func(c context.Context, d upnp.Device) (upnp.PositionInfo, error) {
+		pi, err := upnp.GetPositionInfo(c, d)
+		polls++
+		if err == nil && r.Get().State == "PAUSED_PLAYBACK" {
+			if frozen < 0 {
+				frozen = pi.Position
+			}
+			pi.Position = frozen // paused: the old position, whatever the seeks did
+		} else {
+			frozen = -1
+		}
+		return pi, err
+	}
+	seekRenderer = func(c context.Context, d upnp.Device, sec float64) error {
+		if err := upnp.Seek(c, d, sec); err != nil {
+			return err
+		}
+		// the renderer fetches the stream from the target, as the BeagleBone does
+		mu.Lock()
+		id, _ := runIDOf(runURI)
+		mu.Unlock()
+		if src, ok := stream.ForRun(id); ok {
+			if rd, err := src.Open(44 + int64(sec*44100)*4); err == nil {
+				_ = rd.Close()
+			}
+		}
+		return nil
+	}
+	t.Cleanup(func() { getPositionInfo, seekRenderer = upnp.GetPositionInfo, upnp.Seek })
+	if err := PlayIndex(2); err != nil {
+		t.Fatal(err)
+	}
+	if polls > 25 {
+		t.Fatalf("%d polls for one jump: the request from the target must confirm the seek", polls)
+	}
+	if index != 2 || r.Get().State != "PLAYING" {
+		t.Fatalf("index %d state %s", index, r.Get().State)
 	}
 }

@@ -1,6 +1,8 @@
 # ADR-020: Every jump within an album is a seek: no new stream, no click on coax
 
-**Status:** Accepted 2026-11-14 (1.1.20). **Open:** the FiiO not tried.
+**Status:** Accepted 2026-11-14 (1.1.20). ~~A jump over playing music is a plain seek~~: on the
+FiiO that grunted; it is the player's Stop and a start there since
+[ADR-022](adr-022-a-jump-is-stop-then-start.md) (the run from the album's start stays).
 **Overcome:** live on the BeagleBone over coax (the owner jumped between tracks of an album by
 hand: no click); in tests (a start mid-album, then a jump back, sends no Stop and no new stream; the
 run's silent lead is served to its first request only; one odd position report moves nothing).

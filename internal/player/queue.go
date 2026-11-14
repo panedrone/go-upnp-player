@@ -2,6 +2,8 @@ package player
 
 import (
 	"fmt"
+	"github.com/panedrone/go-upnp-player/internal/stream"
+	"time"
 
 	"github.com/panedrone/go-upnp-player/internal/upnp"
 )
@@ -70,45 +72,94 @@ func PlayIndex(i int) error {
 	cmdMu.Lock()
 	defer cmdMu.Unlock()
 	mu.Lock()
-	at, inStream := streamTimeLocked(i, 0)
+	_, inStream := streamTimeLocked(i, 0)
 	// only while the renderer is known to be on that stream: a hung one (stalled) or one
 	// that reports another stream gets a real start
 	onIt := lastTrackURI == "" || lastTrackURI == runURI
 	inStream = inStream && onIt && wantPlaying && !stalled && pendingSince.IsZero() && resumeAt < 0
-	wasPaused := paused
 	mu.Unlock()
 	if inStream {
-		if err := jumpInStream(i, at, wasPaused); err == nil {
-			setErr(nil)
-			return nil
-		}
+		err := jumpLocked(i, 0)
+		setErr(err)
+		return err
 	}
 	err := startLocked(i, 0)
 	setErr(err)
 	return err
 }
 
-// jumpInStream seeks the renderer to track i at stream time at; call under cmdMu.
-func jumpInStream(i int, at float64, wasPaused bool) error {
+// jumpLocked takes the renderer to track i at sec while it plays the stream, the way the
+// owner does it by hand without a sound: Stop, then a start of that track. Stop pauses
+// the renderer, lets the stream go to silence and seeks it where it is, so that the
+// moment of music it holds is silence; the start then seeks it to the track and plays.
+// A seek over playing music made the FiiO SR11 stutter, a pause and a seek without
+// letting go of the music still jerked once (2026-11-14). Every step waits for the
+// renderer's own report (confirm). Call under cmdMu.
+func jumpLocked(i int, sec float64) error {
 	d, ok := device()
 	if !ok {
 		return fmt.Errorf("no renderer selected")
 	}
 	c, cancel := ctx()
-	defer cancel()
-	if err := seekRenderer(c, d, at); err != nil {
+	err := stopLocked(c, d)
+	cancel()
+	if err != nil {
 		return err
 	}
-	if wasPaused {
-		if err := upnp.Play(c, d); err != nil {
-			return err
-		}
-	}
+	return startLocked(i, sec)
+}
+
+// renderState is one poll of the renderer, with whether its position stood still since
+// the previous poll.
+type renderState struct {
+	state string
+	pos   float64
+	still bool
+}
+
+// confirmTries bounds every confirmed step: polls, pollEvery apart.
+const (
+	confirmTries = 50
+	pollEvery    = 200 * time.Millisecond
+)
+
+// confirmAt polls until the renderer shows it took a seek to at, sent at since: it reports
+// that position, standing still, or it has requested the stream from there (a seek is a
+// request from the target). The BeagleBone, paused, takes the seek and fetches from the
+// target but goes on reporting its old position until Play: waiting for the position
+// alone ran out the 50 polls on every jump, some 8 s (2026-11-14).
+func confirmAt(d upnp.Device, at float64, since time.Time) bool {
+	near := func(p float64) bool { return p >= at-1.5 && p <= at+1.5 }
 	mu.Lock()
-	index, paused, position = i, false, 0
-	duration = trackDuration(i)
-	seekSentLocked(at)
+	id, haveRun := runIDOf(runURI)
 	mu.Unlock()
-	savePlaylist()
-	return nil
+	return confirm(d, func(st renderState) bool {
+		if haveRun {
+			if p, ok := stream.OpenedSince(id, since); ok && near(p) {
+				return true
+			}
+		}
+		return near(st.pos) && st.still
+	})
+}
+
+// confirm polls the renderer until ok holds for what it reports, or confirmTries polls
+// have gone by.
+func confirm(d upnp.Device, ok func(renderState) bool) bool {
+	prev, have := 0.0, false
+	for range confirmTries {
+		c, cancel := ctx()
+		ti, err1 := getTransportInfo(c, d)
+		pi, err2 := getPositionInfo(c, d)
+		cancel()
+		if err1 == nil && err2 == nil {
+			st := renderState{state: ti.State, pos: pi.Position, still: have && pi.Position == prev}
+			if ok(st) {
+				return true
+			}
+			prev, have = pi.Position, true
+		}
+		sleep(pollEvery)
+	}
+	return false
 }
