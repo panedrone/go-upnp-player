@@ -84,6 +84,31 @@ Settings live in `%AppData%\go-upnp-player\config.json`, the log and the metadat
 `%LocalAppData%\go-upnp-player`. To uninstall: *Settings → Apps → go-upnp-player → Uninstall*; it
 asks whether to delete those two folders too. The zip version: delete its folder and those two.
 
+### The Qt player (Windows)
+
+The same player with a native Qt window instead of the web page: the same library, playlist,
+devices, equalizer and settings. Download `go-upnp-player-qt-setup.exe` from the same release and
+run it. It installs beside the usual player, to `%LocalAppData%\Programs\go-upnp-player-qt`, with
+shortcuts named **go-upnp-player Qt**.
+
+- Run one of the two at a time. They share port 8090, the settings, the playlist and the library
+  cache; the one started later takes over from the other.
+- The web page keeps working from any browser at `http://localhost:8090/` while the Qt player runs.
+- Windows Firewall asks again for the new exe: allow it for private networks, as above.
+- Its uninstaller asks whether to delete the settings and the cache too. They are shared, so that
+  resets the usual player as well.
+
+Building it yourself needs cgo and a Qt 6 SDK: the MinGW kit of Qt with the MinGW compiler of the
+same version on Windows (the Qt package and `pkg-config` on Linux). The build tag keeps the usual
+build and `go install` free of Qt:
+
+```bash
+go build -tags qt ./cmd/go-upnp-player-qt
+```
+
+On Windows `cli/pkg-config` stands in for `pkg-config`; see
+[ADR-027](docs/adr-027-qt-window-with-miqt.md) for the whole recipe.
+
 ### With Go (any OS)
 
 For those who prefer it, with Go 1.26+:
