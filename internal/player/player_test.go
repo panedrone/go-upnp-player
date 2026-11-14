@@ -86,7 +86,7 @@ func resetState() {
 	frozenSince, stalled = time.Time{}, false
 	lastPollAt, lastTrackURI, racingTicks, racingIndex, racingFrom, racingFixAt = time.Time{}, "", 0, 0, 0, time.Time{}
 	pendingIndex, pendingPos, pendingSince, pendingTry, pendingTries = 0, 0, time.Time{}, time.Time{}, 0
-	offset, finishedAt = 0, time.Time{}
+	offset, finishedAt, off = 0, time.Time{}, false
 	runQ, runIDs, runStarts, runDurs, runLen, runURI, nextRun, streamPos = 0, nil, nil, nil, 0, "", runPlan{}, 0
 	seekTo, seekAt = 0, time.Time{}
 	_ = config.Update(func(c *config.Config) { *c = config.Config{} })
@@ -181,7 +181,7 @@ func silent(t *testing.T, uri string) bool {
 	if !ok {
 		t.Fatalf("not a run: %s", uri)
 	}
-	src, ok := stream.ForRun(id)
+	src, ok := stream.ForRun(id, "")
 	if !ok {
 		t.Fatalf("run %s is not registered", id)
 	}
@@ -440,14 +440,11 @@ func TestPlayQueue(t *testing.T) {
 	if err := PlayQueue([]string{"a", "b"}, 1); err != nil {
 		t.Fatal(err)
 	}
-	// the run opens at track 0 (the same format before the chosen track, ADR-020) and the
-	// renderer is seeked past it to track 1
-	rp, err := planStart(r.Device, 1, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if r.Get().URI != rp.uri || queueVersion != 1 || rp.q != 0 || at(r.Get()) != 0 || index != 1 {
-		t.Fatalf("uri %s (want %s) version %d run from %d at %v index %d", r.Get().URI, rp.uri, queueVersion, rp.q, at(r.Get()), index)
+	// from STOPPED the stream begins at the chosen track: no seek
+	rp := runOn(t, r, 1, 0)
+	if r.Get().URI != rp.uri || queueVersion != 1 || runQ != 1 || at(r.Get()) != 0 || index != 1 || r.Count("Seek") != 0 {
+		t.Fatalf("uri %s (want %s) version %d run from %d at %v index %d seeks %d",
+			r.Get().URI, rp.uri, queueVersion, runQ, at(r.Get()), index, r.Count("Seek"))
 	}
 }
 
@@ -628,8 +625,9 @@ func TestPauseAndStopNeverSendStop(t *testing.T) {
 		t.Fatalf("want %v paused %v resume %v pause %d", wantPlaying, paused, resumeAt, r.Count("Pause"))
 	}
 	Tick()
-	if got := Snapshot().Transport; got != "STOPPED" {
-		t.Fatalf("the page shows %s after Stop, want STOPPED: the Pause is only how the FiiO is stopped", got)
+	// the page shows what the renderer reports, not the player's intent
+	if got := Snapshot().Transport; got != "PAUSED_PLAYBACK" {
+		t.Fatalf("the page shows %s after Stop, the renderer reports PAUSED_PLAYBACK", got)
 	}
 }
 
@@ -1028,9 +1026,9 @@ func TestResumeAfterRestartContinuesAtPosition(t *testing.T) {
 		t.Fatal(err)
 	}
 	st := r.Get()
-	// the run opens at track a, before the paused one (ADR-020): one more seek takes the
-	// renderer past it to b at 42 s
-	if st.State != "PLAYING" || at(st) < 42 || at(st) > 45 || r.Count("Seek") != 2 {
+	// a new process holds no run: a stream that begins at b, 42 s in (ADR-015); the one
+	// seek is the gapless switch's, to the end of what the paused renderer held
+	if st.State != "PLAYING" || at(st) < 42 || at(st) > 45 || r.Count("Seek") != 1 {
 		t.Fatalf("%+v seeks %d", st, r.Count("Seek"))
 	}
 	if got := config.Get().Playlist.Position; got != 0 || resumeAt != -1 {
@@ -1288,20 +1286,52 @@ func TestAdvanceFromAStreamFromAPosition(t *testing.T) {
 }
 
 // The FiiO SR11 stays in PLAYING at the very end after the last track. The playlist
-// has ended once the position reaches the track's known length: the player finishes
-// and pauses it, so the page shows neither STALLED nor PLAYING (2026-11-10).
-func TestEndOfPlaylistWithRendererFrozenAtTheEnd(t *testing.T) {
-	r := setup(t)
-	playingAt(r, []string{"a"}, 0, 240)
-	Tick()
-	if r.Count("Pause") != 0 {
-		t.Fatal("paused right at the end: the last fraction of a second would be cut")
+// has ended once the position reaches the track's known length (2026-11-10). It is then
+// switched off as foobar2000 does it: Stop, and the player forgets the stream. Left
+// paused there, it took the next start's Seek and Play and moved nowhere: a click on a
+// track of the album hung (2026-11-14). Both renderers alike.
+func TestEndOfPlaylistSwitchesOff(t *testing.T) {
+	for _, safe := range []bool{false, true} {
+		t.Run(map[bool]string{false: "keepOutputOpen", true: "stopSafe"}[safe], func(t *testing.T) {
+			r := setup(t)
+			keepOutputOpen = !safe
+			playingAt(r, []string{"a", "b"}, 0, 50)
+			end := runLen
+			r.With(func(s *testkit.RendererState) { s.Pos = end })
+			Tick()
+			if r.Count("Stop") != 0 || r.Count("Pause") != 0 {
+				t.Fatal("stopped right at the end: the last fraction of a second would be cut")
+			}
+			finishedAt = time.Now().Add(-2 * time.Second)
+			Tick()
+			s := Snapshot()
+			if s.Stalled || wantPlaying || !s.Off || s.Position != 0 || runURI != "" ||
+				r.Count("Stop") != 1 || r.Get().State != "STOPPED" {
+				t.Fatalf("stalled %v want %v off %v pos %v run %q stops %d state %s",
+					s.Stalled, wantPlaying, s.Off, s.Position, runURI, r.Count("Stop"), r.Get().State)
+			}
+			// a click on a track of the album starts it
+			if err := PlayIndex(1); err != nil {
+				t.Fatal(err)
+			}
+			if st := r.Get(); st.State != "PLAYING" || index != 1 || Snapshot().Off {
+				t.Fatalf("%+v index %d", st, index)
+			}
+		})
 	}
-	finishedAt = time.Now().Add(-2 * time.Second)
-	Tick()
-	s := Snapshot()
-	if s.Stalled || wantPlaying || r.Count("Pause") != 1 || r.Get().State != "PAUSED_PLAYBACK" {
-		t.Fatalf("stalled %v want %v pauses %d state %s", s.Stalled, wantPlaying, r.Count("Pause"), r.Get().State)
+}
+
+// Left at the end of its stream (what 1.1.21 did at the end of a playlist), the renderer
+// takes the start's Seek and Play and moves nowhere: the fake keeps the live behaviour.
+func TestPlayedOutRendererIgnoresSeekAndPlay(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"a", "b"}, 0, 50)
+	uri, end := runURI, runLen
+	wantPlaying = false
+	r.With(func(s *testkit.RendererState) { s.State, s.URI, s.Pos = "PAUSED_PLAYBACK", uri, end })
+	_ = PlayIndex(0)
+	if st := r.Get(); st.Pos != end {
+		t.Fatalf("%+v: a played-out renderer moved", st)
 	}
 }
 

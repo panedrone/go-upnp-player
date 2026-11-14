@@ -40,6 +40,8 @@ export interface PlayerState {
   transport: string
   stalled: boolean
   wantPlaying: boolean
+  // the playlist played out and the renderer was stopped: no stream, no position
+  off?: boolean
   paused: boolean
   position: number
   duration: number

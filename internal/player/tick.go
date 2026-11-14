@@ -1,6 +1,7 @@
 package player
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -169,9 +170,7 @@ func Tick() {
 	case services.TickFinished:
 		mu.Lock()
 		wantPlaying = false
-		if ti.State == "PLAYING" {
-			finishedAt = time.Now()
-		}
+		finishedAt = time.Now()
 		mu.Unlock()
 	}
 	mu.Lock()
@@ -180,11 +179,10 @@ func Tick() {
 		finishedAt = time.Time{}
 	}
 	mu.Unlock()
-	if haltNow && ti.State == "PLAYING" {
-		// It sits in PLAYING at the end of the last track (the FiiO SR11): out of play,
-		// so its state stops saying PLAYING over silence. A moment after the end, not at
-		// it: the position comes in whole seconds and up to half a second may be left.
-		_ = halt(c, d)
+	if haltNow {
+		// A moment after the end, not at it: the position comes in whole seconds and up
+		// to half a second may be left.
+		switchOff(c, d, ti.State)
 	}
 	if poll {
 		if v, err := upnp.GetVolume(c, d); err == nil {
@@ -193,6 +191,26 @@ func Tick() {
 			mu.Unlock()
 		}
 	}
+}
+
+// switchOff ends a played-out playlist the way foobar2000 does: the renderer is stopped,
+// confirmed STOPPED, and the player forgets its stream and position. Left at the end of
+// its stream, gmrender takes Seek and Play and moves nowhere: the FiiO SR11, paused there,
+// hung the next start of that album (2026-11-14). Stop after the stream has ended is what
+// foobar2000 sends the FiiO at the end of every album (ADR-002 is about Stop over music).
+// From STOPPED the next start sets the stream anew. Call under cmdMu.
+func switchOff(c context.Context, d upnp.Device, state string) {
+	if state == "PLAYING" || state == "PAUSED_PLAYBACK" {
+		if err := upnp.Stop(c, d); err != nil {
+			setErr(err)
+		} else if !confirm(d, func(st renderState) bool { return st.state == "STOPPED" }) {
+			log.Printf("player: %s did not report itself stopped after the playlist ended", d.Name)
+		}
+	}
+	mu.Lock()
+	setRunLocked(runPlan{})
+	position, resumeAt, paused, off = 0, -1, false, true
+	mu.Unlock()
 }
 
 // retryPendingStart retries a start the renderer refused (ADR-014) and reports

@@ -25,9 +25,8 @@ type runPlan struct {
 	starts []float64 // where each track begins in the stream, s (the first at 0)
 	durs   []float64 // track lengths per the library, s
 	from   float64   // the stream starts this far into the first track, s (ADR-015)
-	// lead: where the chosen track (and the position in it) is in the stream, s, when
-	// the run opens before it (planStart); the start seeks there, and the stream holds
-	// silence up to it until then (ADR-020). 0: the stream starts at the chosen place.
+	// lead: where a restart in place seeks to in the stream the renderer holds, s
+	// (heldRun); 0 for a new stream, which starts at the chosen place
 	lead   float64
 	length float64 // the stream's length, s
 	uri    string
@@ -42,6 +41,7 @@ var (
 	runDurs   []float64
 	runLen    float64
 	runURI    string
+	curRun    runPlan // the current run as planned (its fields above are its copy)
 	nextRun   runPlan // the run queued with SetNextAVTransportURI (nextURL is its URI)
 	streamPos float64 // the renderer's position in the stream at the latest poll, s
 	// the latest seek in the stream, until the renderer reports a position after it
@@ -57,51 +57,6 @@ func seekSentLocked(at float64) {
 	lastCmd = seekAt
 }
 
-// planStart lays out the run for a start at queue track i, from seconds into it. The
-// run opens at the first of the tracks before i that go on in the same format, so that
-// a jump back to any of them later is a seek in the same stream, not a new one: a new
-// stream is where the DAC on a coaxial output loses the signal and clicks (ADR-020).
-func planStart(d upnp.Device, i int, from float64) (runPlan, error) {
-	mu.Lock()
-	ids := append([]string(nil), queue...)
-	mu.Unlock()
-	if i < 0 || i >= len(ids) {
-		return runPlan{}, fmt.Errorf("index %d out of range", i)
-	}
-	t := lookupTrack(ids[i])
-	if t == nil || t.SampleRate == 0 {
-		return planRun(d, i, from)
-	}
-	target := stream.TrackSpan(t, 0)
-	b := i
-	var back uint64 // samples of the tracks before i in the run
-	var backData int64
-	for j := i - 1; j >= 0; j-- {
-		tj := lookupTrack(ids[j])
-		if tj == nil {
-			break
-		}
-		sp := stream.TrackSpan(tj, 0)
-		if !stream.SameFormat(target, sp) || backData+sp.Layout().DataLen() > stream.MaxRunData/2 {
-			break
-		}
-		b, back, backData = j, back+(sp.End-sp.Start), backData+sp.Layout().DataLen()
-	}
-	fromMs := int64(0)
-	if from > 0 {
-		fromMs = int64(from * 1000)
-	}
-	into := stream.TrackSpan(t, fromMs).Start - t.Start // samples into track i
-	if b == i && into == 0 {
-		return planRun(d, i, 0)
-	}
-	if b == i {
-		// nothing before it to jump back to: the stream starts at the position (ADR-015)
-		return planRun(d, i, from)
-	}
-	return layoutRun(d, ids, b, 0, i, back+into)
-}
-
 // planRun lays out the run that starts at queue track i, from seconds into it, and
 // registers it for serving.
 func planRun(d upnp.Device, i int, from float64) (runPlan, error) {
@@ -111,13 +66,11 @@ func planRun(d upnp.Device, i int, from float64) (runPlan, error) {
 	if i < 0 || i >= len(ids) {
 		return runPlan{}, fmt.Errorf("index %d out of range", i)
 	}
-	return layoutRun(d, ids, i, from, i, 0)
+	return layoutRun(d, ids, i, from)
 }
 
-// layoutRun lays out the run from queue track i (from seconds into it) on and registers
-// it; lead is the samples its first request plays as silence, chosen the track whose
-// title the renderer shows.
-func layoutRun(d upnp.Device, ids []string, i int, from float64, chosen int, lead uint64) (runPlan, error) {
+// layoutRun lays out the run from queue track i (from seconds into it) on and registers it.
+func layoutRun(d upnp.Device, ids []string, i int, from float64) (runPlan, error) {
 	t0 := lookupTrack(ids[i])
 	if t0 == nil {
 		return runPlan{}, fmt.Errorf("track %s is not in the library anymore", ids[i])
@@ -156,14 +109,8 @@ func layoutRun(d upnp.Device, ids []string, i int, from float64, chosen int, lea
 		data += size
 		spans = append(spans, sp)
 	}
-	run := stream.Run{Spans: spans, Lead: lead}
+	run := stream.Run{Spans: spans}
 	id := stream.RegisterRun(run)
-	if lead > 0 {
-		rp.lead = float64(lead) / float64(t0.SampleRate)
-		if tc := lookupTrack(ids[chosen]); tc != nil {
-			t0 = tc // the renderer shows the chosen track, not the run's first
-		}
-	}
 	mime := services.PickMime(d.SinkProtocols, "audio/wav", "audio/x-wav")
 	base := "http://" + d.LocalIP + ":" + strconv.Itoa(mediaPort)
 	rp.uri = base + "/media/run/" + id + ".wav?ct=" + url.QueryEscape(mime)
@@ -178,6 +125,7 @@ func layoutRun(d upnp.Device, ids []string, i int, from float64, chosen int, lea
 
 // setRunLocked makes rp the run the renderer plays, from its start.
 func setRunLocked(rp runPlan) {
+	curRun, curRun.lead = rp, 0
 	runQ, runIDs, runStarts, runDurs, runLen, runURI = rp.q, rp.ids, rp.starts, rp.durs, rp.length, rp.uri
 	offset = rp.from
 	streamPos, seekAt = 0, time.Time{}

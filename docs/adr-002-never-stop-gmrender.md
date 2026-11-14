@@ -3,6 +3,8 @@
 **Status:** Accepted 2026-11-09 (written down 2026-11-10). Amended by
 [ADR-013](adr-013-stop-safe-renderers-start-like-foobar.md) (2026-11-10): renderers known to survive
 `Stop` (stock gmrender, the BeagleBone) now get it; every other renderer still never does.
+Amended by [ADR-023](adr-023-the-end-of-the-playlist-switches-off.md) (2026-11-14): after the
+playlist has played out, the renderer gets `Stop` as from foobar2000; the music has ended.
 **Overcome:** fully. Nothing in normal operation needs `Stop`. One deliberate exception: the cure
 for a racing renderer ([ADR-007](adr-007-racing-gmrender.md)), which plays nothing at that moment.
 

@@ -3,6 +3,10 @@
 **Status:** Accepted 2026-11-14 (1.1.20). ~~A jump over playing music is a plain seek~~: on the
 FiiO that grunted; it is the player's Stop and a start there since
 [ADR-022](adr-022-a-jump-is-stop-then-start.md) (the run from the album's start stays).
+~~A start mid-album opens the run at the album's first track and seeks past the lead~~:
+superseded by [ADR-024](adr-024-a-start-takes-what-the-renderer-holds.md) (2026-11-14). From
+STOPPED that seek made the FiiO jump audibly before the track played. A start now begins its
+stream at the chosen track.
 **Overcome:** live on the BeagleBone over coax (the owner jumped between tracks of an album by
 hand: no click); in tests (a start mid-album, then a jump back, sends no Stop and no new stream; the
 run's silent lead is served to its first request only; one odd position report moves nothing).

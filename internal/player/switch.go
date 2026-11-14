@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/panedrone/go-upnp-player/internal/services"
+	"github.com/panedrone/go-upnp-player/internal/stream"
 	"github.com/panedrone/go-upnp-player/internal/upnp"
 	"log"
 	"time"
@@ -62,11 +63,6 @@ func startLocked(i int, seek float64) (err error) {
 		from = seek
 	}
 	// a start at the very end is a start of a track that has already ended: from 0
-	rp, err := planStart(d, i, from)
-	if err != nil {
-		return err
-	}
-	uri, meta := rp.uri, rp.meta
 	c, cancel := ctx()
 	defer cancel()
 
@@ -92,6 +88,19 @@ func startLocked(i int, seek float64) (err error) {
 		waitStopped(d)
 		plan = services.SwitchPlan{}
 	}
+	// What the renderer holds decides the start. Holding the player's current stream with
+	// the track in it, it is restarted there in place. Holding nothing (STOPPED) or
+	// another stream, it gets a stream that begins at the track: no seek. A start from
+	// STOPPED that opened the album's stream and seeked into it jumped audibly before it
+	// played (the FiiO SR11, 2026-11-14).
+	rp, held := heldRun(plan.ViaNext, pi, i, from)
+	if !held {
+		var err error
+		if rp, err = planRun(d, i, from); err != nil {
+			return err
+		}
+	}
+	uri, meta := rp.uri, rp.meta
 	restarted := false
 	if plan.ViaNext && pi.TrackURI == uri && services.SameLength(pi.Duration, rp.length) {
 		restarted = true
@@ -103,7 +112,7 @@ func startLocked(i int, seek float64) (err error) {
 			return err
 		}
 		if plan.Resume {
-			if !confirmAt(d, rp.lead, sent) {
+			if !confirmAt(d, uri, rp.lead, sent) {
 				log.Printf("player: %s did not report the position %.0f s; playing anyway", d.Name, rp.lead)
 			}
 			if err := playRetried(d); err != nil {
@@ -140,21 +149,18 @@ func startLocked(i int, seek float64) (err error) {
 	} else if err := startDirect(d, uri, meta); err != nil {
 		return err
 	}
-	if rp.lead > 0 && !restarted {
-		seekLead(d, uri, rp.length, rp.lead)
-	}
 	mu.Lock()
 	resumeAt = -1
 	pendingSince = time.Time{}
-	index, wantPlaying, paused = i, true, false
+	index, wantPlaying, paused, off = i, true, false, false
 	lastCmd = time.Now()
 	setRunLocked(rp)
-	if restarted || rp.lead > 0 {
+	if restarted {
 		// seeked: the polls may see the old position for a while
 		seekSentLocked(rp.lead)
 	}
 	position, duration = rp.from, t.Duration
-	if rp.lead > 0 {
+	if held {
 		position = from
 	}
 	frozenSince, stalled = time.Now(), false
@@ -165,66 +171,25 @@ func startLocked(i int, seek float64) (err error) {
 	return nil
 }
 
-// seekLead takes a fresh stream past its silent lead to the chosen track (ADR-020).
-// gmrender drops a seek sent in the first moments of a stream, and right after a start
-// it still reports the previous stream's position (ADR-005): the first try, 2026-11-14,
-// took that for a landed seek, and the renderer played the silent lead. So the seek goes
-// once the renderer reports the new stream playing, and it is landed only when the new
-// stream stands at the chosen place; it is repeated until then. Meanwhile the lead
-// plays silence, never the tracks before the chosen one.
-func seekLead(d upnp.Device, uri string, length, at float64) {
-	sent := 0
-	var sentAt time.Time
-	last := -1.0 // the position at the previous poll
-	for range 40 {
-		sleep(300 * time.Millisecond)
-		c, cancel := ctx()
-		pi, err := getPositionInfo(c, d)
-		cancel()
-		// gmrender reports a queued URI early, so its length must match too
-		if err != nil || pi.TrackURI != uri || !services.SameLength(pi.Duration, length) {
-			last = -1
-			continue // still the old stream
-		}
-		if sent > 0 && pi.Position >= at-2 {
-			return // landed
-		}
-		if sent == 0 {
-			// The seek waits for the new stream to settle: the renderer reports it
-			// playing, more than a second in, its position going on from the previous
-			// poll. A seek while the FiiO was still starting the stream made it stutter
-			// at every switch (1.1.20, 2026-11-14).
-			settled := last >= 1 && pi.Position > last
-			last = pi.Position
-			if !settled {
-				continue
-			}
-		}
-		if sent > 0 {
-			// A seek is out: wait for it. The FiiO goes on reporting its old position for
-			// a while after a seek, and a seek repeated on every such report restarted its
-			// buffer again and again: a stutter at every switch (1.1.20, 2026-11-14).
-			// Another seek only when, 3 s on, the renderer is clearly still playing the
-			// lead, its position moving on from where it was.
-			moving := last >= 0 && pi.Position > last
-			last = pi.Position
-			if time.Since(sentAt) < 3*time.Second || !moving {
-				continue
-			}
-			if sent >= 4 {
-				break
-			}
-			log.Printf("player: the seek past the silent lead to %.0f s did not land (the renderer is at %.0f s): once more", at, pi.Position)
-		}
-		c, cancel = ctx()
-		err = seekRenderer(c, d, at)
-		cancel()
-		if err == nil {
-			sent++
-			sentAt = time.Now()
-		}
+// heldRun is the player's current run with queue track i, from seconds into it, as the
+// place to restart at (lead), when the renderer holds that run: busy (viaNext) and
+// reporting its URI and length. Otherwise false.
+func heldRun(viaNext bool, pi upnp.PositionInfo, i int, from float64) (runPlan, bool) {
+	mu.Lock()
+	defer mu.Unlock()
+	if !viaNext || runURI == "" || pi.TrackURI != runURI || !services.SameLength(pi.Duration, runLen) {
+		return runPlan{}, false
 	}
-	log.Printf("player: the seek past the silent lead to %.0f s did not land", at)
+	at, ok := streamTimeLocked(i, from)
+	if !ok {
+		return runPlan{}, false
+	}
+	rp := curRun
+	rp.lead = at
+	if id, ok := runIDOf(rp.uri); ok {
+		stream.KeepRun(id) // Stop let it go to silence: music again
+	}
+	return rp, true
 }
 
 // errPlayRefused: the renderer took the URI but answered every Play with an error.

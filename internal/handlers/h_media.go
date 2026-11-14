@@ -32,7 +32,7 @@ func MediaTrack(c fiber.Ctx) error {
 // MediaRun handles GET/HEAD /media/run/:file (<run id>.wav?ct=mime): several tracks of one
 // format as one WAV, registered by the player (ADR-016).
 func MediaRun(c fiber.Ctx) error {
-	src, ok := stream.ForRun(strings.TrimSuffix(c.Params("file"), filepath.Ext(c.Params("file"))))
+	src, ok := stream.ForRun(strings.TrimSuffix(c.Params("file"), filepath.Ext(c.Params("file"))), c.IP())
 	if !ok {
 		return fiber.ErrNotFound
 	}

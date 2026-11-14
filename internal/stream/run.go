@@ -76,23 +76,28 @@ var (
 	runOrder []string
 	// retired runs serve silence: the renderer is being moved off them (RetireRun)
 	retired = map[string]bool{}
-	// the latest request for each run: where in the stream it started and when
-	lastOpen = map[string]openedAt{}
+	// the latest request for each run from each renderer: where in the stream it started
+	// and when
+	lastOpen = map[openKey]openedAt{}
 )
+
+// openKey is a run and the address of the renderer requesting it: two renderers fetch
+// the same run around a switch, and the old one's request is no sign from the new one.
+type openKey struct{ id, from string }
 
 type openedAt struct {
 	sec float64
 	at  time.Time
 }
 
-// OpenedSince reports where in the run's stream, in seconds, the renderer's latest request
-// started, if it came after since. A seek is a request from the target: the renderer's
-// own sign that it took the seek, even where it does not report the new position while
-// paused (the BeagleBone, 2026-11-14).
-func OpenedSince(id string, since time.Time) (float64, bool) {
+// OpenedSince reports where in the run's stream, in seconds, the latest request from the
+// renderer at address from started, if it came after since. A seek is a request from the
+// target: the renderer's own sign that it took the seek, even where it does not report the
+// new position while paused (the BeagleBone, 2026-11-14).
+func OpenedSince(id, from string, since time.Time) (float64, bool) {
 	runsMu.Lock()
 	defer runsMu.Unlock()
-	o, ok := lastOpen[id]
+	o, ok := lastOpen[openKey{id, from}]
 	if !ok || o.at.Before(since) {
 		return 0, false
 	}
@@ -147,8 +152,16 @@ func RetireRun(id string) (restore func()) {
 	}
 }
 
-// ForRun is the source of a registered run.
-func ForRun(id string) (Source, bool) {
+// KeepRun takes a let-go run back: it is music again (a restart in place on the stream the
+// renderer holds, after Stop let it go).
+func KeepRun(id string) {
+	runsMu.Lock()
+	defer runsMu.Unlock()
+	delete(retired, id)
+}
+
+// ForRun is the source of a registered run for the renderer at address from.
+func ForRun(id, from string) (Source, bool) {
 	runsMu.Lock()
 	r, ok := runs[id]
 	runsMu.Unlock()
@@ -163,7 +176,7 @@ func ForRun(id string) (Source, bool) {
 		}
 		runsMu.Lock()
 		silent := retired[id]
-		lastOpen[id] = openedAt{sec, time.Now()}
+		lastOpen[openKey{id, from}] = openedAt{sec, time.Now()}
 		runsMu.Unlock()
 		if silent {
 			return openSilence(r, offset)

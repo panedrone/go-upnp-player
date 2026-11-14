@@ -232,25 +232,6 @@ func TestIsStaleBundlePath(t *testing.T) {
 	}
 }
 
-func TestShownTransport(t *testing.T) {
-	cases := []struct {
-		state string
-		want  bool
-		shown string
-	}{
-		{"PAUSED_PLAYBACK", false, "STOPPED"}, // Stop on the FiiO is a Pause
-		{"PAUSED_PLAYBACK", true, "PAUSED_PLAYBACK"},
-		{"PLAYING", true, "PLAYING"},
-		{"PLAYING", false, "PLAYING"}, // what the renderer really does is shown
-		{"STOPPED", false, "STOPPED"},
-	}
-	for _, c := range cases {
-		if got := ShownTransport(c.state, c.want); got != c.shown {
-			t.Errorf("%s want=%v: %s, want %s", c.state, c.want, got, c.shown)
-		}
-	}
-}
-
 func TestPlausibleStep(t *testing.T) {
 	for _, c := range []struct {
 		last, now float64

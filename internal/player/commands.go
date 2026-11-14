@@ -105,7 +105,7 @@ func stopLocked(c context.Context, d upnp.Device) error {
 		if id, ok := runIDOf(cur); ok {
 			stream.RetireRun(id)
 			sent := time.Now()
-			if seekRenderer(c, d, at) == nil && !confirmAt(d, at, sent) {
+			if seekRenderer(c, d, at) == nil && !confirmAt(d, cur, at, sent) {
 				log.Printf("player: %s did not report the position %.0f s after Stop", d.Name, at)
 			}
 		}

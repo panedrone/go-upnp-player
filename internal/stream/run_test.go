@@ -108,17 +108,17 @@ func TestRegisterRun(t *testing.T) {
 	if RegisterRun(Run{Spans: []Span{a, b}}) != id {
 		t.Fatal("the same run must get the same id")
 	}
-	src, ok := ForRun(id)
+	src, ok := ForRun(id, "")
 	if !ok || src.Size != (Run{Spans: []Span{a, b}}).Layout().TotalLen() {
 		t.Fatalf("ok %v size %d", ok, src.Size)
 	}
-	if _, ok := ForRun("nope"); ok {
+	if _, ok := ForRun("nope", ""); ok {
 		t.Fatal("an unknown run")
 	}
 	for i := range keptRuns {
 		RegisterRun(Run{Spans: []Span{{Path: "x", End: uint64(i + 1), SampleRate: 44100, Channels: 2, Bits: 16}}})
 	}
-	if _, ok := ForRun(id); ok {
+	if _, ok := ForRun(id, ""); ok {
 		t.Fatal("the oldest runs are let go")
 	}
 }
@@ -129,7 +129,7 @@ func TestRetiredRunIsSilence(t *testing.T) {
 	a, b := twoFiles(t)
 	run := Run{Spans: []Span{a, b}}
 	id := RegisterRun(run)
-	src, _ := ForRun(id)
+	src, _ := ForRun(id, "")
 	read := func(off int64) []byte {
 		rd, err := src.Open(off)
 		if err != nil {
@@ -228,7 +228,7 @@ func TestRunLeadIsSilentOnlyOnTheFirstRequest(t *testing.T) {
 	music := readRun(t, Run{Spans: []Span{a, b}}, 0)
 	lead := a.End - a.Start // the chosen track is b
 	id := RegisterRun(Run{Spans: []Span{a, b}, Lead: lead})
-	src, _ := ForRun(id)
+	src, _ := ForRun(id, "")
 	read := func(off int64) []byte {
 		rd, err := src.Open(off)
 		if err != nil {

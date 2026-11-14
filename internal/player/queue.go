@@ -127,15 +127,14 @@ const (
 // that position, standing still, or it has requested the stream from there (a seek is a
 // request from the target). The BeagleBone, paused, takes the seek and fetches from the
 // target but goes on reporting its old position until Play: waiting for the position
-// alone ran out the 50 polls on every jump, some 8 s (2026-11-14).
-func confirmAt(d upnp.Device, at float64, since time.Time) bool {
+// alone ran out the 50 polls on every jump, some 8 s (2026-11-14). uri is the stream the
+// renderer holds: after a switch it is not the player's current run.
+func confirmAt(d upnp.Device, uri string, at float64, since time.Time) bool {
 	near := func(p float64) bool { return p >= at-1.5 && p <= at+1.5 }
-	mu.Lock()
-	id, haveRun := runIDOf(runURI)
-	mu.Unlock()
+	id, haveRun := runIDOf(uri)
 	return confirm(d, func(st renderState) bool {
 		if haveRun {
-			if p, ok := stream.OpenedSince(id, since); ok && near(p) {
+			if p, ok := stream.OpenedSince(id, d.IP, since); ok && near(p) {
 				return true
 			}
 		}

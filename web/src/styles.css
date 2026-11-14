@@ -7,6 +7,9 @@ body { overflow: hidden; font-size: 14px; }
 
 /* player: seek in the Playlist header, volume in its own card */
 .form-range.seek { min-width: 80px; }
+/* switched off after the playlist played out: no thumb, as in foobar2000 */
+.form-range.seek.off::-webkit-slider-thumb { visibility: hidden; }
+.form-range.seek.off::-moz-range-thumb { visibility: hidden; }
 .vol-num { width: 24px; text-align: right; }
 
 /* status bar at the bottom of the window */

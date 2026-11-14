@@ -40,6 +40,9 @@ type State struct {
 	// Build of the running exe: the UI reloads itself when it changes (after an update)
 	Build   string `json:"build"`
 	Version string `json:"version"`
+	// Off: the playlist played out and the renderer was stopped; the player holds no
+	// stream and no position until the next start (the page shows no slider thumb)
+	Off bool `json:"off"`
 }
 
 var (
@@ -62,9 +65,11 @@ var (
 	// start at a position, ADR-015). The renderer counts from the stream's start, so
 	// its RelTime and TrackDuration are shifted by it; 0 for a stream from the start.
 	offset float64
-	// finishedAt: the playlist has played out on a renderer that stays in PLAYING (the
-	// FiiO SR11); it is taken out of play a moment later, see Tick
-	finishedAt  time.Time
+	// finishedAt: the playlist has played out; the renderer is switched off a moment
+	// later, see Tick
+	finishedAt time.Time
+	// off: switched off after the playlist played out (switchOff), until the next start
+	off         bool
 	duration    float64
 	volume      = -1
 	lastErr     string
@@ -134,10 +139,11 @@ func Snapshot() State {
 	mu.Lock()
 	defer mu.Unlock()
 	s := State{
-		Renderers: renderers, Selected: selected, Transport: services.ShownTransport(transport, wantPlaying), Stalled: stalled,
+		Renderers: renderers, Selected: selected, Transport: transport, Stalled: stalled,
 		WantPlaying: wantPlaying, Paused: paused, Position: position, Duration: duration,
 		Volume: volume, Index: index, QueueVersion: queueVersion, QueueLen: len(queue), Source: source,
 		Error: lastErr, Discovering: discovering, Library: library.GetStatus(), Build: Build, Version: Version,
+		Off: off,
 	}
 	if index >= 0 && index < len(queue) {
 		s.Track = lookupTrack(queue[index])

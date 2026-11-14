@@ -227,66 +227,30 @@ func TestOneOddPositionMovesNothing(t *testing.T) {
 	}
 }
 
-// A start in the middle of an album opens the stream at its first track and seeks to the
-// chosen one (ADR-020). A jump back to an earlier track of the album is then a seek in the
-// same stream: no Stop and no new stream, which on a coaxial output clicked (2026-11-14).
-func TestStartMidAlbumThenJumpBackIsASeek(t *testing.T) {
+// A start mid-album from STOPPED: the renderer holds nothing, so the stream begins at the
+// chosen track and nothing is seeked. Opening the album's stream and seeking into it jumped
+// audibly before the track played (the FiiO SR11, 2026-11-14). A jump to a later track of
+// that stream is then a restart in place: no new stream, no Stop.
+func TestStartMidAlbumBeginsAtTheTrack(t *testing.T) {
 	r := setup(t)
-	if err := PlayQueue([]string{"a", "b", "c"}, 2); err != nil {
+	if err := PlayQueue([]string{"a", "b", "c"}, 1); err != nil {
 		t.Fatal(err)
 	}
-	if runQ != 0 || index != 2 || at(r.Get()) != 0 {
-		t.Fatalf("run from %d, index %d, at %v: want the run from a, playing c from 0", runQ, index, at(r.Get()))
+	if runQ != 1 || index != 1 || at(r.Get()) != 0 || r.Count("Seek") != 0 {
+		t.Fatalf("run from %d, index %d, at %v, seeks %d: want the run from b, no seek",
+			runQ, index, at(r.Get()), r.Count("Seek"))
 	}
 	uri, setURI, stops := r.Get().URI, r.Count("SetAVTransportURI"), r.Count("Stop")
-	seekAt = time.Time{} // the start's seek has landed
-	if err := PlayIndex(0); err != nil {
+	seekAt = time.Time{} // the start has settled
+	if err := PlayIndex(2); err != nil {
 		t.Fatal(err)
 	}
 	if r.Get().URI != uri || r.Count("SetAVTransportURI") != setURI || r.Count("Stop") != stops {
-		t.Fatalf("a jump back within the album started a new stream: setURI %d->%d, stops %d->%d",
+		t.Fatalf("a jump within the stream started a new one: setURI %d->%d, stops %d->%d",
 			setURI, r.Count("SetAVTransportURI"), stops, r.Count("Stop"))
 	}
-	if index != 0 || at(r.Get()) != 0 {
-		t.Fatalf("index %d at %v, want a from its start", index, at(r.Get()))
-	}
-}
-
-// The FiiO goes on reporting its old position for a while after a seek. The seek past a
-// start's silent lead was repeated on every such report, and each repeat restarted the
-// FiiO's buffer: a stutter at every switch (1.1.20, 2026-11-14). One seek, then wait.
-func TestLeadSeekIsNotRepeatedOnStaleReports(t *testing.T) {
-	r := setup(t)
-	playsOn(t, r)
-	staleAfterSeek(t, 5)
-	if err := PlayQueue([]string{"a", "b", "c"}, 2); err != nil {
-		t.Fatal(err)
-	}
-	if n := r.Count("Seek"); n != 1 {
-		t.Fatalf("%d seeks past the lead, want 1", n)
-	}
-	if index != 2 || at(r.Get()) > 3 {
-		t.Fatalf("index %d at %v, want c from its start", index, at(r.Get()))
-	}
-}
-
-// The seek past the lead waits for the new stream to settle: playing, more than a second
-// in. Sent while the stream was still starting, it made the FiiO stutter (2026-11-14).
-func TestLeadSeekWaitsForTheStreamToSettle(t *testing.T) {
-	r := setup(t)
-	var posAtSeek float64
-	seekRenderer = func(c context.Context, d upnp.Device, sec float64) error {
-		pi, _ := upnp.GetPositionInfo(c, d)
-		posAtSeek = pi.Position
-		return upnp.Seek(c, d, sec)
-	}
-	t.Cleanup(func() { seekRenderer = upnp.Seek })
-	playsOn(t, r)
-	if err := PlayQueue([]string{"a", "b", "c"}, 2); err != nil {
-		t.Fatal(err)
-	}
-	if posAtSeek < 1 {
-		t.Fatalf("the seek went %.1f s into the new stream, want after it settled (> 1 s)", posAtSeek)
+	if index != 2 || at(r.Get()) != 0 || silent(t, uri) {
+		t.Fatalf("index %d at %v silent %v, want c from its start, music", index, at(r.Get()), silent(t, uri))
 	}
 }
 
@@ -373,7 +337,7 @@ func TestPausedSeekIsConfirmedByTheRequestFromTheTarget(t *testing.T) {
 		mu.Lock()
 		id, _ := runIDOf(runURI)
 		mu.Unlock()
-		if src, ok := stream.ForRun(id); ok {
+		if src, ok := stream.ForRun(id, d.IP); ok {
 			if rd, err := src.Open(44 + int64(sec*44100)*4); err == nil {
 				_ = rd.Close()
 			}

@@ -346,8 +346,8 @@ export default function App() {
             </ButtonGroup>
             <small className="text-body-secondary font-monospace">{fmtTime(position)}</small>
             <Form.Range
-              className="flex-grow-1 seek" min={0} max={Math.max(1, duration)} step={1}
-              value={Math.min(position, duration)} disabled={!track}
+              className={'flex-grow-1 seek' + (state?.off ? ' off' : '')} min={0} max={Math.max(1, duration)} step={1}
+              value={Math.min(position, duration)} disabled={!track || !!state?.off}
               {...seekProps}
             />
             <small className="text-body-secondary font-monospace">{fmtTime(duration)}</small>

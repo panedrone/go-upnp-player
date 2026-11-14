@@ -205,7 +205,9 @@ func (r *Renderer) serve(w http.ResponseWriter, req *http.Request) {
 	case "Pause":
 		r.state = "PAUSED_PLAYBACK"
 	case "Stop":
-		if !r.stopOK {
+		// after its stream has ended the FiiO SR11 takes Stop (foobar2000 sends it at the
+		// end of every album, 2026-11-14); over music it hangs
+		if !r.stopOK && !r.playedOutLocked() {
 			r.t.Errorf("AVTransport.Stop sent: it hangs the FiiO SR11 until a power cycle")
 			break
 		}
@@ -214,6 +216,9 @@ func (r *Renderer) serve(w http.ResponseWriter, req *http.Request) {
 		if r.ignoreSeek > 0 {
 			r.ignoreSeek--
 			break
+		}
+		if r.playedOutLocked() {
+			break // at the end of its stream it takes a seek and moves nowhere (the FiiO SR11)
 		}
 		r.pos = services.ParseHMS(args["Target"])
 		if d := r.length(r.uri); !r.noAdvance && r.next != "" && d > 0 && r.pos >= d-1.5 {
@@ -244,6 +249,14 @@ func (r *Renderer) serve(w http.ResponseWriter, req *http.Request) {
 	}
 	b.WriteString(`</u:` + action + `Response></s:Body></s:Envelope>`)
 	_, _ = io.WriteString(w, b.String())
+}
+
+// playedOutLocked: the position stands at the end of the stream, where gmrender stays
+// after the stream has ended and takes Seek and Play without moving (the FiiO SR11,
+// 2026-11-14). Call under r.mu.
+func (r *Renderer) playedOutLocked() bool {
+	d := r.length(r.uri)
+	return d > 0 && r.pos >= d && (r.state == "PLAYING" || r.state == "PAUSED_PLAYBACK")
 }
 
 var didlDuration = regexp.MustCompile(`duration="([^"]+)"`)

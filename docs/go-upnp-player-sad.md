@@ -138,9 +138,12 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 4. **Starting a run** (`services.PlanSwitch`,
    [ADR-003](adr-003-switching-tracks-on-busy-gmrender.md)):
    - STOPPED or no media: `SetAVTransportURI(http://<ip>:8090/media/run/<run id>.wav?ct=<mime>, DIDL)`
-     → `Play`. A start at a position on an album's first track uses a stream that begins there
-     ([ADR-015](adr-015-start-at-position-as-a-stream.md)); a start with tracks before it seeks
-     past their silent lead ([ADR-020](adr-020-every-jump-within-an-album-is-a-seek.md));
+     → `Play`. The stream begins at the chosen track, or at the position in it
+     ([ADR-015](adr-015-start-at-position-as-a-stream.md)): no lead, no seek
+     ([ADR-024](adr-024-a-start-takes-what-the-renderer-holds.md));
+   - a renderer that holds the player's current stream (its URI and length) with the chosen track
+     in it: a restart in place, a `Seek` there (paused: then `Play`), confirmed
+     ([ADR-022](adr-022-a-jump-is-stop-then-start.md));
    - PLAYING or PAUSED: `SetNextAVTransportURI(target)` → `Seek` to the last second of the current
      stream (→ `Play` if paused). The switch is confirmed by the target's length near position 0,
      with up to three attempts. That last second is another song (the end of the run, or of the
@@ -151,8 +154,8 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 
    That is for renderers where `Stop` is not safe: the FiiO SR11, and any unknown model
    ([ADR-002](adr-002-never-stop-gmrender.md)). There the Stop button is `Pause` plus clearing the
-   intent to play; the page shows STOPPED then, not the renderer's PAUSED_PLAYBACK
-   (`services.ShownTransport`), and the position 0, where the next Play starts. A paused renderer
+   intent to play; the page shows the position 0, where the next Play starts. The state badge
+   shows what the renderer itself reports (PAUSED_PLAYBACK here), never the player's intent. A paused renderer
    keeps a moment of the music ready, which the next Play let out before its own start: on Stop
    the player lets the stream go (silence from then on) and seeks the renderer where it is, so
    what it holds is silence.
@@ -178,8 +181,10 @@ The browser's `localStorage` keeps only per-viewer conveniences:
      ([ADR-004](adr-004-detecting-track-advance.md));
    - STOPPED more than 4 s after the player's last command starts the next run;
    - the last run has played out once its position reaches its known length, whatever the
-     renderer's state: the FiiO SR11 stays in PLAYING there. The renderer is paused (or stopped,
-     if Stop-safe) 2 s later;
+     renderer's state: the FiiO SR11 stays in PLAYING there. 2 s later the renderer is switched
+     off: Stop, confirmed STOPPED, and the player forgets the stream and the position. The
+     page shows the slider with no thumb until the next start, which comes from STOPPED
+     ([ADR-023](adr-023-the-end-of-the-playlist-switches-off.md));
    - the end of the playlist stops.
 
    After a `Seek` in the stream (a seek, Next/Prev or a click within the run) the poll takes the
@@ -346,6 +351,8 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [020](adr-020-every-jump-within-an-album-is-a-seek.md) | Every jump within an album is a seek: no new stream, no click on coax |
 | [021](adr-021-keep-the-sound-output-open.md) | Stop keeps the renderer's sound output open |
 | [022](adr-022-a-jump-is-stop-then-start.md) | A jump over playing music is the player's Stop, then a start there |
+| [023](adr-023-the-end-of-the-playlist-switches-off.md) | The end of the playlist switches the renderer off, as foobar2000 does |
+| [024](adr-024-a-start-takes-what-the-renderer-holds.md) | A start goes by what the renderer holds: from STOPPED, no lead and no seek |
 
 ## 9. Testing
 
@@ -359,6 +366,8 @@ Each ADR's status line says how far the problem is overcome and what is still op
   - `SetAVTransportURI` applies only from STOPPED;
   - a seek to the end moves to the queued next URI;
   - early Seeks can be dropped;
+  - at the end of its stream it ignores seeks and Play, and takes Stop
+    ([ADR-023](adr-023-the-end-of-the-playlist-switches-off.md));
   - a `Stop` fails the test ([ADR-002](adr-002-never-stop-gmrender.md)), unless the test makes the
     fake Stop-safe (racing, [ADR-007](adr-007-racing-gmrender.md); stock gmrender,
     [ADR-013](adr-013-stop-safe-renderers-start-like-foobar.md)).
