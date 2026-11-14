@@ -50,12 +50,18 @@ body { overflow: hidden; font-size: 14px; }
 .track-table { table-layout: fixed; }
 /* a click on a row shows its properties */
 .track-table tr { cursor: pointer; user-select: none; }
-.track-table .col-num { width: 44px; padding-left: 0; }
+.track-table .col-num { width: 52px; padding-left: 0; }
 /* the number at the right of its cell; the room left of it holds the playing mark, centred */
 .num-cell { display: flex; align-items: center; }
-.play-slot { flex: 1; display: flex; justify-content: center; }
+.play-slot { flex: 1; display: flex; justify-content: center; align-items: center; margin-right: 4px; }
+/* the Play button stands in the slot left of the number, in place of the ▶ mark while the
+   row is hovered (always shown on touch screens, see below) */
+.play-slot .btn.hover-btn.icon-btn { display: none; margin-left: 0; visibility: visible; }
+.track-table tr:hover .play-slot .btn.hover-btn.icon-btn { display: inline-flex; }
+.track-table tr:hover .play-slot .play-mark { display: none; }
 /* the playing track: the ▶ of the playlist's hover button, without the button: it is a mark */
-.play-mark { font-size: 12px; font-variant-emoji: text; }
+/* the same arrow as the Play button's (PlayIcon), not a font ▶ */
+.play-mark { display: inline-flex; align-items: center; }
 /* the ▶ glyph sits 1 px below the middle of its line (measured 2026-11-11): the line is
    lifted by 1 px, the button keeps its height */
 .track-table .btn.hover-btn { line-height: calc(1.35em - 2px); padding-bottom: 2px; }
@@ -85,6 +91,8 @@ body { overflow: hidden; font-size: 14px; }
 /* touch screens: no hover, so row buttons are always visible */
 @media (hover: none) {
   .btn.hover-btn { visibility: visible; }
+  .play-slot .btn.hover-btn.icon-btn { display: inline-flex; }
+  .play-slot .play-mark ~ .btn.hover-btn.icon-btn { display: none; } /* the playing row keeps its ▶ */
 }
 
 

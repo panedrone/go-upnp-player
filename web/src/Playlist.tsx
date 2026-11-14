@@ -72,22 +72,11 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay, sele
                       onClick={() => onSelect(t.id)}
                     >
                       <td className="col-num text-body-secondary text-nowrap">
-                        {/* the mark is centred in the room left of the number */}
+                        {/* left of the number: the ▶ mark of the playing track, and on row hover the
+                            Play button in its place */}
                         <div className="num-cell">
-                          <span className="play-slot">{playing ? <span className="play-mark" title="Playing">▶</span> : null}</span>
-                          {t.number > 0 ? t.number : ''}
-                        </div>
-                      </td>
-                      <td>
-                        {/* the button appears on row hover, right after the title */}
-                        <div className="row-label">
-                          <span className={'text-truncate' + (playing ? '' : ' text-body-secondary')}>
-                            {t.title}
-                            {t.artist && t.artist !== g.artist ? <small className="text-body-secondary"> — {t.artist}</small> : null}
-                          </span>
-                          {pendingIndex === i ? (
-                            <Spinner size="sm" className="ms-2 flex-shrink-0 text-body-secondary" />
-                          ) : (
+                          <span className="play-slot">
+                            {playing && <span className="play-mark" title="Playing"><PlayIcon /></span>}
                             <Button
                               size="sm" variant="secondary" className="hover-btn icon-btn" title="Play"
                               onClick={(e) => {
@@ -97,7 +86,18 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay, sele
                             >
                               <PlayIcon />
                             </Button>
-                          )}
+                          </span>
+                          {t.number > 0 ? t.number : ''}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="row-label">
+                          <span className={'text-truncate' + (playing ? '' : ' text-body-secondary')}>
+                            {t.title}
+                            {t.artist && t.artist !== g.artist ? <small className="text-body-secondary"> — {t.artist}</small> : null}
+                          </span>
+                          {/* while the start is under way, right after the title */}
+                          {pendingIndex === i && <Spinner size="sm" className="ms-2 flex-shrink-0 text-body-secondary" />}
                         </div>
                       </td>
                       <td className="col-dur text-end text-body-secondary">{fmtTime(t.duration)}</td>

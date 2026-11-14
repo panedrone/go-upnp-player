@@ -73,7 +73,7 @@ installs per user, without administrator rights, into `%LocalAppData%\Programs\g
 with Start menu and desktop shortcuts and an entry in Settings → Apps. An installed copy (an `unins000.exe` next to
 the exe) shows the UI in its own window ([ADR-018](adr-018-own-window-via-webview2.md)): closing
 it quits the player, a second start brings it to the front; `-browser` and `-window` override. A running player on port
-8090 is stopped through `/api/shutdown`, like its Quit (renderer paused, position saved), not
+8090 is stopped through `/api/shutdown`, like its Quit (renderer stopped, position saved), not
 killed: the Restart Manager is off. The uninstaller removes the program and its shortcuts; it asks
 whether to delete the settings and the library cache too, and keeps them when silent. Not in CI:
 CI needs Go only.
@@ -99,8 +99,8 @@ The browser's `localStorage` keeps only per-viewer conveniences:
   ([ADR-012](adr-012-updates-in-place.md)). The own window's title carries the version.
 - No console window (`-H=windowsgui`). The log goes to
   `%LocalAppData%\go-upnp-player\go-upnp-player.log`.
-- Quit is the ⏻ button (two clicks) or Ctrl+C. Shutdown pauses the renderer, saves the playback
-  position and stops Fiber with a 3 s timeout.
+- Quit is the ⏻ button (one click, no confirmation) or Ctrl+C. Shutdown stops the renderer
+  (ADR-025), saves the playback position and stops Fiber with a 3 s timeout.
 - On start the playlist is restored but not played. Play continues the current track at the saved
   position, or from the start after a user Stop.
 - The status bar shows on the left what the player is busy with (a refused start being retried,
@@ -284,7 +284,8 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
   tree (the page does it once by itself when it opens), then the seek slider, and the transport on
   the right; volume, theme and Quit in a card above Output
   (volume is the selected device's). What plays is shown in the playlist: its row is bold and
-  marked ▶, as in foobar2000; album headers show the total time.
+  marked ▶ left of the track number, as in foobar2000; on row hover the Play button takes that
+  place, drawn with the same arrow. Album headers show the total time.
 - **Properties** of the playlist row clicked last (the playing track until one is clicked), as
   foobar2000's Properties without Location: Metadata (artist, title, album, date, genre, track
   number, comment) and General (duration with samples, rate, channels, bits, bitrate, codec,
@@ -303,11 +304,11 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
 - **Look.** Stock Bootstrap, gray instead of blue:
   - the active row is a gray band with bold text, other rows are `text-body-secondary`;
   - buttons are `secondary` or `outline-secondary`;
-  - custom CSS is limited to the slider thumbs, button sizes and `font-variant-emoji` (Windows
-    draws ▶ as a blue emoji otherwise);
+  - custom CSS is limited to the slider thumbs and button sizes; the ▶ mark of the playing row is
+    the Play button's SVG arrow, not a font symbol (Windows drew ▶ as a blue emoji);
   - button icons are drawn SVG of one size and stroke; a button without a label is a 24 px
-    square that never shrinks (Quit included: an armed Quit fills, and the status bar says to
-    click again). Font symbols came out in different sizes and off centre;
+    square that never shrinks (Quit included). Font symbols came out in different sizes and off
+    centre;
   - equalizer presets, Load… and Save… are quiet gray words, not framed buttons: the equalizer
     is a side tool and must not pull the eye;
   - album art in the playlist is 64 px.

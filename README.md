@@ -5,7 +5,7 @@
 [![codecov](https://codecov.io/gh/panedrone/go-upnp-player/graph/badge.svg)](https://codecov.io/gh/panedrone/go-upnp-player)
 [![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 
-![go-upnp-player: library tree, playlist with track properties, output devices and the 18-band equalizer](docs/img/screenshot-1.1.13.png)
+![go-upnp-player: library tree, playlist with track properties, output devices and the 18-band equalizer](docs/img/screenshot-1.1.24.png)
 
 A bit-perfect player for a lossless library (FLAC files and FLAC images with `.cue` sheets) that
 plays to network UPnP/DLNA streamers (tested with gmrender-resurrect: a home-made streamer on a
@@ -139,7 +139,7 @@ and no renderers show up, allow the home network, e.g. `sudo ufw allow from 192.
 - Installed with the setup, the player shows its UI in a window of its own (WebView2, the Edge
   engine built into Windows 10/11); closing the window quits it, minimizing just minimizes. The
   zip and `go install` versions have no window and use the browser: stop them with the **⏻ Quit**
-  button on the page (two clicks). Either way the renderer is paused first, then the player exits.
+  button on the page. Either way the renderer is stopped first, then the player exits.
 - **Check for updates:** the cloud button next to the theme switch. The player asks GitHub only
   when it is pressed. A newer version shows in the status bar with the way to get it: the setup
   copy downloads the new setup, a `go install` copy updates itself with `go install` and restarts,

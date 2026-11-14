@@ -35,7 +35,6 @@ export default function App() {
   const [searchHits, setSearchHits] = useState<Track[] | null>(null)
   const [actionErr, setActionErr] = useState('')
   const [treeKey, setTreeKey] = useState(0)
-  const [quitArmed, setQuitArmed] = useState(false)
   const [quitting, setQuitting] = useState(false)
 
   // light/dark theme: Bootstrap's data-bs-theme on <html>; a per-browser
@@ -78,12 +77,6 @@ export default function App() {
       .catch((e) => setUpdateNote({ kind: 'error', message: e instanceof Error ? e.message : String(e) }))
   }
 
-  // an "armed" Quit button disarms itself after 3 s
-  useEffect(() => {
-    if (!quitArmed) return
-    const t = setTimeout(() => setQuitArmed(false), 3000)
-    return () => clearTimeout(t)
-  }, [quitArmed])
   const narrow = useNarrow()
   const queueVersion = useRef(-1)
   const seenBuild = useRef('')
@@ -410,17 +403,14 @@ export default function App() {
                   </svg>
                 )}
               </Button>
-              {/* two-click quit, no modal dialogs: the first click arms (the button fills and the
-                  status bar says to click again), the second shuts down; an icon only, square */}
+              {/* Quit on one click, no confirmation (the owner, 2026-11-14): the first click of a
+                  two-click quit went by silently, its hint far away in the status bar. Nothing is
+                  lost: the next start continues the track where it was. An icon only, square */}
               <Button
-                size="sm" variant={quitArmed ? 'secondary' : 'outline-secondary'} className="head-btn flex-shrink-0"
-                title={quitArmed ? 'Click again to quit' : 'Quit: stop the player program (the renderer is paused first)'}
+                size="sm" variant="outline-secondary" className="head-btn flex-shrink-0"
+                title="Quit: stop the player program (the renderer is stopped first)"
                 disabled={quitting}
                 onClick={() => {
-                  if (!quitArmed) {
-                    setQuitArmed(true)
-                    return
-                  }
                   setQuitting(true)
                   run(api.shutdown())
                 }}
@@ -513,9 +503,7 @@ export default function App() {
           React or Vite versions, which only tell an outsider what the UI is built with */}
       <footer className="status-bar border-top bg-body-tertiary text-body-secondary d-flex align-items-center gap-3">
         <span className="status-msg text-truncate flex-grow-1" title={state?.waiting || ''}>
-          {quitArmed && !quitting ? (
-            <span className="status-blink">Click the power button again to quit the player.</span>
-          ) : updateNote ? (
+          {updateNote ? (
             <UpdateMessage note={updateNote} onClose={() => setUpdateNote(null)} onInstall={installUpdate} />
           ) : state?.waiting && (
             <>
