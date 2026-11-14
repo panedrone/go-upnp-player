@@ -87,7 +87,7 @@ func Stop() error {
 		if err := halt(c, d); err != nil {
 			return err
 		}
-		if !services.StopSafe(d.Model) {
+		if !usesStop(d.Model) {
 			// Paused, not stopped (ADR-002): it keeps the stream and a moment of it
 			// ready to play, which the next Play let be heard before its own start (the
 			// FiiO, 2026-11-10). The stream is let go and the renderer seeked where it
@@ -105,7 +105,7 @@ func Stop() error {
 // (ADR-002). A stopped gmrender drops its pipeline and HTTP connection; a paused one
 // keeps both, idle, which on the BeagleBone was part of the racing trigger (ADR-007).
 func halt(c context.Context, d upnp.Device) error {
-	if services.StopSafe(d.Model) {
+	if usesStop(d.Model) {
 		return upnp.Stop(c, d)
 	}
 	return upnp.Pause(c, d)

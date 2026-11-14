@@ -75,7 +75,10 @@ var (
 	stalled     bool
 	// racing detection (services.Racing): the previous poll, the run of racing polls,
 	// where the run started and when the renderer was last restarted because of it
-	lastPollAt   time.Time
+	lastPollAt time.Time
+	// oddPolls: position reports in a row that did not follow from the last one
+	// (services.PlausibleStep); the first is not acted on
+	oddPolls     int
 	lastTrackURI string
 	racingTicks  int
 	racingIndex  int

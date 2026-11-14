@@ -218,3 +218,38 @@ func TestRunSeamIsNotFaded(t *testing.T) {
 		t.Fatal("only the first 10 ms of the run may differ")
 	}
 }
+
+// A start in the middle of an album (ADR-020): the run opens at the album's first track,
+// and the renderer's first request gets silence up to the chosen track, then the music.
+// Any later request, a seek back into the album included, gets the music.
+func TestRunLeadIsSilentOnlyOnTheFirstRequest(t *testing.T) {
+	noFade(t)
+	a, b := twoFiles(t)
+	music := readRun(t, Run{Spans: []Span{a, b}}, 0)
+	lead := a.End - a.Start // the chosen track is b
+	id := RegisterRun(Run{Spans: []Span{a, b}, Lead: lead})
+	src, _ := ForRun(id)
+	read := func(off int64) []byte {
+		rd, err := src.Open(off)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = rd.Close() }()
+		body, _ := io.ReadAll(rd)
+		return body
+	}
+	leadBytes := int(lead) * 4
+	first := read(0)
+	if len(first) != len(music) || !bytes.Equal(first[:44], music[:44]) {
+		t.Fatalf("first request %d bytes, want %d with the run's header", len(first), len(music))
+	}
+	if !bytes.Equal(first[44:44+leadBytes], make([]byte, leadBytes)) {
+		t.Fatal("the tracks before the chosen one must be silence on the first request")
+	}
+	if !bytes.Equal(first[44+leadBytes:], music[44+leadBytes:]) {
+		t.Fatal("from the chosen track on, the first request must be the music")
+	}
+	if back := read(44); !bytes.Equal(back, music[44:]) {
+		t.Fatal("a seek back to the run's start must get the music, not the silent lead")
+	}
+}

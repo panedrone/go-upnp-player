@@ -39,6 +39,7 @@ var tracks = map[string]*library.Track{
 func setup(t *testing.T) *testkit.Renderer {
 	t.Helper()
 	resetState()
+	keepOutputOpen = true // the default; stopSafe below turns it off
 	lookupTrack = func(id string) *library.Track { return tracks[id] }
 	sleep = func(time.Duration) {}
 	t.Cleanup(func() {
@@ -439,8 +440,14 @@ func TestPlayQueue(t *testing.T) {
 	if err := PlayQueue([]string{"a", "b"}, 1); err != nil {
 		t.Fatal(err)
 	}
-	if r.Get().URI != runOn(t, r, 1, 0).uri || queueVersion != 1 {
-		t.Fatalf("uri %s version %d", r.Get().URI, queueVersion)
+	// the run opens at track 0 (the same format before the chosen track, ADR-020) and the
+	// renderer is seeked past it to track 1
+	rp, err := planStart(r.Device, 1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Get().URI != rp.uri || queueVersion != 1 || rp.q != 0 || at(r.Get()) != 0 || index != 1 {
+		t.Fatalf("uri %s (want %s) version %d run from %d at %v index %d", r.Get().URI, rp.uri, queueVersion, rp.q, at(r.Get()), index)
 	}
 }
 
@@ -1019,7 +1026,9 @@ func TestResumeAfterRestartContinuesAtPosition(t *testing.T) {
 		t.Fatal(err)
 	}
 	st := r.Get()
-	if st.State != "PLAYING" || at(st) != 42 || r.Count("Seek") != 1 {
+	// the run opens at track a, before the paused one (ADR-020): one more seek takes the
+	// renderer past it to b at 42 s
+	if st.State != "PLAYING" || at(st) != 42 || r.Count("Seek") != 2 {
 		t.Fatalf("%+v seeks %d", st, r.Count("Seek"))
 	}
 	if got := config.Get().Playlist.Position; got != 0 || resumeAt != -1 {
@@ -1042,6 +1051,7 @@ func TestShutdownWhenStoppedSavesNoPosition(t *testing.T) {
 
 // stopSafe turns the fake into stock gmrender (the BeagleBone), which survives Stop.
 func stopSafe(r *testkit.Renderer) {
+	keepOutputOpen = false // driven with Stop, as before the experiment
 	renderers[0].Model = "gmediarender"
 	r.With(func(s *testkit.RendererState) { s.StopAllowed = true })
 }

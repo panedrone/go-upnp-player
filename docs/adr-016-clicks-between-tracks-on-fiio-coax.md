@@ -5,6 +5,8 @@ boundaries on the FiiO's coaxial output; the BeagleBone with runs. Closed 2026-1
 from the BeagleBone back to the FiiO clicked (a trace showed the FiiO, left paused, letting out
 the moment of music it held, and the new stream starting mid-wave); fixed in 1.1.5 (a left
 renderer holds silence, every stream fades in over 10 ms), and the owner heard no clicks.
+Amended 2026-11-14 by [ADR-020](adr-020-every-jump-within-an-album-is-a-seek.md): ~~a run starts
+at the chosen track~~; a start opens it at the album's first track, so jumps back are seeks too.
 **Overcome:** in tests: the run is the tracks' PCM back to back, the equalizer carries over a seam
 between files, Next/Prev within a run are seeks.
 

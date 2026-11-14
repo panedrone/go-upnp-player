@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/panedrone/go-upnp-player/internal/services"
 	"github.com/panedrone/go-upnp-player/internal/upnp"
+	"log"
 	"time"
 )
 
@@ -61,7 +62,7 @@ func startLocked(i int, seek float64) (err error) {
 		from = seek
 	}
 	// a start at the very end is a start of a track that has already ended: from 0
-	rp, err := planRun(d, i, from)
+	rp, err := planStart(d, i, from)
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,7 @@ func startLocked(i int, seek float64) (err error) {
 	ti, _ := getTransportInfo(c, d)
 	pi, _ := getPositionInfo(c, d)
 	plan := services.PlanSwitch(ti.State, pi.Duration)
-	if plan.ViaNext && services.StopSafe(d.Model) {
+	if plan.ViaNext && usesStop(d.Model) {
 		// A renderer that survives Stop is started the way foobar2000 starts it:
 		// Stop -> SetAVTransportURI -> Play, a fresh pipeline every time. On the
 		// BeagleBone the next-URI path with a seek to the end was the suspected
@@ -97,7 +98,7 @@ func startLocked(i int, seek float64) (err error) {
 		// the renderer already has this very stream: restart it in place. The URI
 		// alone is not proof — gmrender reports the queued next URI early — so the
 		// audible length must match too.
-		if err := seekRenderer(c, d, 0); err != nil {
+		if err := seekRenderer(c, d, rp.lead); err != nil {
 			return err
 		}
 		if plan.Resume {
@@ -132,22 +133,63 @@ func startLocked(i int, seek float64) (err error) {
 	} else if err := startDirect(d, uri, meta); err != nil {
 		return err
 	}
+	if rp.lead > 0 && !restarted {
+		seekLead(d, uri, rp.length, rp.lead)
+	}
 	mu.Lock()
 	resumeAt = -1
 	pendingSince = time.Time{}
 	index, wantPlaying, paused = i, true, false
 	lastCmd = time.Now()
 	setRunLocked(rp)
-	if restarted {
-		seekSentLocked(0) // the same stream, seeked to its start: old positions for a while
+	if restarted || rp.lead > 0 {
+		// seeked: the polls may see the old position for a while
+		seekSentLocked(rp.lead)
 	}
 	position, duration = rp.from, t.Duration
+	if rp.lead > 0 {
+		position = from
+	}
 	frozenSince, stalled = time.Now(), false
 	lastTrackURI, racingTicks = "", 0 // the first poll after a start is the new baseline
 	mu.Unlock()
 	savePlaylist()
 	queueNext(d)
 	return nil
+}
+
+// seekLead takes a fresh stream past its silent lead to the chosen track (ADR-020).
+// gmrender drops a seek sent in the first moments of a stream, and right after a start
+// it still reports the previous stream's position (ADR-005): the first try, 2026-11-14,
+// took that for a landed seek, and the renderer played the silent lead. So the seek goes
+// once the renderer reports the new stream playing, and it is landed only when the new
+// stream stands at the chosen place; it is repeated until then. Meanwhile the lead
+// plays silence, never the tracks before the chosen one.
+func seekLead(d upnp.Device, uri string, length, at float64) {
+	sent := false
+	for try := range 30 {
+		sleep(300 * time.Millisecond)
+		c, cancel := ctx()
+		pi, err := getPositionInfo(c, d)
+		cancel()
+		// gmrender reports a queued URI early, so its length must match too
+		if err != nil || pi.TrackURI != uri || !services.SameLength(pi.Duration, length) {
+			continue // still the old stream
+		}
+		if pi.Position >= at-2 {
+			if sent {
+				return // landed
+			}
+		} else if !sent && pi.Position < 1 && try < 3 {
+			continue // the new stream has not started playing yet
+		}
+		c, cancel = ctx()
+		err = seekRenderer(c, d, at)
+		cancel()
+		sent = sent || err == nil
+		sleep(300 * time.Millisecond)
+	}
+	log.Printf("player: the seek past the silent lead to %.0f s did not land", at)
 }
 
 // errPlayRefused: the renderer took the URI but answered every Play with an error.

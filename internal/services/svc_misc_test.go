@@ -250,3 +250,21 @@ func TestShownTransport(t *testing.T) {
 		}
 	}
 }
+
+func TestPlausibleStep(t *testing.T) {
+	for _, c := range []struct {
+		last, now float64
+		want      bool
+	}{
+		{100, 101, true},  // a second on
+		{100, 100, true},  // the same whole second
+		{100, 99, true},   // rounding
+		{100, 160, true},  // ahead: the racing check's business
+		{290, 0, false},   // gmrender's odd 0:00:00
+		{290, 120, false}, // far behind with no seek
+	} {
+		if got := PlausibleStep(c.last, c.now); got != c.want {
+			t.Errorf("%v -> %v: got %v", c.last, c.now, got)
+		}
+	}
+}

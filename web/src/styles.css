@@ -39,7 +39,7 @@ body { overflow: hidden; font-size: 14px; }
 
 /* tracks */
 .album-head { position: sticky; top: 0; z-index: 1; background: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color-translucent); }
-.album-thumb { width: 40px; height: 40px; object-fit: cover; background: var(--bs-secondary-bg); flex: none; }
+.album-thumb { width: 64px; height: 64px; object-fit: cover; background: var(--bs-secondary-bg); flex: none; }
 .track-table { table-layout: fixed; }
 .track-table tr { cursor: default; user-select: none; }
 .track-table .col-num { width: 44px; padding-left: 0; }
@@ -105,11 +105,10 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
 /* transport symbols are emoji by default on Windows: blue squares whatever the button color */
 .btn { font-variant-emoji: text; }
 /* card header buttons: one square, the icon in its middle */
-.btn.head-btn { width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.btn.head-btn { flex: none; width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
 .head-btn .head-spinner { width: 12px; height: 12px; border-width: .15em; }
 
-/* a header button with a label after its icon (Quit) */
-.btn.head-btn.head-btn-text { width: auto; gap: .35rem; padding: 0 .5rem; }
+
 
 /* CONNECTING: a soft pulse while a refused start is retried; still for those who ask
    the system for less motion */
@@ -144,3 +143,9 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
 .status-blink { animation: status-blink .5s ease-in-out 3; cursor: default; }
 .status-blink[role="button"] { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .status-blink { animation: none; } }
+
+/* equalizer presets: quiet gray words in one line, not framed buttons */
+.eq-presets { display: flex; flex-wrap: wrap; align-items: center; column-gap: .75rem; row-gap: .25rem; }
+.btn.eq-preset { padding: 0; border: 0; font-size: .8rem; color: var(--bs-secondary-color); text-decoration: none; }
+.btn.eq-preset:hover, .btn.eq-preset:focus-visible { color: var(--bs-body-color); text-decoration: underline; }
+.btn.eq-preset:disabled { color: var(--bs-secondary-color); opacity: .5; }

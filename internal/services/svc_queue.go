@@ -238,3 +238,12 @@ func SameLength(rendererDur, libDur float64) bool {
 func IsStaleBundlePath(p string) bool {
 	return strings.HasPrefix(p, "/assets/index-") && strings.HasSuffix(p, ".js")
 }
+
+// PlausibleStep reports whether a renderer's new stream position can follow from the
+// last one without a seek: it does not go back by more than the renderer's rounding.
+// gmrender now and then answers with a position far behind where it plays (0:00:00,
+// live on the BeagleBone, 2026-11-14); one such answer is not to be acted on. Running
+// ahead is left to the racing check (Racing), which needs several polls in a row.
+func PlausibleStep(last, now float64) bool {
+	return now-last >= -1.5
+}

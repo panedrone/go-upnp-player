@@ -184,3 +184,65 @@ func TestStreamFromAPositionMovesOnIntoTheNextTrack(t *testing.T) {
 			index, position, r.Count("SetAVTransportURI"), lastErr)
 	}
 }
+
+// A single odd position report: gmrender now and then answers GetPositionInfo with a
+// position that is not where it plays (0:00:00, live on the BeagleBone). Taken at its
+// word, it looked like a stream that strayed from the playlist, and the player seeked to
+// the next track: a song cut short, and the stream reopened with a click on the coaxial
+// output (2026-11-14). One poll must change nothing; a position that stays off does.
+func TestOneOddPositionMovesNothing(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"a", "b", "c"}, 0, 0)
+	mu.Lock()
+	at, _ := streamTimeLocked(1, 50)
+	mu.Unlock()
+	r.With(func(s *testkit.RendererState) { s.Pos = at })
+	index, position, streamPos = 1, 50, at
+	Tick() // a poll as usual first: the player knows the stream and when it last asked
+	odd := 1
+	getPositionInfo = func(c context.Context, d upnp.Device) (upnp.PositionInfo, error) {
+		pi, err := upnp.GetPositionInfo(c, d)
+		if err == nil && odd > 0 {
+			odd--
+			pi.Position = 0
+		}
+		return pi, err
+	}
+	t.Cleanup(func() { getPositionInfo = upnp.GetPositionInfo })
+	seeks := r.Count("Seek")
+	for range 3 {
+		Tick()
+		if index != 1 {
+			t.Fatalf("index %d after an odd position report, want 1", index)
+		}
+	}
+	if r.Count("Seek") != seeks || r.Count("SetAVTransportURI") != 0 {
+		t.Fatalf("seeks %d (were %d), setURI %d: one odd report must not move playback",
+			r.Count("Seek"), seeks, r.Count("SetAVTransportURI"))
+	}
+}
+
+// A start in the middle of an album opens the stream at its first track and seeks to the
+// chosen one (ADR-020). A jump back to an earlier track of the album is then a seek in the
+// same stream: no Stop and no new stream, which on a coaxial output clicked (2026-11-14).
+func TestStartMidAlbumThenJumpBackIsASeek(t *testing.T) {
+	r := setup(t)
+	if err := PlayQueue([]string{"a", "b", "c"}, 2); err != nil {
+		t.Fatal(err)
+	}
+	if runQ != 0 || index != 2 || at(r.Get()) != 0 {
+		t.Fatalf("run from %d, index %d, at %v: want the run from a, playing c from 0", runQ, index, at(r.Get()))
+	}
+	uri, setURI, stops := r.Get().URI, r.Count("SetAVTransportURI"), r.Count("Stop")
+	seekAt = time.Time{} // the start's seek has landed
+	if err := PlayIndex(0); err != nil {
+		t.Fatal(err)
+	}
+	if r.Get().URI != uri || r.Count("SetAVTransportURI") != setURI || r.Count("Stop") != stops {
+		t.Fatalf("a jump back within the album started a new stream: setURI %d->%d, stops %d->%d",
+			setURI, r.Count("SetAVTransportURI"), stops, r.Count("Stop"))
+	}
+	if index != 0 || at(r.Get()) != 0 {
+		t.Fatalf("index %d at %v, want a from its start", index, at(r.Get()))
+	}
+}

@@ -2,7 +2,6 @@ package player
 
 import (
 	"github.com/panedrone/go-upnp-player/internal/config"
-	"github.com/panedrone/go-upnp-player/internal/services"
 	"github.com/panedrone/go-upnp-player/internal/stream"
 	"github.com/panedrone/go-upnp-player/internal/upnp"
 	"sync"
@@ -69,7 +68,7 @@ func Select(udn string) error {
 	_ = config.Update(func(c *config.Config) { c.Renderer = udn })
 	// Its stream is let go now, before the start below may register the same run for
 	// the new renderer (that makes it music again).
-	letGo := hadOld && old.UDN != udn && !services.StopSafe(old.Model)
+	letGo := hadOld && old.UDN != udn && !usesStop(old.Model)
 	if letGo {
 		if id, ok := runIDOf(oldURI); ok {
 			stream.RetireRun(id)

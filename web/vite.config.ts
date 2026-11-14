@@ -1,10 +1,9 @@
-import { defineConfig, version as viteVersion } from 'vite'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // dev: npm run dev, backend on :8090; requests are proxied
 export default defineConfig({
   plugins: [react()],
-  define: { __VITE_VERSION__: JSON.stringify(viteVersion) }, // for the status bar
   build: { outDir: 'dist', emptyOutDir: true },
   server: {
     proxy: {

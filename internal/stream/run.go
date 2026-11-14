@@ -35,6 +35,13 @@ func SameFormat(a, b Span) bool {
 // Run is the spans of a run, in order, all of one format.
 type Run struct {
 	Spans []Span
+	// Lead: samples at the run's start that the renderer's first request (from the
+	// stream's start) gets as silence. A start in the middle of an album opens the run
+	// at the album's first track, so that a jump back within it is a seek, not a new
+	// stream; until the player's seek to the chosen track lands, the tracks before it
+	// are not to be heard. Every later request (a seek is a Range request) gets the
+	// music (ADR-020).
+	Lead uint64
 }
 
 // Layout is the geometry of the run's WAV.
@@ -85,7 +92,9 @@ func RegisterRun(r Run) string {
 	runsMu.Lock()
 	defer runsMu.Unlock()
 	delete(retired, id) // registered again: it is to be played
-	if _, ok := runs[id]; !ok {
+	if _, ok := runs[id]; ok {
+		runs[id] = r // the same tracks with this start's lead
+	} else {
 		runs[id] = r
 		runOrder = append(runOrder, id)
 		if len(runOrder) > keptRuns {
@@ -131,6 +140,9 @@ func ForRun(id string) (Source, bool) {
 		if silent {
 			return openSilence(r, offset)
 		}
+		if r.Lead > 0 && offset < services.WavHeaderLen {
+			return openWithLead(r, offset)
+		}
 		return openRun(r, offset)
 	}}, true
 }
@@ -148,6 +160,30 @@ func openSilence(r Run, offset int64) (io.ReadCloser, error) {
 	data := layout.TotalLen() - max(offset, services.WavHeaderLen)
 	return io.NopCloser(io.MultiReader(bytes.NewReader(head), io.LimitReader(zeros{}, data))), nil
 }
+
+// openWithLead serves a request from the stream's start: the header, silence for the
+// lead, then the music from there, faded in as any stream start is.
+func openWithLead(r Run, offset int64) (io.ReadCloser, error) {
+	layout := r.Layout()
+	leadBytes := int64(r.Lead) * int64(layout.BlockAlign())
+	music := services.WavHeaderLen + leadBytes
+	if music >= layout.TotalLen() {
+		return openSilence(r, offset)
+	}
+	rest, err := openRun(r, music)
+	if err != nil {
+		return nil, err
+	}
+	head := layout.Header()[offset:]
+	return readCloser{io.MultiReader(bytes.NewReader(head), io.LimitReader(zeros{}, leadBytes), rest), rest}, nil
+}
+
+type readCloser struct {
+	io.Reader
+	c io.Closer
+}
+
+func (r readCloser) Close() error { return r.c.Close() }
 
 type zeros struct{}
 

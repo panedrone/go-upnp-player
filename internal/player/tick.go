@@ -50,6 +50,20 @@ func Tick() {
 		}
 	}
 	if piErr == nil {
+		// One answer that does not follow from the last (gmrender's odd 0:00:00) is set
+		// aside: taken at its word, it looked like a stream that strayed from the
+		// playlist, and the player seeked to the next track, with a click on the coaxial
+		// output (2026-11-14). The same answer on the next poll is the truth. A seek, a
+		// new stream or a fresh command move the position for real and are not doubted.
+		settled := seekAt.IsZero() && time.Since(lastCmd) > 3*time.Second &&
+			pi.TrackURI != "" && pi.TrackURI == lastTrackURI && !lastPollAt.IsZero()
+		if settled && wantPlaying && !paused && !services.PlausibleStep(lastStream, pi.Position) && oddPolls == 0 {
+			oddPolls++
+			log.Printf("player: renderer reported %.1f s in the stream right after %.1f s; not acted on unless it says so again", pi.Position, lastStream)
+			pi.Position = lastStream
+		} else {
+			oddPolls = 0
+		}
 		streamPos = pi.Position
 	}
 	streamDur := runLen

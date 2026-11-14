@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, ButtonGroup, Card, Collapse, Form } from 'react-bootstrap'
+import { Button, Card, Collapse, Form } from 'react-bootstrap'
 import { api, EQ } from './api'
 import { ChevronIcon } from './icons'
 
@@ -168,19 +168,22 @@ export default function Equalizer({ onError }: Props) {
                 </div>
               ))}
             </div>
-            <ButtonGroup size="sm" className="mt-3 w-100 flex-wrap">
+            {/* presets as quiet text, not a row of framed buttons: the equalizer is a side
+                tool and must not pull the eye from the library and the playlist */}
+            <div className="eq-presets mt-3">
               {Object.entries(presets).map(([name, gains]) => (
-                <Button key={name} variant="outline-secondary" disabled={!eq.enabled} onClick={() => save({ ...eq, gains: eq.bands.map(gains) })}>
+                <Button key={name} variant="link" size="sm" className="eq-preset" disabled={!eq.enabled} onClick={() => save({ ...eq, gains: eq.bands.map(gains) })}>
                   {name}
                 </Button>
               ))}
-              <Button variant="outline-secondary" disabled={!eq.enabled} title="Load a foobar2000 .feq preset" onClick={() => fileInput.current?.click()}>
+              <span className="ms-auto" />
+              <Button variant="link" size="sm" className="eq-preset" disabled={!eq.enabled} title="Load a foobar2000 .feq preset" onClick={() => fileInput.current?.click()}>
                 Load…
               </Button>
-              <Button variant="outline-secondary" disabled={!eq.enabled} title="Save as a foobar2000 .feq preset" onClick={() => saveFile(presetName, formatFeq(eq.gains)).catch((e) => onError(errMsg(e)))}>
+              <Button variant="link" size="sm" className="eq-preset" disabled={!eq.enabled} title="Save as a foobar2000 .feq preset" onClick={() => saveFile(presetName, formatFeq(eq.gains)).catch((e) => onError(errMsg(e)))}>
                 Save…
               </Button>
-            </ButtonGroup>
+            </div>
             <input
               ref={fileInput} type="file" accept=".feq" hidden
               onChange={(e) => {

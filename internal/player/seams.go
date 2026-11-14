@@ -1,6 +1,7 @@
 package player
 
 import (
+	"github.com/panedrone/go-upnp-player/internal/services"
 	"time"
 
 	"github.com/panedrone/go-upnp-player/internal/library"
@@ -21,3 +22,16 @@ var (
 	getPositionInfo  = upnp.GetPositionInfo
 	seekRenderer     = upnp.Seek
 )
+
+// keepOutputOpen: a renderer that survives Stop is still driven like one that does not
+// (ADR-002): Stop pauses it on silence and a start goes through its gapless path, so it
+// never closes its sound output. On the BeagleBone that opening is where the DAC on the
+// coaxial output clicked, about 2 s after Play from Stop (ADR-021). The racing this path
+// was once suspected of (ADR-007, ADR-013) is watched for by the racing check; false
+// goes back to Stop, as foobar2000 drives it.
+var keepOutputOpen = true
+
+// usesStop is services.StopSafe unless the output is kept open.
+func usesStop(model string) bool {
+	return !keepOutputOpen && services.StopSafe(model)
+}

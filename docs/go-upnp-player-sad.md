@@ -104,8 +104,9 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 - On start the playlist is restored but not played. Play continues the current track at the saved
   position, or from the start after a user Stop.
 - The status bar shows on the left what the player is busy with (a refused start being retried,
-  with the attempt and the seconds left) and on the right the backend version (no `v`, no build
-  id), React and Vite.
+  with the attempt and the seconds left) and on the right the player's version (no `v`, no build
+  id). React and Vite versions are not shown: they only tell an outsider what the UI is built
+  with.
 
 ## 3. Playback flow
 
@@ -114,8 +115,12 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 2. **Stream URLs.** For each renderer, the local IP that routes to it (UDP dial) goes into the stream
    URLs. This keeps VPN, Hyper-V and WSL adapters out of the way.
 3. **Runs, not tracks** ([ADR-016](adr-016-clicks-between-tracks-on-fiio-coax.md)). The renderer
-   gets a run: the playlist from the chosen track on, for as long as the format (sample rate,
-   channels, bits) stays the same, as one WAV stream. It plays the run as one song and never
+   gets a run: the playlist's tracks of one format (sample rate, channels, bits) around the chosen
+   one, as one WAV stream. A start opens the run at the first of the tracks before the chosen one
+   that go on in the same format, so that a jump back within the album is a seek too
+   ([ADR-020](adr-020-every-jump-within-an-album-is-a-seek.md)); the run's first request plays
+   those earlier tracks as silence, and the start seeks to the chosen track (repeated until it
+   lands, ADR-005). The queued next run starts where the format changes. It plays the run as one song and never
    switches streams between its tracks, so its output never runs dry there. The player keeps the
    run's layout and turns the renderer's position in the stream into the track and the position in
    it for the page. A run ends where the format changes or before 3.75 GB of PCM (the RIFF size
@@ -124,12 +129,15 @@ The browser's `localStorage` keeps only per-viewer conveniences:
      Prev goes to the previous track from anywhere in the current one, as foobar2000 does; on the
      first track, to its start.
    - A track outside the run, or a point before the stream's start, starts a new run.
-   - The run's DIDL carries the first track's tags and the run's whole length.
+   - The run's DIDL carries the chosen track's tags and the run's whole length.
+   - One position report far behind the last one (gmrender's odd `0:00:00`) is not acted on; the
+     same on the next poll is ([ADR-020](adr-020-every-jump-within-an-album-is-a-seek.md)).
 4. **Starting a run** (`services.PlanSwitch`,
    [ADR-003](adr-003-switching-tracks-on-busy-gmrender.md)):
    - STOPPED or no media: `SetAVTransportURI(http://<ip>:8090/media/run/<run id>.wav?ct=<mime>, DIDL)`
-     → `Play`. A start at a position uses a stream that begins there (`&from=<ms>`), so the renderer
-     is never seeked after a start ([ADR-015](adr-015-start-at-position-as-a-stream.md));
+     → `Play`. A start at a position on an album's first track uses a stream that begins there
+     ([ADR-015](adr-015-start-at-position-as-a-stream.md)); a start with tracks before it seeks
+     past their silent lead ([ADR-020](adr-020-every-jump-within-an-album-is-a-seek.md));
    - PLAYING or PAUSED: `SetNextAVTransportURI(target)` → `Seek` to the last second of the current
      stream (→ `Play` if paused). The switch is confirmed by the target's length near position 0,
      with up to three attempts. That last second is another song (the end of the run, or of the
@@ -146,8 +154,11 @@ The browser's `localStorage` keeps only per-viewer conveniences:
    the player lets the stream go (silence from then on) and seeks the renderer where it is, so
    what it holds is silence.
 
-   Stock gmrender (model `gmediarender`, the BeagleBone) is Stop-safe and is driven the way
-   foobar2000 drives it ([ADR-013](adr-013-stop-safe-renderers-start-like-foobar.md)):
+   Stock gmrender (model `gmediarender`, the BeagleBone) survives `Stop`, but is driven like the
+   FiiO all the same, so that its sound output never closes and the DAC on coax never relocks
+   ([ADR-021](adr-021-keep-the-sound-output-open.md); `keepOutputOpen`). With it
+   off, it is driven the way foobar2000 drives it
+   ([ADR-013](adr-013-stop-safe-renderers-start-like-foobar.md)):
    - a busy renderer is switched with `Stop` → wait for STOPPED → `SetAVTransportURI` → `Play`
      (`Play` is retried up to 4 times within ~2 s);
    - the Stop button and leaving it for another renderer send a real `Stop`.
@@ -297,8 +308,12 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
   - buttons are `secondary` or `outline-secondary`;
   - custom CSS is limited to the slider thumbs, button sizes and `font-variant-emoji` (Windows
     draws ▶ as a blue emoji otherwise);
-  - button icons are drawn SVG of one size and stroke: all are the card headers' 24 px squares
-    (Quit wider, for its label). Font symbols came out in different sizes and off centre.
+  - button icons are drawn SVG of one size and stroke; a button without a label is a 24 px
+    square that never shrinks (Quit included: an armed Quit fills, and the status bar says to
+    click again). Font symbols came out in different sizes and off centre;
+  - equalizer presets, Load… and Save… are quiet gray words, not framed buttons: the equalizer
+    is a side tool and must not pull the eye;
+  - album art in the playlist is 64 px.
 
 ## 8. Decisions and renderer quirks (ADR)
 
@@ -325,6 +340,8 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [017](adr-017-old-position-after-seek.md) | The renderer's old position after a seek is not taken for where it plays |
 | [018](adr-018-own-window-via-webview2.md) | The installed player shows its UI in a window of its own (WebView2) |
 | [019](adr-019-check-for-updates-on-demand.md) | Updates are checked only on a click, and each kind of copy updates its own way |
+| [020](adr-020-every-jump-within-an-album-is-a-seek.md) | Every jump within an album is a seek: no new stream, no click on coax |
+| [021](adr-021-keep-the-sound-output-open.md) | Stop keeps the renderer's sound output open |
 
 ## 9. Testing
 

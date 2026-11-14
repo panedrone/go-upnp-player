@@ -1,4 +1,4 @@
-import { ChangeEvent, useCallback, useEffect, useRef, useState, version as reactVersion } from 'react'
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { Badge, Button, ButtonGroup, Card, Form, InputGroup, ListGroup, Spinner } from 'react-bootstrap'
 import { api, fmtTime, PlayerState, Track, TreeNode, UpdateOffer } from './api'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
@@ -9,7 +9,6 @@ import TrackProperties from './TrackProperties'
 import Equalizer from './Equalizer'
 import Settings from './Settings'
 
-declare const __VITE_VERSION__: string // set in vite.config.ts
 
 // Badge colours for the transport state. "playing" and "idle" are our own (styles.css):
 // Bootstrap's success green and secondary gray looked the same at a glance, so playing
@@ -407,10 +406,11 @@ export default function App() {
                   </svg>
                 )}
               </Button>
-              {/* two-click quit, no modal dialogs: the first click arms, the second shuts down */}
+              {/* two-click quit, no modal dialogs: the first click arms (the button fills and the
+                  status bar says to click again), the second shuts down; an icon only, square */}
               <Button
-                size="sm" variant={quitArmed ? 'secondary' : 'outline-secondary'} className="head-btn head-btn-text text-nowrap flex-shrink-0"
-                title="Stop the player program (the renderer is paused first)"
+                size="sm" variant={quitArmed ? 'secondary' : 'outline-secondary'} className="head-btn flex-shrink-0"
+                title={quitArmed ? 'Click again to quit' : 'Quit: stop the player program (the renderer is paused first)'}
                 disabled={quitting}
                 onClick={() => {
                   if (!quitArmed) {
@@ -421,11 +421,7 @@ export default function App() {
                   run(api.shutdown())
                 }}
               >
-                {quitting ? 'Stopping…' : quitArmed ? 'Click again to quit' : (
-                  <>
-                    <BarIcon name="power" /> Quit
-                  </>
-                )}
+                {quitting ? <Spinner size="sm" className="head-spinner" /> : <BarIcon name="power" />}
               </Button>
             </Card.Header>
           </Card>
@@ -509,10 +505,13 @@ export default function App() {
         </div>
         </Panel>
       </PanelGroup>
-      {/* status bar: what the player is busy with on the left, versions on the right */}
+      {/* status bar: what the player is busy with on the left, its version on the right; no
+          React or Vite versions, which only tell an outsider what the UI is built with */}
       <footer className="status-bar border-top bg-body-tertiary text-body-secondary d-flex align-items-center gap-3">
         <span className="status-msg text-truncate flex-grow-1" title={state?.waiting || ''}>
-          {updateNote ? (
+          {quitArmed && !quitting ? (
+            <span className="status-blink">Click the power button again to quit the player.</span>
+          ) : updateNote ? (
             <UpdateMessage note={updateNote} onClose={() => setUpdateNote(null)} onInstall={installUpdate} />
           ) : state?.waiting && (
             <>
@@ -522,8 +521,6 @@ export default function App() {
           )}
         </span>
         <span className="flex-shrink-0">go-upnp-player {state?.version}</span>
-        <span className="flex-shrink-0">React {reactVersion}</span>
-        <span className="flex-shrink-0">Vite {__VITE_VERSION__}</span>
       </footer>
     </div>
   )
