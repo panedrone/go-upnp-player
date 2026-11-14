@@ -8,18 +8,26 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+
+	"github.com/panedrone/go-upnp-player/internal/services"
 )
 
 // Track is a playable unit: a track from a cue or a whole file.
 type Track struct {
-	ID         string  `json:"id"`
-	Leaf       string  `json:"leaf"` // tree node: path to the .cue or to the file
-	Path       string  `json:"path"` // audio file
-	Number     int     `json:"number"`
-	Title      string  `json:"title"`
-	Artist     string  `json:"artist"`
-	Album      string  `json:"album"`
-	Date       string  `json:"date"`
+	ID     string `json:"id"`
+	Leaf   string `json:"leaf"` // tree node: path to the .cue or to the file
+	Path   string `json:"path"` // audio file
+	Number int    `json:"number"`
+	Title  string `json:"title"`
+	Artist string `json:"artist"`
+	Album  string `json:"album"`
+	Date   string `json:"date"`
+	// Year: the album's year, from its folders (services.AlbumYear); the DATE tag of a
+	// reissue is the reissue's
+	Year string `json:"year,omitempty"`
+	// Years: what an album header shows, the album's year and the release's after a slash
+	// when they differ (services.AlbumYears)
+	Years      string  `json:"years,omitempty"`
 	Genre      string  `json:"genre"`
 	Start      uint64  `json:"-"`
 	End        uint64  `json:"-"`
@@ -103,6 +111,8 @@ func Scan(roots []string) {
 	}
 	for _, t := range idx.tracks {
 		idx.byID[t.ID] = t
+		t.Year = services.AlbumYear(t.Leaf, t.Date)
+		t.Years = services.AlbumYears(t.Year, t.Date)
 	}
 	saveMetaCache()
 

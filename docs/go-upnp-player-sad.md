@@ -313,6 +313,11 @@ web player.
   is underlined. The i in a column of its own after the duration, shown on row hover, shows the
   track's properties and leaves playback alone. Album headers show
   the total time.
+- **The years** in the playlist's album headers (page and Qt): the album's own year, then the
+  release's after a slash when they differ, "1984 / 2015" for a 2015 reissue
+  (`services.AlbumYears`). The album's year comes from the library's folders, as the tree shows
+  it (`services.AlbumYear`: the nearest folder named "1984 …", "(1987) …", "… - 2022 - …" or "… [2020]");
+  the release's is the DATE tag's, which is also the fallback.
 - **Properties** of the playlist track whose i was clicked last (the playing track until then), as
   foobar2000's Properties without Location: Metadata (artist, title, album, date, genre, track
   number, comment) and General (duration with samples, rate, channels, bits, bitrate, codec,

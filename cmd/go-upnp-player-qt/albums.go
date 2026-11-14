@@ -97,7 +97,7 @@ func (u *window) showHead(h *albumHead, a album) {
 		name = filepath.Base(a.key)
 	}
 	h.title.SetText(name)
-	h.who.SetText(strings.Join(nonEmpty(a.first.Artist, a.first.Date), " · "))
+	h.who.SetText(strings.Join(nonEmpty(a.first.Artist, a.first.Years), " · ")) // "1984 / 2015" for a reissue
 	h.total.SetText(fmtTime(a.total))
 	h.box.SetToolTip(a.key)
 	h.cover.Clear()

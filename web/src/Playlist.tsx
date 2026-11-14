@@ -29,7 +29,7 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay, sele
       const key = t.fromCue ? t.leaf : t.leaf.replace(/[\\/][^\\/]*$/, '')
       let g = out[out.length - 1]
       if (!g || g.key !== key) {
-        g = { key, artist: t.artist, album: t.album || key.replace(/^.*[\\/]/, ''), date: t.date, first: i, items: [] }
+        g = { key, artist: t.artist, album: t.album || key.replace(/^.*[\\/]/, ''), date: t.years || t.date, first: i, items: [] }
         out.push(g)
       }
       g.items.push({ t, i })

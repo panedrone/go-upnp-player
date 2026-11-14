@@ -7,6 +7,10 @@ export interface Track {
   artist: string
   album: string
   date: string
+  // the album's year, from its folders; the date tag of a reissue is the reissue's
+  year?: string
+  // what an album header shows: the album's year, then the release's after a slash
+  years?: string
   genre: string
   sampleRate: number
   channels: number
