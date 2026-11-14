@@ -46,18 +46,18 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay, sele
         const total = g.items.reduce((s, x) => s + x.t.duration, 0)
         return (
           <section key={g.key + g.first}>
-            <div className="album-head d-flex align-items-center gap-2 px-2 py-2" title={g.key}>
+            <div className="album-head d-flex align-items-center px-2 py-2" title={g.key}>
               <Image
                 src={artUrl(g.items[0].t.id)} alt="" rounded loading="lazy" className="album-thumb"
                 onError={(e) => (e.target as HTMLImageElement).classList.add('d-none')}
               />
-              <div className="min-w-0">
+              <div className="album-text min-w-0">
                 <div className="fw-semibold text-truncate">{g.album}</div>
                 <small className="text-body-secondary text-truncate d-block">
                   {[g.artist, g.date].filter(Boolean).join(' · ')}
                 </small>
               </div>
-              <Badge bg="primary-subtle" text="primary-emphasis" className="ms-auto">
+              <Badge bg="primary-subtle" text="primary-emphasis" className="ms-auto flex-shrink-0">
                 {fmtTime(total)}
               </Badge>
             </div>

@@ -273,13 +273,16 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
     files are leaves;
   - → on a row builds the playlist from the node without touching playback;
   - the node the playlist was built from is highlighted.
+- **Search** (the box in the library header) shows matching tracks in place of the tree: → on a
+  result makes a playlist of it, "Make a playlist of all" of them all, and a click on a result
+  shows it in the tree, leaving the search, as the crosshair does for the playlist.
 - **Library header:** the search box in place of a title, then the buttons:
   - refresh: rescan the library folders; the tree reloads in place;
-  - crosshair (Alt+F1): show the playlist's source in the tree; the page does it once by itself
-    when it opens;
   - Collapse All: fold everything below the library roots.
-- **Controls** sit in the column they belong to: transport and seek in the
-  playlist's header, which has no title (the playlist is what they play); volume, theme and Quit in a card above Output
+- **Controls** sit in the column they belong to. The playlist's header has no title (the playlist
+  is what they play): on the left the crosshair (Alt+F1), which shows the playlist's source in the
+  tree (the page does it once by itself when it opens), then the seek slider, and the transport on
+  the right; volume, theme and Quit in a card above Output
   (volume is the selected device's). What plays is shown in the playlist: its row is bold and
   marked ▶, as in foobar2000; album headers show the total time.
 - **Properties** of the playlist row clicked last (the playing track until one is clicked), as

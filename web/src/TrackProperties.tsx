@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Spinner, Table } from 'react-bootstrap'
+import { Table } from 'react-bootstrap'
 import { api, TrackProps } from './api'
 
 // 201823944 -> "201 823 944"
@@ -20,26 +20,31 @@ function fmtPrecise(sec: number): string {
 export default function TrackProperties({ id }: { id: string | null }) {
   const [props, setProps] = useState<TrackProps | null>(null)
   const [err, setErr] = useState('')
-  const [loading, setLoading] = useState(false)
 
+  // No spinner while the next track's properties load: the answer comes in a moment, and a
+  // spinner flashed in the middle of the card on every click. The previous track's stay
+  // until then.
   useEffect(() => {
-    setProps(null)
-    setErr('')
-    if (!id) return
+    if (!id) {
+      setProps(null)
+      setErr('')
+      return
+    }
     let live = true
-    setLoading(true)
     api
       .properties(id)
-      .then((p) => live && setProps(p))
+      .then((p) => {
+        if (!live) return
+        setProps(p)
+        setErr('')
+      })
       .catch((e) => live && setErr(String(e?.message ?? e)))
-      .finally(() => live && setLoading(false))
     return () => {
       live = false
     }
   }, [id])
 
   if (!id) return <div className="p-3 text-body-secondary">Click a track in the playlist to see its properties.</div>
-  if (loading) return <div className="p-3 text-center"><Spinner size="sm" className="text-body-secondary" /></div>
   if (err) return <div className="p-3 text-danger">{err}</div>
   if (!props) return null
 

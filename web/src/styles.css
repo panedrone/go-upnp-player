@@ -30,7 +30,7 @@ body { overflow: hidden; font-size: 14px; }
   padding: 2px 8px; cursor: default; user-select: none; border-radius: var(--bs-border-radius-sm);
 }
 .tree-row:hover { background: var(--bs-tertiary-bg); }
-.tree-row.expandable { cursor: pointer; }
+.tree-row.expandable, .tree-row[role="button"] { cursor: pointer; }
 .tree-num { width: 22px; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
 .tree-dur { flex: none; font-variant-numeric: tabular-nums; padding-left: 8px; }
 /* row buttons: appear on row hover, placed right after the label */
@@ -43,8 +43,13 @@ body { overflow: hidden; font-size: 14px; }
 /* tracks */
 .album-head { position: sticky; top: 0; z-index: 1; background: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color-translucent); }
 .album-thumb { width: 64px; height: 64px; object-fit: cover; background: var(--bs-secondary-bg); flex: none; }
+/* one spacing for the cover to the text and between the two lines: the room the text had
+   above and below it beside the 64 px cover (12 px) */
+.album-head { --album-gap: 12px; gap: var(--album-gap); }
+.album-text { display: flex; flex-direction: column; gap: var(--album-gap); line-height: 1.2; }
 .track-table { table-layout: fixed; }
-.track-table tr { cursor: default; user-select: none; }
+/* a click on a row shows its properties */
+.track-table tr { cursor: pointer; user-select: none; }
 .track-table .col-num { width: 44px; padding-left: 0; }
 /* the number at the right of its cell; the room left of it holds the playing mark, centred */
 .num-cell { display: flex; align-items: center; }

@@ -208,11 +208,14 @@ export default function App() {
   const [reveal, setReveal] = useState<RevealRequest | null>(null)
   const [collapseSeq, setCollapseSeq] = useState(0)
   const revealTarget = state?.source || state?.track?.leaf || ''
-  const revealPlaying = useCallback(() => {
-    if (!revealTarget) return
-    setFilter('') // the tree is hidden while search results are shown
-    setReveal((r) => ({ path: revealTarget, seq: (r?.seq ?? 0) + 1 }))
-  }, [revealTarget])
+  // revealPath shows a node in the tree, leaving the search: the tree is hidden while
+  // search results are shown
+  const revealPath = useCallback((path: string) => {
+    if (!path) return
+    setFilter('')
+    setReveal((r) => ({ path, seq: (r?.seq ?? 0) + 1 }))
+  }, [])
+  const revealPlaying = useCallback(() => revealPath(revealTarget), [revealPath, revealTarget])
   // once per page load: the tree opens at the playlist's source, as if Alt+F1 was pressed
   const revealedOnLoad = useRef(false)
   useEffect(() => {
@@ -282,20 +285,9 @@ export default function App() {
             >
               <RefreshIcon />
             </Button>
-            <Button
-              size="sm" variant="outline-secondary" className="head-btn"
-              title="Show in the tree what the playlist was built from (Alt+F1)"
-              disabled={!revealTarget} onClick={revealPlaying}
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-                <circle cx="8" cy="8" r="5.2" />
-                <circle cx="8" cy="8" r="1.4" fill="currentColor" />
-                <path d="M8 0.8v2.4M8 12.8v2.4M0.8 8h2.4M12.8 8h2.4" />
-              </svg>
-            </Button>
             {/* "Collapse All", as in JetBrains IDEs: two chevrons folding towards a line */}
             <Button
-              size="sm" variant="outline-secondary" className="head-btn ms-1"
+              size="sm" variant="outline-secondary" className="head-btn"
               title="Collapse all folders"
               onClick={() => {
                 setFilter('') // the tree is hidden while search results are shown
@@ -312,7 +304,7 @@ export default function App() {
             <div className={searchHits ? 'd-none' : ''}>
               <Tree selectedPath={state?.source ?? ''} onMakePlaylist={makePlaylist} reloadKey={treeKey} reveal={reveal} collapseSeq={collapseSeq} />
             </div>
-            {searchHits && <SearchResults hits={searchHits} playingId={playingId} onMakePlaylist={(ids) => run(api.setQueue(ids))} />}
+            {searchHits && <SearchResults hits={searchHits} playingId={playingId} onMakePlaylist={(ids) => run(api.setQueue(ids))} onReveal={revealPath} />}
           </div>
         </Card>
         </Panel>
@@ -322,8 +314,27 @@ export default function App() {
         <PanelGroup direction="vertical" autoSaveId="go-upnp-player.layout.playlist.v2">
         <Panel defaultSize={50} minSize={20} order={1}>
         <Card className="col-tracks h-100">
-          {/* the playlist's own controls, no title: transport, then the position of the playing track */}
+          {/* the playlist's own controls, no title: the jump to its source in the tree, the position
+              of the playing track, then the transport on the right */}
           <Card.Header className="top-head d-flex align-items-center gap-2">
+            <Button
+              size="sm" variant="outline-secondary" className="head-btn flex-shrink-0"
+              title="Show in the tree what the playlist was built from (Alt+F1)"
+              disabled={!revealTarget} onClick={revealPlaying}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+                <circle cx="8" cy="8" r="5.2" />
+                <circle cx="8" cy="8" r="1.4" fill="currentColor" />
+                <path d="M8 0.8v2.4M8 12.8v2.4M0.8 8h2.4M12.8 8h2.4" />
+              </svg>
+            </Button>
+            <small className="text-body-secondary font-monospace">{fmtTime(position)}</small>
+            <Form.Range
+              className={'flex-grow-1 seek' + (state?.off ? ' off' : '')} min={0} max={Math.max(1, duration)} step={1}
+              value={Math.min(position, duration)} disabled={!track || !!state?.off}
+              {...seekProps}
+            />
+            <small className="text-body-secondary font-monospace">{fmtTime(duration)}</small>
             <ButtonGroup className="flex-shrink-0">
               <Button size="sm" variant="outline-secondary" className="head-btn" title="Previous" onClick={() => run(api.prev())}>
                 <BarIcon name="prev" />
@@ -344,13 +355,6 @@ export default function App() {
                 <BarIcon name="next" />
               </Button>
             </ButtonGroup>
-            <small className="text-body-secondary font-monospace">{fmtTime(position)}</small>
-            <Form.Range
-              className={'flex-grow-1 seek' + (state?.off ? ' off' : '')} min={0} max={Math.max(1, duration)} step={1}
-              value={Math.min(position, duration)} disabled={!track || !!state?.off}
-              {...seekProps}
-            />
-            <small className="text-body-secondary font-monospace">{fmtTime(duration)}</small>
           </Card.Header>
           <div className="flex-grow-1 overflow-auto min-h-0">
             <Playlist
@@ -586,7 +590,11 @@ function UpdateMessage({ note, onClose, onInstall }: {
   )
 }
 
-function SearchResults({ hits, playingId, onMakePlaylist }: { hits: Track[]; playingId: string | null; onMakePlaylist: (ids: string[]) => void }) {
+// A click on a result shows it in the tree (its cue sheet or file), as the crosshair does
+// for the playlist, and leaves the search; the → button makes a playlist of it.
+function SearchResults({ hits, playingId, onMakePlaylist, onReveal }: {
+  hits: Track[]; playingId: string | null; onMakePlaylist: (ids: string[]) => void; onReveal: (path: string) => void
+}) {
   if (hits.length === 0) return <div className="p-3 text-body-secondary">Nothing found.</div>
   return (
     <div className="py-1">
@@ -596,12 +604,21 @@ function SearchResults({ hits, playingId, onMakePlaylist }: { hits: Track[]; pla
         </Button>
       </div>
       {hits.map((t) => (
-        <div key={t.id} className={'tree-row' + (t.id === playingId ? ' bg-body-secondary fw-bold' : ' text-body-secondary')} title={t.leaf}>
+        <div
+          key={t.id} className={'tree-row' + (t.id === playingId ? ' bg-body-secondary fw-bold' : ' text-body-secondary')}
+          title={'Show in the tree: ' + t.leaf} role="button" onClick={() => onReveal(t.leaf)}
+        >
           <span className="tree-num text-body-secondary">{t.number || ''}</span>
           <span className="tree-name text-truncate">
             {t.title} <small className="text-body-secondary">— {[t.artist, t.album].filter(Boolean).join(' · ')}</small>
           </span>
-          <Button size="sm" variant="secondary" className="hover-btn icon-btn" title="Make a playlist of this track" onClick={() => onMakePlaylist([t.id])}>
+          <Button
+            size="sm" variant="secondary" className="hover-btn icon-btn" title="Make a playlist of this track"
+            onClick={(e) => {
+              e.stopPropagation()
+              onMakePlaylist([t.id])
+            }}
+          >
             <ToPlaylistIcon />
           </Button>
           <span className="ms-auto text-body-secondary tree-dur">{fmtTime(t.duration)}</span>
