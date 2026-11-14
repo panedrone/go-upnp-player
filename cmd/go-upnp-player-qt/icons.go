@@ -50,6 +50,10 @@ func (u *window) paintTransport() {
 	} else {
 		u.play.SetIcon(barIcon("play", c))
 	}
+	// the playing track's arrow, in the same colour
+	if i := u.playingRow; i >= 0 && i < len(u.rows) {
+		u.rows[i].SetIcon(0, barIcon("play", c))
+	}
 }
 
 // iconButton is the side of every button without a label: one square size everywhere.

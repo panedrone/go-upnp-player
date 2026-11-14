@@ -265,7 +265,7 @@ it from the same layout and behaviour ([ADR-027](adr-027-qt-window-with-miqt.md)
 search box over the library tree, with refresh (rescan) and Collapse All by it (the results in its place while it has text: → makes a playlist
 of one, a button of them all, a click shows the track in the tree), the tree with → to make a
 playlist, the playlist grouped by album as on the page (a header with the cover, the title, artist and
-year and the total time; a click on a row plays it, the playing row bold, its i shows the
+year and the total time; a click on a row plays it, the playing row bold with the play arrow left of its number, its i shows the
 properties), the Properties pane under it (following the playing track until an i is clicked),
 the crosshair (Alt+F1) that shows the playlist's source in the tree, once by itself on start,
 the transport and seek slider, the devices (a click uses one) with the volume, the Equalizer card

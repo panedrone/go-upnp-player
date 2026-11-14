@@ -265,7 +265,11 @@ func (u *window) buildPlaylist() *qt.QWidget {
 	u.list.SetHeaderHidden(true)
 	u.list.SetRootIsDecorated(false)
 	u.list.Header().SetStretchLastSection(false)
-	u.list.Header().SetSectionResizeMode2(0, qt.QHeaderView__ResizeToContents)
+	// the number, and the playing track's arrow left of it (markPlaying): a fixed width, so
+	// that the arrow does not shift the list
+	u.list.Header().SetSectionResizeMode2(0, qt.QHeaderView__Fixed)
+	u.list.SetColumnWidth(0, 48)
+	u.list.SetIconSize(qt.NewQSize2(10, 10))
 	u.list.Header().SetSectionResizeMode2(1, qt.QHeaderView__Stretch)
 	u.list.Header().SetSectionResizeMode2(2, qt.QHeaderView__ResizeToContents)
 	u.list.Header().SetSectionResizeMode2(3, qt.QHeaderView__Fixed)

@@ -232,7 +232,8 @@ func rowIndex(item *qt.QTreeWidgetItem) (int, bool) {
 	return i, err == nil
 }
 
-// markPlaying makes the playing track's row bold, as the page does.
+// markPlaying makes the playing track's row bold and puts the play arrow left of its number,
+// as the page does; the arrow is the Play button's (icons.go).
 func (u *window) markPlaying(i int) {
 	if i == u.playingRow {
 		return
@@ -246,6 +247,11 @@ func (u *window) markPlaying(i int) {
 		f.SetBold(bold)
 		for c := range 3 {
 			item.SetFont(c, f)
+		}
+		if bold {
+			item.SetIcon(0, barIcon("play", iconColor(u.ui.Theme)))
+		} else {
+			item.SetIcon(0, qt.NewQIcon())
 		}
 	}
 	set(u.playingRow, false)
