@@ -23,8 +23,7 @@ type Call struct {
 
 // Renderer is a fake gmrender on a local HTTP server: it takes
 // SetAVTransportURI only from STOPPED, moves to the queued next URI when seeked
-// to the end of the current track, and fails the test on AVTransport.Stop,
-// which hangs the real FiiO SR11, unless the test allows it (StopAllowed).
+// to the end of the current track, and takes AVTransport.Stop (ADR-025).
 type Renderer struct {
 	Device upnp.Device
 
@@ -44,7 +43,6 @@ type Renderer struct {
 	failNext   map[string]int // fail only the next n calls of an action
 	ignoreSeek int
 	noAdvance  bool
-	stopOK     bool
 	staleReads int     // this many position reads still report stalePos
 	stalePos   float64 // the previous stream's position (see RendererState.StaleReads)
 }
@@ -72,9 +70,9 @@ func (r *Renderer) Close() { r.srv.Close() }
 func (r *Renderer) With(fn func(s *RendererState)) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	s := RendererState{State: r.state, URI: r.uri, Next: r.next, Pos: r.pos, Volume: r.volume, IgnoreSeeks: r.ignoreSeek, NoAdvance: r.noAdvance, StopAllowed: r.stopOK, StaleReads: r.staleReads, StalePos: r.stalePos}
+	s := RendererState{State: r.state, URI: r.uri, Next: r.next, Pos: r.pos, Volume: r.volume, IgnoreSeeks: r.ignoreSeek, NoAdvance: r.noAdvance, StaleReads: r.staleReads, StalePos: r.stalePos}
 	fn(&s)
-	r.state, r.uri, r.next, r.pos, r.volume, r.ignoreSeek, r.noAdvance, r.stopOK = s.State, s.URI, s.Next, s.Pos, s.Volume, s.IgnoreSeeks, s.NoAdvance, s.StopAllowed
+	r.state, r.uri, r.next, r.pos, r.volume, r.ignoreSeek, r.noAdvance = s.State, s.URI, s.Next, s.Pos, s.Volume, s.IgnoreSeeks, s.NoAdvance
 	r.staleReads, r.stalePos = s.StaleReads, s.StalePos
 }
 
@@ -85,9 +83,6 @@ type RendererState struct {
 	Volume           int
 	IgnoreSeeks      int  // this many Seeks are silently dropped, like gmrender on a fresh stream
 	NoAdvance        bool // a seek to the end does not move to the next URI
-	// StopAllowed: the test expects Stop (a racing renderer is restarted with it);
-	// otherwise Stop fails the test
-	StopAllowed bool
 	// StaleReads: this many position reads report StalePos instead of the real
 	// position, as the BeagleBone does right after a start: it still reports where its
 	// previous stream was, which looks like a seek that has landed
@@ -205,12 +200,6 @@ func (r *Renderer) serve(w http.ResponseWriter, req *http.Request) {
 	case "Pause":
 		r.state = "PAUSED_PLAYBACK"
 	case "Stop":
-		// after its stream has ended the FiiO SR11 takes Stop (foobar2000 sends it at the
-		// end of every album, 2026-11-14); over music it hangs
-		if !r.stopOK && !r.playedOutLocked() {
-			r.t.Errorf("AVTransport.Stop sent: it hangs the FiiO SR11 until a power cycle")
-			break
-		}
 		r.state, r.next = "STOPPED", ""
 	case "Seek":
 		if r.ignoreSeek > 0 {

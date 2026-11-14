@@ -28,7 +28,9 @@ on any track starts it with no sound of its own.
 
 - A jump to a track, Next/Prev, the slider and the reseek after an equalizer change, while music
   plays, are the player's own Stop followed by a start of the target (`jumpLocked`): the same
-  code as the Stop button and a click on a track after it. Stop pauses the renderer, lets the
+  code as the Stop button and a click on a track after it. ~~The same code as the Stop button~~
+  (2026-11-14, [ADR-025](adr-025-stop-is-stop.md)): a jump has its own first half (`quiet`: Pause,
+  the stream let go, a seek in place), and the Stop button is a real Stop. Stop pauses the renderer, lets the
   stream go to silence and seeks it where it is, so what it holds is silence; the start seeks
   it to the target and plays.
 - Every step waits for the renderer to report what it leads to before the next is sent

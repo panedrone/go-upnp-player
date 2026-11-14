@@ -70,16 +70,15 @@ func Resume() error {
 	})
 }
 
-// Stop, for the user, is Pause on the renderer plus clearing the intent to play:
-// on the FiiO SR11 (gmrender), AVTransport.Stop during playback brings down
-// the whole UPnP service until a power cycle (seen live 2026-11-09).
-// The next Play restarts the current track from the beginning.
+// Stop is the Stop button: AVTransport.Stop on every renderer alike, and the intent to
+// play cleared; the next Play starts the current track over (ADR-025, the owner's call,
+// 2026-11-14). The jumps between tracks are not this: see jumpLocked.
 func Stop() error {
 	return do(stopLocked)
 }
 
 // stopLocked is Stop under cmdMu. Every step waits for the renderer to report what it
-// leads to (confirm): halted, then, for a renderer only paused, standing where it was.
+// leads to (confirm).
 func stopLocked(c context.Context, d upnp.Device) error {
 	mu.Lock()
 	wantPlaying, paused = false, false
@@ -87,40 +86,50 @@ func stopLocked(c context.Context, d upnp.Device) error {
 	resumeAt = -1              // Stop means "start the track over" next time
 	nextURL, nextRun = "", runPlan{}
 	position = 0 // and the slider says so: the next Play starts the track over
-	cur, at := runURI, streamPos
 	mu.Unlock()
-	if err := halt(c, d); err != nil {
+	return stopRenderer(c, d)
+}
+
+// stopRenderer asks the renderer its state first: already STOPPED (or holding nothing),
+// it gets no command. Otherwise one Stop, never repeated; then only questions, until it
+// reports STOPPED.
+func stopRenderer(c context.Context, d upnp.Device) error {
+	if ti, err := getTransportInfo(c, d); err == nil && (ti.State == "STOPPED" || ti.State == "NO_MEDIA_PRESENT") {
+		return nil
+	}
+	if err := upnp.Stop(c, d); err != nil {
+		return err
+	}
+	if !confirm(d, func(st renderState) bool { return st.state == "STOPPED" }) {
+		log.Printf("player: %s did not report itself stopped", d.Name)
+	}
+	return nil
+}
+
+// quiet takes a renderer out of play without closing its sound output: paused, then its
+// stream let go to silence and the renderer seeked where it stands (at, in the stream cur),
+// so that the moment of music a paused renderer holds is silence; its next Play let that
+// moment be heard (the FiiO, 2026-11-10). Each step confirmed by the renderer's report.
+// It is the first half of every jump (ADR-022).
+func quiet(c context.Context, d upnp.Device, cur string, at float64) error {
+	if err := upnp.Pause(c, d); err != nil {
 		return err
 	}
 	if !confirm(d, func(st renderState) bool {
 		return (st.state == "PAUSED_PLAYBACK" || st.state == "STOPPED") && st.still
 	}) {
-		log.Printf("player: %s did not report itself halted", d.Name)
+		log.Printf("player: %s did not report itself paused", d.Name)
 	}
-	if !usesStop(d.Model) {
-		// Paused, not stopped (ADR-002): it keeps the stream and a moment of it
-		// ready to play, which the next Play let be heard before its own start (the
-		// FiiO, 2026-11-10). The stream is let go and the renderer seeked where it
-		// is: what it holds now is silence.
-		if id, ok := runIDOf(cur); ok {
-			stream.RetireRun(id)
-			sent := time.Now()
-			if seekRenderer(c, d, at) == nil && !confirmAt(d, cur, at, sent) {
-				log.Printf("player: %s did not report the position %.0f s after Stop", d.Name, at)
-			}
+	if id, ok := runIDOf(cur); ok {
+		stream.RetireRun(id)
+		sc, cancel := ctx() // the confirmation above may have outlasted c
+		defer cancel()
+		sent := time.Now()
+		if seekRenderer(sc, d, at) == nil && !confirmAt(d, cur, at, sent) {
+			log.Printf("player: %s did not report the position %.0f s after a pause", d.Name, at)
 		}
 	}
 	return nil
-}
-
-// halt takes a renderer out of play: a real Stop where that is safe, Pause otherwise
-// (ADR-002). A stopped gmrender drops its pipeline and HTTP connection; a paused one
-// keeps both, idle, which on the BeagleBone was part of the racing trigger (ADR-007).
-func halt(c context.Context, d upnp.Device) error {
-	if usesStop(d.Model) {
-		return upnp.Stop(c, d)
-	}
-	return upnp.Pause(c, d)
 }
 
 func Next() error {

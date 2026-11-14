@@ -1,6 +1,8 @@
 # ADR-021: Stop keeps the renderer's sound output open
 
-**Status:** Accepted 2026-11-14 (1.1.20). **Open:** evenings of listening with no racing
+**Status:** ~~Accepted 2026-11-14 (1.1.20)~~ superseded by [ADR-025](adr-025-stop-is-stop.md)
+(2026-11-14): its open item came true, the BeagleBone hung three times on the path without
+Stop; `keepOutputOpen` is gone. Accepted 2026-11-14 (1.1.20). **Open:** evenings of listening with no racing
 episode in the log ([ADR-007](adr-007-racing-gmrender.md)), long pauses after Stop included; an
 episode is the signal to reconsider.
 **Overcome:** live on the BeagleBone over coax, 3 of 3 Stop → Play with no click (the owner,

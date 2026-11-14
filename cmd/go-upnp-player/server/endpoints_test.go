@@ -333,8 +333,8 @@ func TestEndpointsScenario(t *testing.T) {
 		}
 		r.Fail("Pause", false)
 		c.status(204, "POST", "/api/player/stop", "")
-		if c.state().WantPlaying || r.Count("Stop") != 0 {
-			t.Fatal("stop must be a Pause plus a cleared intent")
+		if n := r.Count("Stop"); c.state().WantPlaying || n == 0 || r.Get().State != "STOPPED" {
+			t.Fatal("stop must be a Stop plus a cleared intent")
 		}
 	})
 

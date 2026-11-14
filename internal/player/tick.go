@@ -151,7 +151,7 @@ func Tick() {
 			mu.Lock()
 			wantPlaying = false
 			mu.Unlock()
-			_ = halt(c, d)
+			_ = stopRenderer(c, d)
 		}
 		return
 	}
@@ -182,7 +182,7 @@ func Tick() {
 	if haltNow {
 		// A moment after the end, not at it: the position comes in whole seconds and up
 		// to half a second may be left.
-		switchOff(c, d, ti.State)
+		switchOff(c, d)
 	}
 	if poll {
 		if v, err := upnp.GetVolume(c, d); err == nil {
@@ -199,13 +199,9 @@ func Tick() {
 // hung the next start of that album (2026-11-14). Stop after the stream has ended is what
 // foobar2000 sends the FiiO at the end of every album (ADR-002 is about Stop over music).
 // From STOPPED the next start sets the stream anew. Call under cmdMu.
-func switchOff(c context.Context, d upnp.Device, state string) {
-	if state == "PLAYING" || state == "PAUSED_PLAYBACK" {
-		if err := upnp.Stop(c, d); err != nil {
-			setErr(err)
-		} else if !confirm(d, func(st renderState) bool { return st.state == "STOPPED" }) {
-			log.Printf("player: %s did not report itself stopped after the playlist ended", d.Name)
-		}
+func switchOff(c context.Context, d upnp.Device) {
+	if err := stopRenderer(c, d); err != nil {
+		setErr(err)
 	}
 	mu.Lock()
 	setRunLocked(runPlan{})
@@ -268,7 +264,7 @@ func recoverRacing(d upnp.Device) {
 	}
 	// a fault worth seeing in the log: the cause on the renderer side is still unknown
 	log.Printf("player: renderer %s plays ahead of the clock with no sound: restarting queue track %d at %.0f s", d.Name, i, pos)
-	if err := upnp.Stop(c, d); err != nil {
+	if err := stopRenderer(c, d); err != nil {
 		setErr(err)
 		return
 	}

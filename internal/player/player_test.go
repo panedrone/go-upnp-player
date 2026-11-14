@@ -39,7 +39,6 @@ var tracks = map[string]*library.Track{
 func setup(t *testing.T) *testkit.Renderer {
 	t.Helper()
 	resetState()
-	keepOutputOpen = true // the default; stopSafe below turns it off
 	lookupTrack = func(id string) *library.Track { return tracks[id] }
 	sleep = func(time.Duration) {}
 	t.Cleanup(func() {
@@ -141,26 +140,6 @@ func TestStartFromStoppedSetsURIAndQueuesNext(t *testing.T) {
 	}
 }
 
-func TestBusyRendererSwitchesThroughNextURI(t *testing.T) {
-	r := setup(t)
-	playingAt(r, []string{"old", "a"}, 0, 20)
-	if err := PlayIndex(1); err != nil {
-		t.Fatal(err)
-	}
-	if n := r.Count("SetAVTransportURI"); n != 0 {
-		t.Fatalf("SetAVTransportURI sent %d times to a playing renderer", n)
-	}
-	if got := r.Last("Seek")["Target"]; got != services.FormatSeekTarget(299) {
-		t.Fatalf("seek target %s", got)
-	}
-	if st := r.Get(); st.URI != runOn(t, r, 1, 0).uri || at(st) != 0 {
-		t.Fatalf("renderer on %s at %v", st.URI, st.Pos)
-	}
-	if r.Count("Stop") != 0 || r.Count("Play") != 0 {
-		t.Fatalf("stop %d play %d", r.Count("Stop"), r.Count("Play"))
-	}
-}
-
 func TestPausedRendererResumesAfterSwitch(t *testing.T) {
 	r := setup(t)
 	playingAt(r, []string{"old", "a"}, 0, 20)
@@ -195,44 +174,19 @@ func silent(t *testing.T, uri string) bool {
 	return n == len(buf) && bytes.Equal(buf, make([]byte, len(buf)))
 }
 
-// Moving the renderer off a stream through its gapless path plays the last second
-// of that stream first: another song. The player lets that stream go first, so the
-// renderer fetches silence there; the volume is not touched (ADR-003, ADR-016).
-func TestSwitchSilencesTheOldStream(t *testing.T) {
-	for _, state := range []string{"PLAYING", "PAUSED_PLAYBACK"} {
-		t.Run(state, func(t *testing.T) {
-			r := setup(t)
-			playingAt(r, []string{"a", "hi"}, 0, 20)
-			old := runURI
-			r.With(func(s *testkit.RendererState) { s.State = state })
-			if err := PlayIndex(1); err != nil {
-				t.Fatal(err)
-			}
-			if !silent(t, old) || r.Count("SetVolume") != 0 {
-				t.Fatalf("old stream silent %v, SetVolume %d", silent(t, old), r.Count("SetVolume"))
-			}
-			if st := r.Get(); st.URI != runURI || st.State != "PLAYING" {
-				t.Fatalf("%+v", st)
-			}
-			// played again later, the same run is music again
-			runOn(t, r, 0, 0)
-			if silent(t, old) {
-				t.Fatal("a run registered anew must not stay silent")
-			}
-		})
-	}
-}
-
-func TestFailedSwitchKeepsTheOldStream(t *testing.T) {
+// A new stream on a busy renderer goes as foobar2000 starts it, on every renderer: Stop,
+// SetAVTransportURI, Play (ADR-025). The gapless path left the BeagleBone hung.
+func TestBusyRendererNewStreamGoesThroughStop(t *testing.T) {
 	r := setup(t)
-	playingAt(r, []string{"a", "hi"}, 0, 20)
-	old := runURI
-	r.With(func(s *testkit.RendererState) { s.NoAdvance = true })
-	if err := PlayIndex(1); err == nil {
-		t.Fatal("a renderer that never switches must give an error")
+	playingAt(r, []string{"old", "a"}, 0, 20)
+	if err := PlayIndex(1); err != nil {
+		t.Fatal(err)
 	}
-	if silent(t, old) {
-		t.Fatal("the renderer stays on the old stream: it must not go silent")
+	if r.Count("Stop") != 1 || r.Count("SetAVTransportURI") != 1 || r.Count("SetNextAVTransportURI") > 1 {
+		t.Fatalf("stop %d setURI %d setNext %d", r.Count("Stop"), r.Count("SetAVTransportURI"), r.Count("SetNextAVTransportURI"))
+	}
+	if st := r.Get(); st.State != "PLAYING" || st.URI != runOn(t, r, 1, 0).uri || at(st) != 0 {
+		t.Fatalf("%+v", st)
 	}
 }
 
@@ -246,35 +200,6 @@ func TestSameTrackRestartsInPlace(t *testing.T) {
 	}
 	if r.Get().Pos != 0 || r.Count("SetNextAVTransportURI") != 0 || r.Count("Play") != 1 {
 		t.Fatalf("pos %v setnext %d play %d", r.Get().Pos, r.Count("SetNextAVTransportURI"), r.Count("Play"))
-	}
-}
-
-func TestSwitchFailureIsReported(t *testing.T) {
-	r := setup(t)
-	playingAt(r, []string{"old", "a"}, 0, 20)
-	r.With(func(s *testkit.RendererState) { s.NoAdvance = true })
-	err := PlayIndex(1)
-	if err == nil || !strings.Contains(err.Error(), "did not switch") {
-		t.Fatalf("got %v", err)
-	}
-	if n := r.Count("SetNextAVTransportURI"); n != 3 {
-		t.Fatalf("%d attempts, want 3", n)
-	}
-	if index != 0 || lastErr == "" {
-		t.Fatalf("index %d lastErr %q: a failed switch must not look like a start", index, lastErr)
-	}
-}
-
-func TestSwitchFallsBackWhenRendererStops(t *testing.T) {
-	r := setup(t)
-	playingAt(r, []string{"old", "a"}, 0, 20)
-	r.With(func(s *testkit.RendererState) { s.NoAdvance = true })
-	sleep = func(time.Duration) { r.With(func(s *testkit.RendererState) { s.State = "STOPPED" }) }
-	if err := PlayIndex(1); err != nil {
-		t.Fatal(err)
-	}
-	if st := r.Get(); st.State != "PLAYING" || st.URI != runOn(t, r, 1, 0).uri || index != 1 {
-		t.Fatalf("%+v index %d", st, index)
 	}
 }
 
@@ -310,7 +235,6 @@ func race(r *testkit.Renderer, sec float64) {
 func TestTickRestartsRacingRenderer(t *testing.T) {
 	r := setup(t)
 	playingAt(r, []string{"old", "a", "b"}, 1, 25)
-	r.With(func(s *testkit.RendererState) { s.StopAllowed = true })
 	Tick() // baseline
 	race(r, 1)
 	race(r, 5) // ~5x, as seen live
@@ -334,7 +258,6 @@ func TestTickRestartsRacingRenderer(t *testing.T) {
 func TestTickRacingAgainSoonPausesAndReports(t *testing.T) {
 	r := setup(t)
 	playingAt(r, []string{"a"}, 0, 25)
-	r.With(func(s *testkit.RendererState) { s.StopAllowed = true })
 	racingFixAt = time.Now()
 	Tick()
 	race(r, 38)
@@ -397,9 +320,12 @@ func TestResumeOnStalledRendererDoesARealStart(t *testing.T) {
 	playingAt(r, []string{"old", "a"}, 1, 25)
 	r.With(func(s *testkit.RendererState) { s.URI, s.NoAdvance = "http://x/old", true })
 	stalled = true
-	err := Resume()
-	if err == nil || r.Count("Play") != 0 {
-		t.Fatalf("err %v, plain Play sent %d times", err, r.Count("Play"))
+	// a hung renderer ignores Play: Resume goes through a real start, Stop first
+	if err := Resume(); err != nil {
+		t.Fatal(err)
+	}
+	if r.Count("Stop") != 1 || r.Count("SetAVTransportURI") != 1 || r.Get().State != "PLAYING" {
+		t.Fatalf("stop %d setURI %d state %s", r.Count("Stop"), r.Count("SetAVTransportURI"), r.Get().State)
 	}
 }
 
@@ -506,35 +432,14 @@ func TestSelectWhilePlayingMovesTrackWithPosition(t *testing.T) {
 		t.Fatal(err)
 	}
 	halting.Wait()
-	if r1.Count("Pause") != 1 || r1.Count("Stop") != 0 {
-		t.Fatalf("old renderer: pause %d stop %d", r1.Count("Pause"), r1.Count("Stop"))
+	if r1.Count("Stop") != 1 || r1.Get().State != "STOPPED" {
+		t.Fatalf("old renderer: stop %d state %s", r1.Count("Stop"), r1.Get().State)
 	}
 	if st := r2.Get(); st.State != "PLAYING" || at(st) != 50 {
 		t.Fatalf("new renderer %+v", st)
 	}
 	if config.Get().Renderer != "r2" {
 		t.Fatalf("saved renderer %q", config.Get().Renderer)
-	}
-}
-
-// A renderer left by a switch is only paused (the FiiO): it must hold nothing of the
-// music for its next Play to let out first (the FiiO back from the BeagleBone,
-// 2026-11-11). Its stream is let go and it is seeked in it.
-func TestSelectAwayLeavesSilence(t *testing.T) {
-	r1 := setup(t)
-	r2 := newRenderer(t, "r2")
-	renderers = append(renderers, r2.Device)
-	playingAt(r1, []string{"a"}, 0, 50)
-	old := runURI
-	if err := Select("r2"); err != nil {
-		t.Fatal(err)
-	}
-	halting.Wait()
-	if r1.Count("Pause") != 1 || r1.Last("Seek")["Target"] != services.FormatSeekTarget(50) || !silent(t, old) {
-		t.Fatalf("pause %d seek %v silent %v", r1.Count("Pause"), r1.Last("Seek"), silent(t, old))
-	}
-	if st := r2.Get(); st.State != "PLAYING" || at(st) != 50 || silent(t, runURI) {
-		t.Fatalf("new renderer %+v", st)
 	}
 }
 
@@ -611,29 +516,32 @@ func TestResume(t *testing.T) {
 	}
 }
 
-func TestPauseAndStopNeverSendStop(t *testing.T) {
+// Pause is Pause; the Stop button is a real Stop on every renderer, and the page shows what
+// the renderer reports: STOPPED (ADR-025). A renderer already stopped gets no Stop.
+func TestPauseIsPauseStopIsStop(t *testing.T) {
 	r := setup(t)
 	playingAt(r, []string{"a"}, 0, 5)
-	if err := Pause(); err != nil || !paused {
-		t.Fatalf("err %v paused %v", err, paused)
+	if err := Pause(); err != nil || !paused || r.Count("Pause") != 1 || r.Count("Stop") != 0 {
+		t.Fatalf("err %v paused %v pause %d stop %d", err, paused, r.Count("Pause"), r.Count("Stop"))
 	}
 	resumeAt = 7
 	if err := Stop(); err != nil {
 		t.Fatal(err)
 	}
-	if wantPlaying || paused || resumeAt != -1 || r.Count("Pause") != 2 || r.Count("Stop") != 0 {
-		t.Fatalf("want %v paused %v resume %v pause %d", wantPlaying, paused, resumeAt, r.Count("Pause"))
+	if wantPlaying || paused || resumeAt != -1 || r.Count("Stop") != 1 {
+		t.Fatalf("want %v paused %v resume %v stop %d", wantPlaying, paused, resumeAt, r.Count("Stop"))
 	}
 	Tick()
-	// the page shows what the renderer reports, not the player's intent
-	if got := Snapshot().Transport; got != "PAUSED_PLAYBACK" {
-		t.Fatalf("the page shows %s after Stop, the renderer reports PAUSED_PLAYBACK", got)
+	if got := Snapshot().Transport; got != "STOPPED" {
+		t.Fatalf("the page shows %s after Stop", got)
+	}
+	if err := Stop(); err != nil || r.Count("Stop") != 1 {
+		t.Fatalf("err %v: a stopped renderer was sent Stop again (%d)", err, r.Count("Stop"))
 	}
 }
 
-// Stop on a renderer that only pauses: it must hold nothing of the music for the next
-// Play to let out, and the slider goes to the start, where the next Play begins.
-func TestStopLeavesSilenceAndTheStart(t *testing.T) {
+// After Stop, Play starts the track again from its start, music.
+func TestStopThenPlayStartsTheTrackOver(t *testing.T) {
 	r := setup(t)
 	queue = []string{"a", "b"}
 	if err := PlayIndex(0); err != nil {
@@ -641,12 +549,8 @@ func TestStopLeavesSilenceAndTheStart(t *testing.T) {
 	}
 	r.With(func(s *testkit.RendererState) { s.Pos = 75 })
 	Tick()
-	old := runURI
 	if err := Stop(); err != nil {
 		t.Fatal(err)
-	}
-	if !silent(t, old) || r.Last("Seek")["Target"] != services.FormatSeekTarget(75) {
-		t.Fatalf("silent %v, seek %v", silent(t, old), r.Last("Seek"))
 	}
 	Tick()
 	if s := Snapshot(); s.Position != 0 || s.Index != 0 {
@@ -950,16 +854,16 @@ func TestInitRestoresPlaylist(t *testing.T) {
 	}
 }
 
-func TestShutdownPausesOnlyWhenPlaying(t *testing.T) {
+func TestShutdownStopsOnlyWhenPlaying(t *testing.T) {
 	r := setup(t)
 	Shutdown()
-	if r.Count("Pause") != 0 {
-		t.Fatal("paused an idle renderer")
+	if r.Count("Stop") != 0 {
+		t.Fatal("stopped an idle renderer")
 	}
 	playingAt(r, []string{"a"}, 0, 5)
 	Shutdown()
-	if r.Count("Pause") != 1 || r.Count("Stop") != 0 {
-		t.Fatalf("pause %d stop %d", r.Count("Pause"), r.Count("Stop"))
+	if r.Count("Stop") != 1 || r.Get().State != "STOPPED" {
+		t.Fatalf("stop %d state %s", r.Count("Stop"), r.Get().State)
 	}
 }
 
@@ -1062,19 +966,11 @@ func playsOn(t *testing.T, r *testkit.Renderer) {
 	}
 }
 
-// stopSafe turns the fake into stock gmrender (the BeagleBone), which survives Stop.
-func stopSafe(r *testkit.Renderer) {
-	keepOutputOpen = false // driven with Stop, as before the experiment
-	renderers[0].Model = "gmediarender"
-	r.With(func(s *testkit.RendererState) { s.StopAllowed = true })
-}
-
-// On a renderer that survives Stop, a busy renderer is switched the way foobar2000
+// A busy renderer is switched to a new stream the way foobar2000
 // does it: Stop -> SetAVTransportURI -> Play, not the next-URI path with a seek to the
 // end (ADR-007).
-func TestStopSafeRendererSwitchesLikeFoobar(t *testing.T) {
+func TestNewStreamSwitchesLikeFoobar(t *testing.T) {
 	r := setup(t)
-	stopSafe(r)
 	playingAt(r, []string{"a", "hi", "c"}, 0, 30)
 	if err := PlayIndex(1); err != nil {
 		t.Fatal(err)
@@ -1096,7 +992,6 @@ func TestStopSafeRendererSwitchesLikeFoobar(t *testing.T) {
 // an idle pipeline; the FiiO keeps getting Pause (TestPauseAndStopNeverSendStop).
 func TestStopSafeRendererIsStoppedNotPaused(t *testing.T) {
 	r := setup(t)
-	stopSafe(r)
 	playingAt(r, []string{"a"}, 0, 30)
 	if err := Stop(); err != nil {
 		t.Fatal(err)
@@ -1121,7 +1016,7 @@ func TestStopSafeRendererIsStoppedNotPaused(t *testing.T) {
 // position the track had on the other renderer.
 func TestStopSafeRendererPlayRetriedAfterStop(t *testing.T) {
 	r1 := setup(t)
-	stopSafe(r1)
+
 	r2 := newRenderer(t, "r2")
 	renderers = append(renderers, r2.Device)
 	selected = "r2"
@@ -1289,35 +1184,30 @@ func TestAdvanceFromAStreamFromAPosition(t *testing.T) {
 // has ended once the position reaches the track's known length (2026-11-10). It is then
 // switched off as foobar2000 does it: Stop, and the player forgets the stream. Left
 // paused there, it took the next start's Seek and Play and moved nowhere: a click on a
-// track of the album hung (2026-11-14). Both renderers alike.
+// track of the album hung (2026-11-14).
 func TestEndOfPlaylistSwitchesOff(t *testing.T) {
-	for _, safe := range []bool{false, true} {
-		t.Run(map[bool]string{false: "keepOutputOpen", true: "stopSafe"}[safe], func(t *testing.T) {
-			r := setup(t)
-			keepOutputOpen = !safe
-			playingAt(r, []string{"a", "b"}, 0, 50)
-			end := runLen
-			r.With(func(s *testkit.RendererState) { s.Pos = end })
-			Tick()
-			if r.Count("Stop") != 0 || r.Count("Pause") != 0 {
-				t.Fatal("stopped right at the end: the last fraction of a second would be cut")
-			}
-			finishedAt = time.Now().Add(-2 * time.Second)
-			Tick()
-			s := Snapshot()
-			if s.Stalled || wantPlaying || !s.Off || s.Position != 0 || runURI != "" ||
-				r.Count("Stop") != 1 || r.Get().State != "STOPPED" {
-				t.Fatalf("stalled %v want %v off %v pos %v run %q stops %d state %s",
-					s.Stalled, wantPlaying, s.Off, s.Position, runURI, r.Count("Stop"), r.Get().State)
-			}
-			// a click on a track of the album starts it
-			if err := PlayIndex(1); err != nil {
-				t.Fatal(err)
-			}
-			if st := r.Get(); st.State != "PLAYING" || index != 1 || Snapshot().Off {
-				t.Fatalf("%+v index %d", st, index)
-			}
-		})
+	r := setup(t)
+	playingAt(r, []string{"a", "b"}, 0, 50)
+	end := runLen
+	r.With(func(s *testkit.RendererState) { s.Pos = end })
+	Tick()
+	if r.Count("Stop") != 0 || r.Count("Pause") != 0 {
+		t.Fatal("stopped right at the end: the last fraction of a second would be cut")
+	}
+	finishedAt = time.Now().Add(-2 * time.Second)
+	Tick()
+	s := Snapshot()
+	if s.Stalled || wantPlaying || !s.Off || s.Position != 0 || runURI != "" ||
+		r.Count("Stop") != 1 || r.Get().State != "STOPPED" {
+		t.Fatalf("stalled %v want %v off %v pos %v run %q stops %d state %s",
+			s.Stalled, wantPlaying, s.Off, s.Position, runURI, r.Count("Stop"), r.Get().State)
+	}
+	// a click on a track of the album starts it
+	if err := PlayIndex(1); err != nil {
+		t.Fatal(err)
+	}
+	if st := r.Get(); st.State != "PLAYING" || index != 1 || Snapshot().Off {
+		t.Fatalf("%+v index %d", st, index)
 	}
 }
 

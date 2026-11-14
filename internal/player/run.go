@@ -197,34 +197,6 @@ func streamTimeLocked(i int, pos float64) (float64, bool) {
 	return runStarts[k] + pos, true
 }
 
-// retireStreams lets go of the runs the renderer is being moved off: the player's
-// current one and the one it reports (gmrender names the queued next as current
-// early), never the target. What it fetches of them from now on is silence
-// (stream.RetireRun). The returned func takes that back.
-func retireStreams(target, reported string) (restore func()) {
-	mu.Lock()
-	cur := runURI
-	mu.Unlock()
-	var undo []func()
-	seen := map[string]bool{}
-	for _, u := range []string{cur, reported} {
-		id, ok := runIDOf(u)
-		if !ok || seen[id] || u == target {
-			continue
-		}
-		if tid, ok := runIDOf(target); ok && tid == id {
-			continue
-		}
-		seen[id] = true
-		undo = append(undo, stream.RetireRun(id))
-	}
-	return func() {
-		for _, f := range undo {
-			f()
-		}
-	}
-}
-
 // runIDOf is the run id in a run URL: http://ip:port/media/run/<id>.wav?ct=...
 func runIDOf(u string) (string, bool) {
 	i := strings.Index(u, "/media/run/")

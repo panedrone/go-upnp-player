@@ -88,20 +88,25 @@ func PlayIndex(i int) error {
 	return err
 }
 
-// jumpLocked takes the renderer to track i at sec while it plays the stream, the way the
-// owner does it by hand without a sound: Stop, then a start of that track. Stop pauses
-// the renderer, lets the stream go to silence and seeks it where it is, so that the
-// moment of music it holds is silence; the start then seeks it to the track and plays.
-// A seek over playing music made the FiiO SR11 stutter, a pause and a seek without
-// letting go of the music still jerked once (2026-11-14). Every step waits for the
-// renderer's own report (confirm). Call under cmdMu.
+// jumpLocked takes the renderer to track i at sec while it plays, the way the owner does
+// it by hand without a sound on the FiiO: out of play first, then a start of that track.
+// It is a transition of its own, not the Stop button (ADR-025): the renderer is paused on
+// silence (quiet), its output stays open, and the player's intent to play is untouched;
+// the start then restarts the stream in place, or opens a new one. A seek over playing
+// music made the FiiO SR11 stutter, a pause and a seek without letting go of the music
+// still jerked once (2026-11-14). Every step waits for the renderer's own report
+// (confirm). Call under cmdMu.
 func jumpLocked(i int, sec float64) error {
 	d, ok := device()
 	if !ok {
 		return fmt.Errorf("no renderer selected")
 	}
+	mu.Lock()
+	cur, at := runURI, streamPos
+	nextURL, nextRun = "", runPlan{}
+	mu.Unlock()
 	c, cancel := ctx()
-	err := stopLocked(c, d)
+	err := quiet(c, d, cur, at)
 	cancel()
 	if err != nil {
 		return err

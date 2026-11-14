@@ -1,6 +1,8 @@
 # ADR-003: Switching tracks on a busy gmrender through its gapless path
 
-**Status:** Accepted 2026-11-09 (written down 2026-11-10). The 2026-11-10 change to restarting
+**Status:** ~~Accepted 2026-11-09~~ superseded by [ADR-025](adr-025-stop-is-stop.md)
+(2026-11-14): a new stream on a busy renderer is `Stop`, `SetAVTransportURI`, `Play` on every
+renderer; the gapless path left the BeagleBone hung. Accepted 2026-11-09 (written down 2026-11-10). The 2026-11-10 change to restarting
 the same track (straight to the target position) is part of it. Since 2026-11-10 it applies only to
 renderers that are not Stop-safe (the FiiO); Stop-safe ones are switched with `Stop` instead
 ([ADR-013](adr-013-stop-safe-renderers-start-like-foobar.md)).

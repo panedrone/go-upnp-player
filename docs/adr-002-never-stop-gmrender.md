@@ -1,6 +1,8 @@
 # ADR-002: Never send AVTransport.Stop to a renderer
 
-**Status:** Accepted 2026-11-09 (written down 2026-11-10). Amended by
+**Status:** ~~Accepted 2026-11-09~~ superseded by [ADR-025](adr-025-stop-is-stop.md)
+(2026-11-14): the owner's call, `Stop` on every renderer alike, sent once after a state check.
+Accepted 2026-11-09 (written down 2026-11-10). Amended by
 [ADR-013](adr-013-stop-safe-renderers-start-like-foobar.md) (2026-11-10): renderers known to survive
 `Stop` (stock gmrender, the BeagleBone) now get it; every other renderer still never does.
 Amended by [ADR-023](adr-023-the-end-of-the-playlist-switches-off.md) (2026-11-14): after the

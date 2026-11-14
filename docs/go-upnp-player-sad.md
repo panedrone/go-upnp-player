@@ -126,9 +126,12 @@ The browser's `localStorage` keeps only per-viewer conveniences:
    it for the page. A run ends where the format changes or before 3.75 GB of PCM (the RIFF size
    field); the next run is queued gapless (step 5).
    - Next, Prev, a click on a track of the run and a seek within it reach it within the stream.
-     While music plays, that is the player's own Stop and then a start there, every step sent
+     While music plays, the renderer is first paused on silence (`Pause`, its stream let go and
+     the renderer seeked where it stands), then restarted in place at the target, every step sent
      only once the renderer reported the previous one done
-     ([ADR-022](adr-022-a-jump-is-stop-then-start.md)); while paused, a plain `Seek`.
+     ([ADR-022](adr-022-a-jump-is-stop-then-start.md)). This is a transition of its own, not the
+     Stop button: the output stays open ([ADR-025](adr-025-stop-is-stop.md)). While paused, a
+     plain `Seek`.
      Prev goes to the previous track from anywhere in the current one, as foobar2000 does; on the
      first track, to its start.
    - A track outside the run, or a point before the stream's start, starts a new run.
@@ -144,30 +147,15 @@ The browser's `localStorage` keeps only per-viewer conveniences:
    - a renderer that holds the player's current stream (its URI and length) with the chosen track
      in it: a restart in place, a `Seek` there (paused: then `Play`), confirmed
      ([ADR-022](adr-022-a-jump-is-stop-then-start.md));
-   - PLAYING or PAUSED: `SetNextAVTransportURI(target)` → `Seek` to the last second of the current
-     stream (→ `Play` if paused). The switch is confirmed by the target's length near position 0,
-     with up to three attempts. That last second is another song (the end of the run, or of the
-     track a paused renderer was left on), so the player first lets the old stream go: what the
-     renderer fetches of it from then on is silence of the same length. The volume is never
-     touched;
-   - the renderer already has the requested stream: a `Seek` straight to its start.
+   - PLAYING or PAUSED with any other stream: `Stop` → STOPPED reported → `SetAVTransportURI` →
+     `Play`, as foobar2000 starts it, on every renderer alike
+     ([ADR-025](adr-025-stop-is-stop.md)). `Play` is retried up to 4 times within ~2 s.
 
-   That is for renderers where `Stop` is not safe: the FiiO SR11, and any unknown model
-   ([ADR-002](adr-002-never-stop-gmrender.md)). There the Stop button is `Pause` plus clearing the
-   intent to play; the page shows the position 0, where the next Play starts. The state badge
-   shows what the renderer itself reports (PAUSED_PLAYBACK here), never the player's intent. A paused renderer
-   keeps a moment of the music ready, which the next Play let out before its own start: on Stop
-   the player lets the stream go (silence from then on) and seeks the renderer where it is, so
-   what it holds is silence.
-
-   Stock gmrender (model `gmediarender`, the BeagleBone) survives `Stop`, but is driven like the
-   FiiO all the same, so that its sound output never closes and the DAC on coax never relocks
-   ([ADR-021](adr-021-keep-the-sound-output-open.md); `keepOutputOpen`). With it
-   off, it is driven the way foobar2000 drives it
-   ([ADR-013](adr-013-stop-safe-renderers-start-like-foobar.md)):
-   - a busy renderer is switched with `Stop` → wait for STOPPED → `SetAVTransportURI` → `Play`
-     (`Play` is retried up to 4 times within ~2 s);
-   - the Stop button and leaving it for another renderer send a real `Stop`.
+   **Stop.** Every `Stop` the player sends goes the same way (`stopRenderer`): the renderer's state
+   is asked first, and one already STOPPED gets nothing; otherwise one `Stop`, never repeated, then
+   only polls until it reports STOPPED. The Stop button is a real `Stop` on every renderer, with
+   the intent to play cleared; the page shows the position 0, where the next Play starts. The
+   state badge shows what the renderer itself reports, never the player's intent.
    A start whose `Play` is still refused (`501 Playing failed`, e.g. the amplifier is not yet on the
    BeagleBone's USB input) is retried by the poll every 2 s for up to 10 s. Meanwhile the page
    shows CONNECTING, with the attempt and the seconds left in the status bar ([ADR-014](adr-014-retry-refused-start.md)).
@@ -208,11 +196,9 @@ The browser's `localStorage` keeps only per-viewer conveniences:
    - The player keeps where that stream starts in its first track: a seek before it restarts the
      track from there.
    - While paused, the position is remembered for the next Play.
-   - The old renderer is halted (`Pause`, or `Stop` where Stop-safe) at the same time as the start
-     on the new one: a renderer that does not answer does not hold the switch. A paused one keeps
-     a moment of the music ready, which its next Play let out first: its stream is let go and it
-     is seeked in it, so what it holds is silence (as on Stop). The transport state
-     is cleared on the switch; the new renderer's own state shows after its first poll.
+   - The old renderer is stopped (`stopRenderer`) at the same time as the start on the new one:
+     a renderer that does not answer does not hold the switch. The transport state is cleared on
+     the switch; the new renderer's own state shows after its first poll.
 
 ## 4. Serving tracks
 
@@ -330,7 +316,7 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | ADR | Topic |
 |---|---|
 | [001](adr-001-lossless-formats-beyond-flac.md) | Lossless formats beyond FLAC (DSF/DSD, WAV, WavPack, APE, ALAC) |
-| [002](adr-002-never-stop-gmrender.md) | Never send `Stop`: it hangs the FiiO SR11 |
+| [002](adr-002-never-stop-gmrender.md) | ~~Never send `Stop`: it hangs the FiiO SR11~~ (superseded by ADR-025) |
 | [003](adr-003-switching-tracks-on-busy-gmrender.md) | Switching tracks on a busy gmrender through its gapless path |
 | [004](adr-004-detecting-track-advance.md) | Telling a real track advance from gmrender's early reports |
 | [005](adr-005-seek-ignored-at-stream-start.md) | Repeating a seek that gmrender ignored at the start of a stream |
@@ -350,9 +336,10 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [019](adr-019-check-for-updates-on-demand.md) | Updates are checked only on a click, and each kind of copy updates its own way |
 | [020](adr-020-every-jump-within-an-album-is-a-seek.md) | Every jump within an album is a seek: no new stream, no click on coax |
 | [021](adr-021-keep-the-sound-output-open.md) | Stop keeps the renderer's sound output open |
-| [022](adr-022-a-jump-is-stop-then-start.md) | A jump over playing music is the player's Stop, then a start there |
+| [022](adr-022-a-jump-is-stop-then-start.md) | A jump over playing music: paused on silence, then restarted in place |
 | [023](adr-023-the-end-of-the-playlist-switches-off.md) | The end of the playlist switches the renderer off, as foobar2000 does |
 | [024](adr-024-a-start-takes-what-the-renderer-holds.md) | A start goes by what the renderer holds: from STOPPED, no lead and no seek |
+| [025](adr-025-stop-is-stop.md) | Stop is Stop, on every renderer; transitions between tracks are their own |
 
 ## 9. Testing
 
@@ -368,9 +355,6 @@ Each ADR's status line says how far the problem is overcome and what is still op
   - early Seeks can be dropped;
   - at the end of its stream it ignores seeks and Play, and takes Stop
     ([ADR-023](adr-023-the-end-of-the-playlist-switches-off.md));
-  - a `Stop` fails the test ([ADR-002](adr-002-never-stop-gmrender.md)), unless the test makes the
-    fake Stop-safe (racing, [ADR-007](adr-007-racing-gmrender.md); stock gmrender,
-    [ADR-013](adr-013-stop-safe-renderers-start-like-foobar.md)).
 - `testkit.IsolateUserDirs` points the config and cache directories at a temporary folder.
 - Replaceable dependencies are package-level function variables (`player/seams.go`: among them
   the renderer's `GetTransportInfo`/`GetPositionInfo`/`Seek`, through which tests replay what a

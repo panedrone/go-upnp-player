@@ -139,15 +139,6 @@ func FromSample(start, end uint64, sampleRate uint32, fromMs int64) uint64 {
 	return s
 }
 
-// StopSafe reports whether a renderer takes AVTransport.Stop without harm, judged by
-// the model name from its device description. Stock gmrender-resurrect calls itself
-// "gmediarender" (the BeagleBone); the FiiO SR11 runs a gmrender build of its own under
-// its own name, and Stop hangs it until a power cycle. Anything else is unknown, so it
-// is treated like the FiiO. See ADR-002 and ADR-007.
-func StopSafe(model string) bool {
-	return model == "gmediarender"
-}
-
 // A start the renderer refused ("501 Playing failed") is retried by the poll for a
 // while before it is reported. The BeagleBone refuses while its USB DAC is not the
 // active input of the amplifier: switching the amplifier from coaxial to USB on the

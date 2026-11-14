@@ -1,6 +1,8 @@
 # ADR-013: Renderers that survive Stop are driven the way foobar2000 drives them
 
-**Status:** Accepted 2026-11-10 (1.0.9, local build). ~~The BeagleBone is driven with Stop~~:
+**Status:** ~~Accepted 2026-11-10~~ superseded by [ADR-025](adr-025-stop-is-stop.md)
+(2026-11-14): driven the way foobar2000 drives them, every renderer, no model list.
+Accepted 2026-11-10 (1.0.9, local build). ~~The BeagleBone is driven with Stop~~:
 since 2026-11-14 (1.1.20) it is driven without Stop again, to keep its sound output open
 ([ADR-021](adr-021-keep-the-sound-output-open.md)). Amends
 [ADR-002](adr-002-never-stop-gmrender.md) and [ADR-003](adr-003-switching-tracks-on-busy-gmrender.md)
