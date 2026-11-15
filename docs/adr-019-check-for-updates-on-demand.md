@@ -1,9 +1,9 @@
 # ADR-019: Updates are checked only on a click, and each kind of copy updates its own way
 
-**Status:** Accepted 2026-11-13 (1.1.14); the Linux restart fixed in 1.1.16. **Open:** macOS not
-run.
+**Status:** Accepted 2026-11-13 (1.1.14); the Linux restart fixed in 1.1.16. Nothing open.
 **Overcome:** on Windows end to end (1.1.14 → 1.1.15 by the setup and by go install), on Linux
-by go install (1.1.16 → 1.1.17, the owner's VM, 2026-11-13); in tests
+by go install (1.1.16 → 1.1.17, the owner's VM, 2026-11-13), on macOS 12 by go install
+(1.1.29 → 1.1.30, 2026-11-15); in tests
 (version comparison, the kind of copy, GitHub's answer, go install moving the running exe aside
 and back).
 
