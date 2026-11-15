@@ -132,8 +132,8 @@ macOS: the same `go install` should work (the code builds for macOS and opens th
 
 ## Install (Linux)
 
-Tested on Ubuntu 26.04, including inside a VirtualBox VM. The distribution's `golang` package may be
-older than 1.26; the snap is current:
+Tested on Ubuntu 26.04. The distribution's `golang` package may be older than 1.26; the snap is
+current:
 
 ```bash
 sudo snap install go --classic
@@ -145,18 +145,6 @@ The page opens in the default browser. Settings live in `~/.config/go-upnp-playe
 metadata cache in `~/.cache/go-upnp-player`. Ubuntu's firewall (ufw) is off by default; if it is on
 and no renderers show up, allow the home network, e.g. `sudo ufw allow from 192.168.0.0/24`
 (renderers answer the discovery request with incoming packets).
-
-### In a VirtualBox VM
-
-- **Network:** *Bridged Adapter* on the host's real network card, *Promiscuous Mode: Allow All*.
-  With the default NAT, renderers neither see the VM nor can download tracks from it.
-- **Music from the host:** *Shared Folders* → add the music folder with a simple name (e.g.
-  `lossless`), *Read-only*, *Auto-mount*; it appears as `/media/sf_lossless`.
-- In the guest: `sudo apt install virtualbox-guest-utils`, then
-  `sudo usermod -aG vboxsf $USER` and **reboot** — without the `vboxsf` group the folder says
-  "Permission denied".
-- The first library scan over a shared folder is noticeably slower than on a local disk.
-- Do not drive the same renderer from two players (host and VM) at once.
 
 ## Use
 
