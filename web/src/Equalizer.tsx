@@ -156,14 +156,18 @@ export default function Equalizer({ onError }: Props) {
               {eq.bands.map((hz, i) => (
                 <div className="eq-band" key={hz}>
                   <small className="eq-gain">{eq.gains[i] === 0 ? '·' : (eq.gains[i] > 0 ? '+' : '') + eq.gains[i]}</small>
-                  <Form.Range
-                    className="eq-slider" min={-eq.maxGain} max={eq.maxGain} step={1}
-                    value={eq.gains[i]} disabled={!eq.enabled}
-                    onChange={(e) => setGain(i, Number(e.target.value))}
-                    onPointerUp={() => save(eq)}
-                    onKeyUp={() => save(eq)}
-                    title={`${hz} Hz: ${eq.gains[i] > 0 ? '+' : ''}${eq.gains[i]} dB`}
-                  />
+                  {/* a horizontal range turned upright inside a box of the upright size:
+                      vertical ranges (writing-mode) are not drawn by Safari before 17.4 */}
+                  <div className="eq-slider-box">
+                    <Form.Range
+                      className="eq-slider" min={-eq.maxGain} max={eq.maxGain} step={1}
+                      value={eq.gains[i]} disabled={!eq.enabled}
+                      onChange={(e) => setGain(i, Number(e.target.value))}
+                      onPointerUp={() => save(eq)}
+                      onKeyUp={() => save(eq)}
+                      title={`${hz} Hz: ${eq.gains[i] > 0 ? '+' : ''}${eq.gains[i]} dB`}
+                    />
+                  </div>
                   <small className="text-body-secondary eq-hz">{fmtBand(hz)}</small>
                 </div>
               ))}

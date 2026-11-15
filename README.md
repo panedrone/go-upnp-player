@@ -11,9 +11,8 @@ A bit-perfect player for a lossless library (FLAC files and FLAC images with `.c
 plays to network UPnP/DLNA streamers (tested with gmrender-resurrect: a home-made streamer on a
 BeagleBone Green and a FiiO SR11). A Go/Fiber v3 backend with a React-Bootstrap UI embedded in
 it, shown in a window of its own when installed on Windows and in the browser otherwise; or the
-same player with a native Qt window ([go-upnp-player Qt](#the-qt-player-windows)). Windows and
-Linux are tested; macOS
-builds and is expected to work, but has not been run yet.
+same player with a native Qt window ([go-upnp-player Qt](#the-qt-player-windows)). Tested on
+Windows, Linux and macOS 12 Monterey.
 
 It does not try to play to everything. Its outputs are the network streamers of the home network
 that speak UPnP/DLNA: it finds them itself (SSDP), shows them as a list, and sends to the one
@@ -126,9 +125,16 @@ as in Releases, with no console window, add the linker flags:
 go install -ldflags "-s -w -H=windowsgui" github.com/panedrone/go-upnp-player/cmd/go-upnp-player@latest
 ```
 
-macOS: the same `go install` should work (the code builds for macOS and opens the page with
-`open`; settings go to `~/Library/Application Support/go-upnp-player`, the log and the cache to
-`~/Library/Caches/go-upnp-player`), but it has not been tested on a Mac.
+macOS: the same `go install`. Tested on macOS 12 Monterey, with the library on a Windows SMB share
+and playing to the BeagleBone. Go 1.27 needs macOS 13, so on Monterey take the
+latest Go 1.26. The player has no C code; `CGO_ENABLED=0` keeps the build away from Xcode's tools:
+
+```bash
+CGO_ENABLED=0 go install github.com/panedrone/go-upnp-player/cmd/go-upnp-player@latest
+```
+
+The page opens with `open`; settings go to `~/Library/Application Support/go-upnp-player`, the log
+and the cache to `~/Library/Caches/go-upnp-player`.
 
 ## Install (Linux)
 
