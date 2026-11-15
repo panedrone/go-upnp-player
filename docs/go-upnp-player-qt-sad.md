@@ -17,9 +17,9 @@ server carries the few requests by which players and setups find and stop one an
 web page, which works from any browser while the Qt window is open.
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph EXE["go-upnp-player-qt.exe (one process)"]
-        direction LR
+        direction TB
         WIN["Qt window<br/>cmd/go-upnp-player-qt<br/>(GUI thread)"]
         subgraph CORE["player packages"]
             PL["player<br/>queue, commands, poll"]
