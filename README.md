@@ -7,42 +7,33 @@
 
 ![go-upnp-player: library tree, playlist with track properties, output devices and the 18-band equalizer](docs/img/screenshot-1.1.24.png)
 
-A bit-perfect player for a lossless library (FLAC files and FLAC images with `.cue` sheets) that
-plays to network UPnP/DLNA streamers (tested with gmrender-resurrect: a home-made streamer on a
-BeagleBone Green and a FiiO SR11). A Go/Fiber v3 backend with a React-Bootstrap UI embedded in
-it, shown in a window of its own when installed on Windows and in the browser otherwise; or the
-same player with a native Qt window ([go-upnp-player Qt](#the-qt-player-windows)). Tested on
-Windows, Linux and macOS 12 Monterey.
+A player for a lossless library that plays to network UPnP/DLNA streamers. It does not try to play
+to everything: it finds the streamers on the home network, shows them as a list and sends to the
+one picked. No drivers, no output plugins: the exchange is plain HTTP and UPnP built into the
+binary, so one codebase runs on Windows, Linux and macOS.
 
-It does not try to play to everything. Its outputs are the network streamers of the home network
-that speak UPnP/DLNA: it finds them itself (SSDP), shows them as a list, and sends to the one
-picked. No drivers are written and no output plugins are used: the exchange with a streamer is
-plain, predictable HTTP and UPnP, built into the binary, which is also why the same program runs
-on any OS Go builds for.
+The streamer gets the original samples: no resampling, no dither, no volume on the way. Only two
+things touch them, and only when they apply: the equalizer while it is on, and a 10 ms fade-in
+where a stream starts mid-wave (Play, a seek), so it does not click.
 
-Why a streamer and not a USB DAC on the computer. USB ties the DAC to the computer's ground, and
-with it to the noise of switching power supplies, a graphics card and fans. Ethernet carries only
-data and is isolated by transformers. The streamer, a small box with nothing else to do, buffers
-the stream at its leisure (music, unlike games, does not care whether a track starts 5 ms or half
-a second after Play) and feeds the DAC, which clocks the samples out by its own oscillator. The
-computer is out of the audio path.
+FLAC files and single-file FLAC images with CUE sheets, played gapless. An optional 18-band
+equalizer (55 Hz … 20 kHz, ±20 dB) reads and writes foobar2000 `.feq` presets. On Windows it
+installs with a window of its own, or as a native Qt app ([go-upnp-player Qt](#the-qt-player-windows));
+the zip and the `go install` builds for Linux and macOS use the browser. From a phone the same page
+works as a remote.
 
-The player sends the streamer the original samples: decoded FLAC with no resampling, no dither and no volume applied on the way. Two
-things change samples, and only when they apply: the equalizer while it is on, and a 10 ms fade-in
-where a stream starts (Play, a seek), so music cut in mid-wave does not click (foobar2000 does the
-same after a seek). Tracks that follow one another in a stream go on untouched.
+Tested on Windows, Linux and macOS 12, with two gmrender-resurrect streamers: a home-made one on a
+BeagleBone Green and a FiiO SR11. Lossy formats are not supported and will not be; DSD and other
+lossless formats: [ADR-001](docs/adr-001-lossless-formats-beyond-flac.md).
 
-Lossy formats (MP3, AAC, Ogg Vorbis, Opus) are not supported and will not be: a link built for
-bit-perfect sound has no use for them. DSD and other lossless formats:
-[ADR-001](docs/adr-001-lossless-formats-beyond-flac.md).
+**Why a streamer and not a USB DAC.** USB ties the DAC to the computer's ground, and with it to the
+noise of power supplies, a graphics card and fans. Ethernet carries only data and is isolated by
+transformers. The streamer buffers the stream at its leisure and feeds the DAC, which clocks the
+samples out by its own oscillator: the computer is out of the audio path.
 
-- folder tree, search, tracks from `.cue` sheets (single-file image + cue) and plain track files;
-- renderer selection, play/pause/stop/seek/next/prev, renderer volume;
-- 18-band equalizer: 55 Hz … 20 kHz, ±20 dB, presets, load/save foobar2000 `.feq` files; applied by the player itself, in the WAV stream;
-- the same page works as a remote control from a phone on the same Wi-Fi.
-
-How it works: [docs/go-upnp-player-sad.md](docs/go-upnp-player-sad.md). Why it was built this way,
-which renderer quirks forced it and how far each is overcome: the ADRs listed in
+A Go (Fiber v3) server with a React page embedded in it. How it works:
+[docs/go-upnp-player-sad.md](docs/go-upnp-player-sad.md). Why it is built this way, which renderer
+quirks forced it and how far each is overcome: the ADRs in
 [SAD §8](docs/go-upnp-player-sad.md#8-decisions-and-renderer-quirks-adr).
 
 ## Install (Windows)
