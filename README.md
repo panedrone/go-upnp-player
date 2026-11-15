@@ -179,18 +179,6 @@ through an account without a password; use one that has one.
   - `-window` — the UI in a window of its own even outside an installed copy (Windows);
   - `-browser` — the UI in the browser even in an installed copy.
 
-## Icon
-
-`web/public/favicon.svg` is the source (an original drawing: a streamer box with a play badge).
-`web/public/favicon-32.png`, `assets/icon-256.png` and `assets/icon.ico` are rendered from it; the
-`.ico` is meant for a desktop shortcut; a copy in `cmd/go-upnp-player/window` gives the player's
-window its icon. The exe file itself has no embedded icon yet: that needs a
-Windows resource (`.syso`), e.g. `go-winres simply --icon assets/icon-256.png` in `cmd/go-upnp-player`.
-
-The Go gopher in the title (`docs/img/gopher.svg`) was designed by Renee French and is licensed
-under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the file is taken unchanged from
-[golang/website](https://github.com/golang/website/tree/master/_content/images/gophers).
-
 ## License
 
-[ISC](LICENSE). The gopher image above is under its own license, CC BY 4.0.
+[ISC](LICENSE).
