@@ -5,13 +5,21 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/panedrone/go-upnp-player/internal/config"
 )
 
-func cachePath() string { return cacheFile("go-upnp-player") }
+// cachePath is in this application's own folder: the Qt player keeps a cache of its own.
+func cachePath() string { return cacheFile(config.AppDir()) }
 
 // legacyCachePath is the cache from before the project rename (2026-11-09);
-// reading it once spares a full rescan of a large library.
-func legacyCachePath() string { return cacheFile("upnp-player") }
+// reading it once spares a full rescan of a large library. "" when there is none.
+func legacyCachePath() string {
+	if config.LegacyAppDir() == "" {
+		return ""
+	}
+	return cacheFile(config.LegacyAppDir())
+}
 
 func cacheFile(appDir string) string {
 	dir, err := os.UserCacheDir()

@@ -42,6 +42,9 @@ import (
 )
 
 func main() {
+	// an application of its own: its settings, playlist, library cache and log are apart
+	// from the web player's, in go-upnp-player-qt folders
+	config.UseAppDir("go-upnp-player-qt")
 	port := flag.Int("port", 8090, "HTTP port for the media (must be reachable from renderers), the API and the web page")
 	flag.Parse()
 	ui := fmt.Sprintf("http://localhost:%d/", *port)
@@ -126,17 +129,17 @@ func fileExists(p string) bool {
 	return err == nil && !st.IsDir()
 }
 
-// setupLogFile is cmd/go-upnp-player's: the same log file, appended, started over past 1 MB.
+// setupLogFile is cmd/go-upnp-player's, in the Qt player's own folder: appended, started
+// over past 1 MB.
 func setupLogFile() {
-	dir, err := os.UserCacheDir()
-	if err != nil {
+	dir := config.CacheDir()
+	if dir == "" {
 		return
 	}
-	dir = filepath.Join(dir, "go-upnp-player")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return
 	}
-	p := filepath.Join(dir, "go-upnp-player.log")
+	p := filepath.Join(dir, "go-upnp-player-qt.log")
 	flags := os.O_CREATE | os.O_WRONLY | os.O_APPEND
 	if st, err := os.Stat(p); err == nil && st.Size() > 1<<20 {
 		flags |= os.O_TRUNC

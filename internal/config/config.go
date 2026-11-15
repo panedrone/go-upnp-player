@@ -67,13 +67,42 @@ var (
 	cur Config
 )
 
-// appDir is the folder name under the user config/cache directories.
-// legacyAppDir is the name used before the project was renamed (2026-11-09);
-// files are still read from there once, so settings are not lost.
+// appDir is the folder name under the user config/cache directories. The Qt player is an
+// application of its own and keeps its files apart (UseAppDir), so neither touches the
+// other's settings, cache or log. legacyAppDir is the web player's name before the project
+// was renamed (2026-11-09); its files are still read from there once, so settings are not lost.
 const (
-	appDir       = "go-upnp-player"
+	webAppDir    = "go-upnp-player"
 	legacyAppDir = "upnp-player"
 )
+
+// appDir is set once at start, before anything reads it.
+var appDir = webAppDir
+
+// UseAppDir names the folder of this application's files; called first thing in main.
+func UseAppDir(name string) { appDir = name }
+
+// AppDir is the folder name of this application's files.
+func AppDir() string { return appDir }
+
+// LegacyAppDir is the pre-rename folder to read once, "" when there is none (the Qt player
+// never had one).
+func LegacyAppDir() string {
+	if appDir != webAppDir {
+		return ""
+	}
+	return legacyAppDir
+}
+
+// CacheDir is this application's folder under the user cache directory (the log, the
+// library cache), "" when there is no such directory.
+func CacheDir() string {
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, appDir)
+}
 
 func path() string {
 	dir, err := os.UserConfigDir()
@@ -85,10 +114,10 @@ func path() string {
 
 func legacyPath() string {
 	dir, err := os.UserConfigDir()
-	if err != nil {
+	if err != nil || LegacyAppDir() == "" {
 		return ""
 	}
-	return filepath.Join(dir, legacyAppDir, "config.json")
+	return filepath.Join(dir, LegacyAppDir(), "config.json")
 }
 
 // Load reads the file; a missing file is not an error but an empty config.

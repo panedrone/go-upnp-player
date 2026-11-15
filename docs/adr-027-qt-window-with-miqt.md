@@ -38,7 +38,10 @@ For the window's own settings (where localStorage keeps them for the page):
   and redraws on Qt's GUI thread (`mainthread.Start`).
 - **The HTTP server still runs.** The renderers fetch the music from it, and the page works from
   any browser at the same time.
-- **One player at a time**, this one or the web one. They share the port and the config file. The
+- **One player at a time**, this one or the web one. They share the port~~ and the config file~~
+  (2026-11-15, 1.1.34: the Qt player is an application of its own and keeps its settings, cache
+  and log in `go-upnp-player-qt` folders; an older Qt dropped the config fields the page had added,
+  the folder stars). The
   start-up follows `cmd/go-upnp-player`: a later start of another build replaces the running
   player, and a start of the same build brings it to the front.
 - **The build on Windows** uses the Qt SDK (MinGW kit) and the MinGW GCC of the same version, as
@@ -56,7 +59,8 @@ For the window's own settings (where localStorage keeps them for the page):
   "go-upnp-player Qt", and its status bar shows the version alone, as the page's does.
 - The Qt setup is a program of its own (its AppId, folder `go-upnp-player-qt` and shortcuts
   "go-upnp-player Qt"), beside the web player's setup. Before installing or uninstalling it stops
-  a running player through its Quit, as the web setup does. Its uninstaller warns that the
-  settings, the playlist and the cache are shared with the web player.
+  a running player through its Quit, as the web setup does. ~~Its uninstaller warns that the
+  settings, the playlist and the cache are shared with the web player.~~ Its uninstaller offers to
+  delete its own settings and cache only (2026-11-15, 1.1.34).
 - A new exe path listening on the network gets the Windows firewall prompt once, as the web player
   did. It has to be allowed for private networks, or the renderers cannot fetch the music.

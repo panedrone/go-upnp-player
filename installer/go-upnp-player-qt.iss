@@ -9,8 +9,8 @@
 ;
 ; A program of its own beside the web one (installer\go-upnp-player.iss): its own AppId,
 ; folder and shortcuts. Per-user install: no administrator rights. The two share the port, so
-; one runs at a time, and the settings, the playlist and the library cache, which stay where
-; the player keeps them (%AppData% and %LocalAppData%\go-upnp-player).
+; one runs at a time. The settings, the playlist, the library cache and the log are its own,
+; apart from the web player's (%AppData% and %LocalAppData%\go-upnp-player-qt).
 
 #ifndef AppVersion
   #error Pass the version: ISCC /DAppVersion=X.Y.Z installer\go-upnp-player-qt.iss
@@ -120,12 +120,12 @@ begin
     exit;
   if UninstallSilent then
     exit; // a silent uninstall keeps the user's data
+  // the Qt player's own folders; the web player's are not touched
   if SuppressibleMsgBox('Also delete the settings, the playlist and the library cache?' + #13#10#13#10 +
-    'They are shared with go-upnp-player (the web one): deleting them resets it too. ' +
     'Keep them to find everything in place after installing again.',
     mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDNO) = IDYES then
   begin
-    DelTree(ExpandConstant('{userappdata}\go-upnp-player'), True, True, True);
-    DelTree(ExpandConstant('{localappdata}\go-upnp-player'), True, True, True);
+    DelTree(ExpandConstant('{userappdata}\go-upnp-player-qt'), True, True, True);
+    DelTree(ExpandConstant('{localappdata}\go-upnp-player-qt'), True, True, True);
   end;
 end;

@@ -126,8 +126,12 @@ The same as `cmd/go-upnp-player`: the port is taken, or the running player answe
 - Closing the window, the page's Quit, Ctrl+C or a takeover all end the same way: the layout is
   saved, the renderer is stopped, the position saved, the server stopped.
 
-The settings, the playlist, the library cache and the log are the web player's: one
-`config.json`, one cache, one log file.
+The settings, the playlist, the library cache and the log are the Qt player's own, apart from
+the web player's: `config.UseAppDir("go-upnp-player-qt")` is the first thing in `main`, so
+`config.json` is under `%AppData%\go-upnp-player-qt`, the cache and `go-upnp-player-qt.log` under
+`%LocalAppData%\go-upnp-player-qt` (`~/.config` and `~/.cache` on Linux). The first start finds
+no library folders: they are entered in the Library folders card. Its uninstaller offers to
+delete only these two folders.
 
 ## 6. The window
 

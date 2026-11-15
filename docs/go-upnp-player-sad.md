@@ -302,7 +302,7 @@ web player.
   - a folder can be starred, to mark the releases that sound better: a set star stays on the row
     in yellow, on hover the star is a button with the current value left of →, a click flips it
     (`PUT /api/starred`; `GET /api/tree` gives `starred` on folders). A renamed or moved folder
-    loses its star. The Qt window does not show stars yet;
+    loses its star. The Qt player does not show stars;
   - the node the playlist was built from is highlighted.
 - **Search** (the box in the library header) shows matching tracks in place of the tree: → on a
   result makes a playlist of it, "Make a playlist of all" of them all, and a click on a result

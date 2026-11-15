@@ -77,17 +77,20 @@ asks whether to delete those two folders too. The zip version: delete its folder
 
 ### The Qt player (Windows)
 
-The same player with a native Qt window instead of the web page: the same library, playlist,
-devices, equalizer and settings. Download `go-upnp-player-qt-setup.exe` from the same release and
+The same player with a native Qt window instead of the web page: the library tree, playlist,
+devices and equalizer. Download `go-upnp-player-qt-setup.exe` from the same release and
 run it. It installs beside the usual player, to `%LocalAppData%\Programs\go-upnp-player-qt`, with
 shortcuts named **go-upnp-player Qt**.
 
-- Run one of the two at a time. They share port 8090, the settings, the playlist and the library
-  cache; the one started later takes over from the other.
+- Run one of the two at a time. They share port 8090; the one started later takes over from the
+  other.
+- It is an application of its own: its settings, playlist and library cache are apart from the
+  usual player's (`%AppData%\go-upnp-player-qt`, `%LocalAppData%\go-upnp-player-qt`). On the first
+  start enter the library folders again.
 - The web page keeps working from any browser at `http://localhost:8090/` while the Qt player runs.
 - Windows Firewall asks again for the new exe: allow it for private networks, as above.
-- Its uninstaller asks whether to delete the settings and the cache too. They are shared, so that
-  resets the usual player as well.
+- Its uninstaller asks whether to delete its settings and cache too; the usual player's are not
+  touched.
 
 Building it yourself needs cgo and a Qt 6 SDK: the MinGW kit of Qt with the MinGW compiler of the
 same version on Windows (the Qt package and `pkg-config` on Linux). The build tag keeps the usual
