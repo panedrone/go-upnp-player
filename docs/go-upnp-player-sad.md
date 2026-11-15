@@ -343,7 +343,7 @@ web player.
   (DSF)", and in Encoding the PCM it plays as.
 - **DSD card** ([ADR-028](adr-028-dsd-converted-to-pcm-in-the-player.md)): the PCM rate
   (44.1 / 88.2 / 176.4 kHz, 176.4 by default) and the gain (0 / +3 / +6 dB, +6 by default, as
-  foobar2000) as button groups; a click saves at once (`GET`/`PUT /api/dsd`) and restarts a
+  foobar2000) as two selects on one line; a change saves at once (`GET`/`PUT /api/dsd`) and restarts a
   playing DSD track where it is (`player.SetDSD`; a new rate rescans the library first).
   Foldable like the other cards.
 - **Playlist and devices.** Only the playlist plays (a click on its row, or Play in its header). Devices are a

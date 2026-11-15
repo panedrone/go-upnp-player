@@ -43,11 +43,10 @@ body { overflow: hidden; font-size: 14px; }
 .tree-row .btn.star-btn.starred { visibility: visible; color: var(--bs-warning); }
 .tree-row:not(:hover) .btn.star-btn.starred { background: transparent; border-color: transparent; }
 .tree-row .btn.star-btn + .hover-btn { margin-left: 0; }
-/* the DSD card: a label column and the choices beside it */
-.dsd-grid { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; align-items: center; font-size: .8rem; }
-.dsd-choice { display: flex; align-items: center; gap: 6px; }
-/* a choice's buttons: the transport's look (outlined, 24 px high), wide enough for a number */
-.btn.dsd-btn { height: 24px; min-width: 40px; padding: 0 .45rem; font-size: .8rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+/* the DSD card: one line, a label before each select */
+.dsd-line { display: flex; align-items: center; gap: 8px; font-size: .8rem; }
+.form-select.dsd-select { width: auto; height: 24px; padding: 0 1.75rem 0 .5rem; font-size: .8rem; line-height: 1; background-position: right .4rem center; }
+.dsd-line .dsd-select + span { margin-left: 8px; }
 .row-label { display: flex; align-items: center; min-width: 0; }
 /* a device row mixes a small monospace IP, the name and a badge: one text line, not box centres */
 .renderer-row .row-label { align-items: baseline; }

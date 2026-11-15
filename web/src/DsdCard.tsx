@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, ButtonGroup, Card, Collapse } from 'react-bootstrap'
+import { Button, Card, Collapse, Form } from 'react-bootstrap'
 import { api, DSDSettings } from './api'
 import { ChevronIcon } from './icons'
 
@@ -10,7 +10,7 @@ interface Props {
 }
 
 // DSD: how .dsf/.dff files become PCM on their way to the streamer (ADR-028). The settings live
-// on the server in their own file; a click applies at once.
+// on the server in their own file; a change applies at once.
 export default function DsdCard({ onError }: Props) {
   const [s, setS] = useState<DSDSettings | null>(null)
   // whether the card body is shown: a per-browser convenience, as for the other cards
@@ -61,38 +61,26 @@ export default function DsdCard({ onError }: Props) {
         <div>
           <Card.Body>
             {s && (
-              <div className="dsd-grid">
-                {/* the choices are button groups like the transport's: one height, outlined, the
-                    chosen one pressed; the unit once after them */}
+              <div className="dsd-line">
+                {/* selects, one line: whole kHz (44, 88, 176) without fractions; the exact rate is in the title */}
                 <span className="text-body-secondary">Rate</span>
-                <span className="dsd-choice">
-                  <ButtonGroup>
-                    {s.rates.map((r) => (
-                      <Button
-                        key={r} size="sm" variant="outline-secondary" className="dsd-btn" active={r === s.rate} title={`${r} Hz`}
-                        aria-pressed={r === s.rate} onClick={() => r !== s.rate && save({ ...s, rate: r })}
-                      >
-                        {/* whole kHz on the buttons: 44, 88, 176; the exact rate is in the title */}
-                        {Math.floor(r / 1000)}
-                      </Button>
-                    ))}
-                  </ButtonGroup>
-                  <span className="text-body-secondary">kHz</span>
-                </span>
+                <Form.Select
+                  size="sm" className="dsd-select" aria-label="Rate" value={s.rate} title={`${s.rate} Hz`}
+                  onChange={(e) => save({ ...s, rate: Number(e.target.value) })}
+                >
+                  {s.rates.map((r) => (
+                    <option key={r} value={r}>{Math.floor(r / 1000)} kHz</option>
+                  ))}
+                </Form.Select>
                 <span className="text-body-secondary">Gain</span>
-                <span className="dsd-choice">
-                  <ButtonGroup>
-                    {s.gains.map((g) => (
-                      <Button
-                        key={g} size="sm" variant="outline-secondary" className="dsd-btn" active={g === s.gainDb}
-                        aria-pressed={g === s.gainDb} onClick={() => g !== s.gainDb && save({ ...s, gainDb: g })}
-                      >
-                        {g > 0 ? `+${g}` : g}
-                      </Button>
-                    ))}
-                  </ButtonGroup>
-                  <span className="text-body-secondary">dB</span>
-                </span>
+                <Form.Select
+                  size="sm" className="dsd-select" aria-label="Gain" value={s.gainDb}
+                  onChange={(e) => save({ ...s, gainDb: Number(e.target.value) })}
+                >
+                  {s.gains.map((g) => (
+                    <option key={g} value={g}>{g > 0 ? `+${g}` : g} dB</option>
+                  ))}
+                </Form.Select>
               </div>
             )}
             <div className="form-text mt-2">
