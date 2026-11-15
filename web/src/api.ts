@@ -27,6 +27,7 @@ export interface TreeNode {
   id?: string
   number: number
   duration?: number
+  starred?: boolean // folders only: marked with a star
 }
 
 export interface Renderer {
@@ -94,6 +95,7 @@ export const api = {
   // the poll for good (frozen slider and badges), so it is given up after 5 s
   state: () => req<PlayerState>('GET', '/api/state', undefined, AbortSignal.timeout(5000)),
   tree: (path = '') => req<TreeNode[]>('GET', `/api/tree?path=${q(path)}`),
+  setStarred: (path: string, on: boolean) => req<void>('PUT', '/api/starred', { path, on }),
   tracks: (path: string) => req<Track[]>('GET', `/api/tracks?path=${q(path)}`),
   search: (text: string) => req<Track[]>('GET', `/api/search?q=${q(text)}`),
   queue: () => req<{ version: number; tracks: Track[] }>('GET', '/api/queue'),

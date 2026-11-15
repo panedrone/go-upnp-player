@@ -18,6 +18,7 @@ func InitRoutes(app *fiber.App) {
 	api.Get("/queue", handlers.Queue)
 	api.Put("/queue", handlers.SetQueue)
 	api.Get("/tree", handlers.Tree)
+	api.Put("/starred", handlers.PutStarred)
 	api.Get("/tracks", handlers.Tracks)
 	api.Get("/track/:id/properties", handlers.TrackProperties)
 	api.Get("/search", handlers.Search)

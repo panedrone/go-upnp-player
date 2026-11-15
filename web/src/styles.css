@@ -39,6 +39,10 @@ body { overflow: hidden; font-size: 14px; }
 /* row buttons: appear on row hover, placed right after the label */
 .btn.hover-btn { flex: none; padding: 0 .45rem; line-height: 1.35; font-size: 12px; margin-left: 6px; visibility: hidden; }
 .tree-row:hover .hover-btn, .track-table tr:hover .hover-btn, .renderer-row:hover .hover-btn { visibility: visible; }
+/* a folder's star: a set one stays visible as a bare yellow star; on hover it is a button */
+.tree-row .btn.star-btn.starred { visibility: visible; color: var(--bs-warning); }
+.tree-row:not(:hover) .btn.star-btn.starred { background: transparent; border-color: transparent; }
+.tree-row .btn.star-btn + .hover-btn { margin-left: 0; }
 .row-label { display: flex; align-items: center; min-width: 0; }
 /* a device row mixes a small monospace IP, the name and a badge: one text line, not box centres */
 .renderer-row .row-label { align-items: baseline; }
@@ -158,9 +162,10 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
 .top-head .input-group-sm > .form-control, .top-head .input-group-sm > .btn { height: 24px; min-height: 24px; padding-top: 0; padding-bottom: 0; line-height: 22px; }
 .top-head .form-range { height: 24px; }
 
-/* a row button with a drawn icon (tree, search results, playlist): a small pill, the icon
-   in its middle; after the playlist's own .hover-btn padding, so it wins */
-.btn.hover-btn.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 18px; padding: 0; border-radius: 9px; }
+/* a row button with a drawn icon (tree, search results, playlist): a small square-cornered
+   button, the icon in its middle, close to the label (a wider pill sat too far from it,
+   2026-11-15); after the playlist's own .hover-btn padding, so it wins */
+.btn.hover-btn.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 18px; padding: 0; margin-left: 2px; border-radius: var(--bs-border-radius-sm); }
 
 /* the update message in the status bar: its action and its × as plain inline links */
 .status-bar .btn.status-link, .status-bar .btn.status-close { padding: 0 0 0 .5rem; border: 0; vertical-align: baseline; font-size: inherit; line-height: inherit; }

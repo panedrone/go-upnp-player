@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, Spinner } from 'react-bootstrap'
 import { api, TreeNode } from './api'
-import { ToPlaylistIcon } from './icons'
+import { StarIcon, ToPlaylistIcon } from './icons'
 
 // Expanded tree nodes live in the browser localStorage, so they survive a page
 // reload and an app restart. Storage may be unavailable (private window,
@@ -204,6 +204,8 @@ function TreeItem({ node, depth, selectedPath, onMakePlaylist, initiallyOpen, re
     rememberOpen(node.path, v)
   }
   const [children, setChildren] = useState<TreeNode[] | null>(null)
+  const [starred, setStarred] = useState(!!node.starred)
+  useEffect(() => setStarred(!!node.starred), [node.starred])
 
   // after a rescan an open node refetches in place: dropping its children first would
   // fold the rows away for a moment and lose the scroll position
@@ -251,6 +253,22 @@ function TreeItem({ node, depth, selectedPath, onMakePlaylist, initiallyOpen, re
           <span className="tree-icon text-body-secondary"><NodeIcon kind={node.kind} /></span>
         )}
         <span className="tree-name text-truncate">{node.name}</span>
+        {/* a folder's star: shown for good once set; on hover it is a button with the current
+            value, a click flips it */}
+        {expandable && (
+          <Button
+            size="sm" variant="secondary" className={'hover-btn icon-btn star-btn' + (starred ? ' starred' : '')}
+            title={starred ? 'Take the star off' : 'Star this folder'}
+            onClick={(e) => {
+              e.stopPropagation()
+              const on = !starred
+              setStarred(on)
+              api.setStarred(node.path, on).catch(() => setStarred(!on))
+            }}
+          >
+            <StarIcon on={starred} />
+          </Button>
+        )}
         {/* the button appears on hover, right after the label */}
         <Button
           size="sm" variant="secondary" className="hover-btn icon-btn"

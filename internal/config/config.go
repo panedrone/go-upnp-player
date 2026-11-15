@@ -16,6 +16,8 @@ type Config struct {
 	Renderer string              `json:"renderer"` // UDN
 	EQ       services.EQSettings `json:"eq"`
 	Playlist Playlist            `json:"playlist"`
+	// Starred: library folders marked with a star, by path
+	Starred []string `json:"starred,omitempty"`
 	// Window: where the player's own window was when it closed (ADR-018); nil until then
 	Window *Window `json:"window,omitempty"`
 	// UI: what the Qt window remembers (ADR-027), the page keeping the same in its

@@ -5,15 +5,43 @@ import (
 
 	"github.com/panedrone/go-upnp-player/internal/config"
 	"github.com/panedrone/go-upnp-player/internal/library"
+	"github.com/panedrone/go-upnp-player/internal/services"
 )
+
+// treeNodeDTO is a tree node with its star.
+type treeNodeDTO struct {
+	library.Node
+	Starred bool `json:"starred,omitempty"`
+}
 
 // Tree handles GET /api/tree?path= : children of a node ("" means the roots).
 func Tree(c fiber.Ctx) error {
 	nodes := library.Children(c.Query("path"))
-	if nodes == nil {
-		nodes = []library.Node{}
+	starred := services.StarredSet(config.Get().Starred)
+	out := make([]treeNodeDTO, len(nodes))
+	for i, n := range nodes {
+		out[i] = treeNodeDTO{Node: n, Starred: n.Kind == "dir" && starred[n.Path]}
 	}
-	return c.JSON(nodes)
+	return c.JSON(out)
+}
+
+type starDTO struct {
+	Path string `json:"path"`
+	On   bool   `json:"on"`
+}
+
+// PutStarred handles PUT /api/starred: stars a folder or takes the star off.
+func PutStarred(c fiber.Ctx) error {
+	var in starDTO
+	if err := c.Bind().Body(&in); err != nil || in.Path == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "path required")
+	}
+	if err := config.Update(func(cfg *config.Config) {
+		cfg.Starred = services.SetStarred(cfg.Starred, in.Path, in.On)
+	}); err != nil {
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // Tracks handles GET /api/tracks?path= : all tracks under a node.

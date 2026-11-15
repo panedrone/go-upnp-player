@@ -29,6 +29,15 @@ export function ToPlaylistIcon() {
   )
 }
 
+// a folder's star: filled when it is starred, an outline otherwise
+export function StarIcon({ on }: { on: boolean }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill={on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 1.6l1.95 4.1 4.45.55-3.3 3.05.85 4.4L8 11.5l-3.95 2.2.85-4.4-3.3-3.05 4.45-.55z" />
+    </svg>
+  )
+}
+
 // the playlist row's Play button: a filled triangle, nudged right so it looks centred
 export function PlayIcon() {
   return (

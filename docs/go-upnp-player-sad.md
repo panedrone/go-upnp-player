@@ -86,6 +86,7 @@ CI needs Go only.
 **State.** Everything that must survive a browser change lives in `config.json`:
 
 - library folders, the selected renderer and the equalizer;
+- starred folders (`starred`, by path);
 - where the player's own window was and whether it was maximized;
 - the playlist: track IDs, the current index, `source` (the tree node it was built from) and
   `position` (where Play resumes after a restart).
@@ -298,6 +299,10 @@ web player.
   - folders, cue sheets and track files, names only (lengths are in the playlist); cue sheets and
     files are leaves;
   - → on a row builds the playlist from the node without touching playback;
+  - a folder can be starred, to mark the releases that sound better: a set star stays on the row
+    in yellow, on hover the star is a button with the current value left of →, a click flips it
+    (`PUT /api/starred`; `GET /api/tree` gives `starred` on folders). A renamed or moved folder
+    loses its star. The Qt window does not show stars yet;
   - the node the playlist was built from is highlighted.
 - **Search** (the box in the library header) shows matching tracks in place of the tree: → on a
   result makes a playlist of it, "Make a playlist of all" of them all, and a click on a result
