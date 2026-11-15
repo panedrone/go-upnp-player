@@ -237,7 +237,14 @@ function TreeItem({ node, depth, selectedPath, onMakePlaylist, initiallyOpen, re
         onClick={() => expandable && setOpen(!open)}
         title={node.kind === 'track' ? node.name : node.path}
       >
-        <span className="tree-toggle text-body-secondary">{expandable ? (open ? '▾' : '▸') : ''}</span>
+        {/* an SVG triangle, not ▸/▾: font glyphs sit above the middle of the line, off the icon */}
+        <span className="tree-toggle text-body-secondary">
+          {expandable && (
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" aria-hidden="true">
+              <path d={open ? 'M0.5 2h7L4 6.5z' : 'M2 0.5v7L6.5 4z'} />
+            </svg>
+          )}
+        </span>
         {node.kind === 'track' ? (
           <span className="tree-num text-body-secondary">{node.number > 0 ? node.number : ''}</span>
         ) : (

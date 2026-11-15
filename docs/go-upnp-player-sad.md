@@ -277,7 +277,7 @@ on Qt's Fusion style), the window's place and size, the splitters, the folded ca
 the release page in the status bar: the Qt copy has no setup yet, and `go install` would build the
 web player.
 
-- **Check for updates** (the cloud button by the theme switch, [ADR-019](adr-019-check-for-updates-on-demand.md)):
+- **Check for updates** (the cloud button by the version in the status bar, [ADR-019](adr-019-check-for-updates-on-demand.md)):
   the player asks GitHub only on this click. A newer version is offered in the status bar, with a
   ×, the way this copy updates: the setup copy downloads the new setup, a `go install` copy
   rebuilds itself and restarts, the zip opens the release page. Pages open in the system browser

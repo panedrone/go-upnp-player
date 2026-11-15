@@ -39,8 +39,8 @@ body { overflow: hidden; font-size: 14px; }
 .btn.hover-btn { flex: none; padding: 0 .45rem; line-height: 1.35; font-size: 12px; margin-left: 6px; visibility: hidden; }
 .tree-row:hover .hover-btn, .track-table tr:hover .hover-btn, .renderer-row:hover .hover-btn { visibility: visible; }
 .row-label { display: flex; align-items: center; min-width: 0; }
-.tree-toggle { width: 12px; text-align: center; flex: none; }
-.tree-icon { flex: none; font-size: 12px; }
+.tree-toggle { width: 12px; flex: none; display: flex; align-items: center; justify-content: center; }
+.tree-icon { flex: none; font-size: 12px; display: flex; align-items: center; }
 
 /* tracks */
 .album-head { position: sticky; top: 0; z-index: 1; background: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color-translucent); }
@@ -162,6 +162,9 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
 /* the update message in the status bar: its action and its × as plain inline links */
 .status-bar .btn.status-link, .status-bar .btn.status-close { padding: 0 0 0 .5rem; border: 0; vertical-align: baseline; font-size: inherit; line-height: inherit; }
 .status-bar .btn.status-close { padding-left: .6rem; text-decoration: none; font-size: 1.1em; }
+/* check for updates: a bare icon beside the version, in the bar's own colour */
+.status-bar .btn.status-update { padding: 0 .15rem; border: 0; line-height: 1; color: inherit; display: inline-flex; align-items: center; }
+.status-bar .btn.status-update:hover { color: var(--bs-body-color); }
 /* the update answer blinks three times, then stays; still for those who ask for less motion */
 @keyframes status-blink { 0%, 100% { opacity: 1; } 50% { opacity: .15; } }
 .status-blink { animation: status-blink .5s ease-in-out 3; cursor: default; }

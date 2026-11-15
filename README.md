@@ -176,7 +176,7 @@ through an account without a password; use one that has one.
   engine built into Windows 10/11); closing the window quits it, minimizing just minimizes. The
   zip and `go install` versions have no window and use the browser: stop them with the **⏻ Quit**
   button on the page. Either way the renderer is stopped first, then the player exits.
-- **Check for updates:** the cloud button next to the theme switch. The player asks GitHub only
+- **Check for updates:** the cloud button by the version in the status bar. The player asks GitHub only
   when it is pressed. A newer version shows in the status bar with the way to get it: the setup
   copy downloads the new setup, a `go install` copy updates itself with `go install` and restarts,
   the zip version opens the release page.

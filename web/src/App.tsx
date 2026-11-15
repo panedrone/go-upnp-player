@@ -374,13 +374,6 @@ export default function App() {
               <small className="text-body-secondary vol-num">{state && state.volume >= 0 ? volume : '–'}</small>
               <Button
                 size="sm" variant="outline-secondary" className="head-btn ms-2 flex-shrink-0"
-                title="Check for updates" disabled={updateNote?.kind === 'checking' || updateNote?.kind === 'installing'}
-                onClick={checkUpdate}
-              >
-                <UpdateIcon />
-              </Button>
-              <Button
-                size="sm" variant="outline-secondary" className="head-btn flex-shrink-0"
                 title={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               >
@@ -504,7 +497,17 @@ export default function App() {
           )}
         </span>
         {error && <span className="status-err text-danger text-truncate" title={error}>{error}</span>}
-        <span className="flex-shrink-0">{state?.version}</span>
+        {/* check for updates beside the version it compares: the answer shows in this bar too */}
+        <span className="flex-shrink-0 d-flex align-items-center gap-1">
+          <Button
+            size="sm" variant="link" className="status-update"
+            title="Check for updates" disabled={updateNote?.kind === 'checking' || updateNote?.kind === 'installing'}
+            onClick={checkUpdate}
+          >
+            <UpdateIcon />
+          </Button>
+          {state?.version}
+        </span>
       </footer>
     </div>
   )
