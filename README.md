@@ -5,7 +5,7 @@
 [![codecov](https://codecov.io/gh/panedrone/go-upnp-player/graph/badge.svg)](https://codecov.io/gh/panedrone/go-upnp-player)
 [![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 
-![go-upnp-player: library tree with a starred release, playlist with track properties, output devices, the 18-band equalizer and the DSD card](docs/img/screenshot-1.1.36.png)
+![go-upnp-player: library tree with a starred release, playlist with track properties, output devices, the 18-band equalizer and the DSD card](docs/img/screenshot-1.1.37.png)
 
 A player for a lossless library that plays to network UPnP/DLNA streamers. It does not try to play
 to everything: it finds the streamers on the home network, shows them as a list and sends to the
