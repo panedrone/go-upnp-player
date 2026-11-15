@@ -9,9 +9,10 @@
 
 A bit-perfect player for a lossless library (FLAC files and FLAC images with `.cue` sheets) that
 plays to network UPnP/DLNA streamers (tested with gmrender-resurrect: a home-made streamer on a
-BeagleBone Green and a FiiO SR11). A single executable: a Go/Fiber v3 backend with a
-React-Bootstrap UI embedded in it, shown in a window of its own when installed on Windows and in
-the browser otherwise. Windows and Linux are tested; macOS
+BeagleBone Green and a FiiO SR11). A Go/Fiber v3 backend with a React-Bootstrap UI embedded in
+it, shown in a window of its own when installed on Windows and in the browser otherwise; or the
+same player with a native Qt window ([go-upnp-player Qt](#the-qt-player-windows)). Windows and
+Linux are tested; macOS
 builds and is expected to work, but has not been run yet.
 
 It does not try to play to everything. Its outputs are the network streamers of the home network
