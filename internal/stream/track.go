@@ -19,14 +19,14 @@ type Source struct {
 // A cue track is always WAV: otherwise the range cannot be cut out. fromMs > 0 starts
 // the stream that far into the track (always WAV), see services.FromSample.
 func ForTrack(t *library.Track, wav bool, fromMs int64) Source {
-	if !wav && !t.FromCue && fromMs <= 0 {
+	if !wav && !t.FromCue && fromMs <= 0 && t.DSD == nil { // DSD always goes out as PCM
 		return Source{Size: t.FileSize, Open: func(offset int64) (io.ReadCloser, error) {
 			return openRaw(t.Path, offset)
 		}}
 	}
 	span := Span{
 		Path: t.Path, Start: services.FromSample(t.Start, t.End, t.SampleRate, fromMs), End: t.End,
-		SampleRate: t.SampleRate, Channels: t.Channels, Bits: t.Bits, Seekable: t.Seekable,
+		SampleRate: t.SampleRate, Channels: t.Channels, Bits: t.Bits, Seekable: t.Seekable, DSD: t.DSD,
 	}
 	return Source{Size: span.Layout().TotalLen(), Open: func(offset int64) (io.ReadCloser, error) {
 		return Open(span, offset)

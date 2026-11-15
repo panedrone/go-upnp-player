@@ -166,3 +166,34 @@ func Update(fn func(*Config)) error {
 	}
 	return os.WriteFile(p, data, 0o644)
 }
+
+// dsdPath is the DSD settings' own file beside config.json (ADR-028).
+func dsdPath() string {
+	return filepath.Join(filepath.Dir(path()), "dsd.json")
+}
+
+// LoadDSD reads how DSD is converted; a missing or broken file gives the defaults.
+func LoadDSD() services.DSDSettings {
+	data, err := os.ReadFile(dsdPath())
+	if err != nil {
+		return services.DefaultDSD()
+	}
+	var s services.DSDSettings
+	if err := json.Unmarshal(data, &s); err != nil {
+		return services.DefaultDSD()
+	}
+	return s.Normalize()
+}
+
+// SaveDSD writes how DSD is converted.
+func SaveDSD(s services.DSDSettings) error {
+	p := dsdPath()
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(s.Normalize(), "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(p, data, 0o644)
+}

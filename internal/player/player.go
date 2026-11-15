@@ -92,6 +92,9 @@ var (
 	// resumeAt: the renderer was switched while paused; the new one has not got
 	// the track yet, so the next Play starts it there at this position (-1: none)
 	resumeAt = -1.0
+	// staleRun: the run the renderer holds no longer matches the library (a new DSD rate,
+	// ADR-028); the next start opens a new stream instead of restarting that one in place
+	staleRun bool
 	// a start the renderer refused, retried by the poll (services.RetryStart);
 	// pendingSince is zero when there is none
 	pendingIndex int

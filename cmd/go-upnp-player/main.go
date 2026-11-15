@@ -117,6 +117,7 @@ func main() {
 
 	player.Init(*port)
 	stream.SetEQ(config.Get().EQ)
+	library.SetDSD(config.LoadDSD()) // before the scan: the PCM rate is part of each DSD track
 	go library.Scan(config.Get().Roots)
 	go player.Discover()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

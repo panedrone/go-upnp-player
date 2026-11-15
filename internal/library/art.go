@@ -28,7 +28,11 @@ func FindArt(t *Track) *Art {
 	if p := dirArt(dir); p != "" {
 		return &Art{Path: p, Mime: mimeByExt(p)}
 	}
-	if data, mime, err := readEmbeddedPicture(t.Path); err == nil {
+	read := readEmbeddedPicture
+	if t.DSD != nil {
+		read = func(path string) ([]byte, string, error) { return readDSDPicture(path, *t.DSD) }
+	}
+	if data, mime, err := read(t.Path); err == nil {
 		return &Art{Data: data, Mime: mime}
 	}
 	// a disc in an album subfolder (CD1/CD2): the cover is in the parent

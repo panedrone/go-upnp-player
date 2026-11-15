@@ -14,17 +14,20 @@ binary, so one codebase runs on Windows, Linux and macOS.
 
 The streamer gets the original samples: no resampling, no dither, no volume on the way. Only two
 things touch them, and only when they apply: the equalizer while it is on, and a 10 ms fade-in
-where a stream starts mid-wave (Play, a seek), so it does not click.
+where a stream starts mid-wave (Play, a seek), so it does not click. DSD has no PCM samples to keep:
+it is converted (below).
 
-FLAC files and single-file FLAC images with CUE sheets, played gapless. An optional 18-band
+FLAC files and single-file FLAC images with CUE sheets, played gapless. DSD files (`.dsf`,
+`.dff`) play converted to PCM at 44.1, 88.2 or 176.4 kHz: streamers take PCM, and S/PDIF carries
+no DSD ([ADR-028](docs/adr-028-dsd-converted-to-pcm-in-the-player.md)). An optional 18-band
 equalizer (55 Hz … 20 kHz, ±20 dB) reads and writes foobar2000 `.feq` presets. On Windows it
 installs with a window of its own, or as a native Qt app ([go-upnp-player Qt](#the-qt-player-windows));
 the zip and the `go install` builds for Linux and macOS use the browser. From a phone the same page
 works as a remote.
 
 Tested on Windows, Linux and macOS 12, with two gmrender-resurrect streamers: a home-made one on a
-BeagleBone Green and a FiiO SR11. Lossy formats are not supported and will not be; DSD and other
-lossless formats: [ADR-001](docs/adr-001-lossless-formats-beyond-flac.md).
+BeagleBone Green and a FiiO SR11. Lossy formats are not supported and will not be; other lossless
+formats: [ADR-001](docs/adr-001-lossless-formats-beyond-flac.md).
 
 **Why a streamer and not a USB DAC.** USB ties the DAC to the computer's ground, and with it to the
 noise of power supplies, a graphics card and fans. Ethernet carries only data and is isolated by

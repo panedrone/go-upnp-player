@@ -43,6 +43,11 @@ body { overflow: hidden; font-size: 14px; }
 .tree-row .btn.star-btn.starred { visibility: visible; color: var(--bs-warning); }
 .tree-row:not(:hover) .btn.star-btn.starred { background: transparent; border-color: transparent; }
 .tree-row .btn.star-btn + .hover-btn { margin-left: 0; }
+/* the DSD card: a label column and the choices beside it */
+.dsd-grid { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; align-items: center; font-size: .8rem; }
+.dsd-choice { display: flex; align-items: center; gap: 6px; }
+/* a choice's buttons: the transport's look (outlined, 24 px high), wide enough for a number */
+.btn.dsd-btn { height: 24px; min-width: 40px; padding: 0 .45rem; font-size: .8rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
 .row-label { display: flex; align-items: center; min-width: 0; }
 /* a device row mixes a small monospace IP, the name and a badge: one text line, not box centres */
 .renderer-row .row-label { align-items: baseline; }
@@ -68,7 +73,9 @@ body { overflow: hidden; font-size: 14px; }
 .track-table tr:hover .props-icon { visibility: visible; }
 .track-table .col-props:hover .props-icon { color: var(--bs-body-color); }
 /* the number at the right of its cell; the room left of it holds the playing mark, centred */
-.num-cell { display: flex; align-items: center; }
+/* a line high even with no number (tracks without a TRACKNUMBER tag): the mark stays on the
+   middle of the title's line, not at the top of an empty cell (2026-11-15) */
+.num-cell { display: flex; align-items: center; min-height: 1.5em; }
 .play-slot { flex: 1; display: flex; justify-content: center; align-items: center; }
 /* the playing track: the ▶ of the playlist's hover button, without the button: it is a mark */
 /* the same arrow as the Play button's (PlayIcon), not a font ▶ */

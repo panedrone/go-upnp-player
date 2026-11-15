@@ -42,6 +42,8 @@ func InitRoutes(app *fiber.App) {
 	api.Post("/update/install", handlers.InstallUpdate)
 	api.Get("/eq", handlers.GetEQ)
 	api.Put("/eq", handlers.PutEQ)
+	api.Get("/dsd", handlers.GetDSD)
+	api.Put("/dsd", handlers.PutDSD)
 
 	// Fiber v3 registers HEAD for GET routes automatically (DisableHeadAutoRegister
 	// is off); renderers send HEAD before GET

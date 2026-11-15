@@ -74,6 +74,9 @@ type Properties struct {
 
 // PropertiesOf joins the indexed track with the details read from its file.
 func PropertiesOf(t *Track) (*Properties, error) {
+	if t.DSD != nil {
+		return dsdProperties(t), nil
+	}
 	d, err := readFileDetails(t.Path)
 	if err != nil {
 		return nil, err
@@ -86,4 +89,18 @@ func PropertiesOf(t *Track) (*Properties, error) {
 		BitrateKbps: services.AvgBitrateKbps(t.FileSize, t.FileFrames, t.SampleRate),
 		Codec:       "FLAC", Encoding: "lossless", Tool: d.Vendor, EmbeddedCue: d.EmbeddedCue, MD5: d.MD5,
 	}, nil
+}
+
+// dsdProperties: a DSD file as it is (its rate, 1 bit) and how it plays (ADR-028).
+func dsdProperties(t *Track) *Properties {
+	d := t.DSD
+	ratio := uint64(d.Rate / t.SampleRate)
+	return &Properties{
+		Number: t.Number, Title: t.Title, Artist: t.Artist, Album: t.Album, Date: t.Date, Genre: t.Genre,
+		Comment: readDSDComment(t.Path, *d), Duration: t.Duration, Samples: (t.End - t.Start) * ratio,
+		SampleRate: d.Rate, Channels: t.Channels, Bits: 1,
+		BitrateKbps: services.AvgBitrateKbps(t.FileSize, d.Samples, d.Rate),
+		Codec:       d.DSDKind() + " (" + d.Format + ")",
+		Encoding:    fmt.Sprintf("plays as PCM %g kHz, 24 bit", float64(t.SampleRate)/1000),
+	}
 }

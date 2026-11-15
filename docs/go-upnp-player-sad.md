@@ -86,6 +86,7 @@ CI needs Go only.
 **State.** Everything that must survive a browser change lives in `config.json`:
 
 - library folders, the selected renderer and the equalizer;
+- how DSD is converted (`dsd.json`, a file of its own beside `config.json`: PCM rate and gain);
 - starred folders (`starred`, by path);
 - where the player's own window was and whether it was maximized;
 - the playlist: track IDs, the current index, `source` (the tree node it was built from) and
@@ -219,6 +220,14 @@ The browser's `localStorage` keeps only per-viewer conveniences:
   after a seek. Music cut in mid-wave is a step out of silence, a click on any output. A run's
   next part goes on with no fade. With the equalizer on, decoding starts 200 ms before the first
   sample served, so the filters run in on the music instead of starting cold.
+- **DSD** (`.dsf`, `.dff`) is converted to 24-bit PCM on the way, at the rate and gain of the DSD
+  card ([ADR-028](adr-028-dsd-converted-to-pcm-in-the-player.md)): to the rest of the player a DSD
+  track is a PCM track of that rate. `services.DSDConverter`: a FIR on the bits through per-byte
+  tables (÷8), FIR halvings down to the rate, a 35 kHz low-pass (below 20 kHz at 44.1 kHz);
+  linear phase, 120 dB stopbands. A stream starting at a sample converts from a little earlier and
+  drops the run-in and the filters' delay, so it matches a stream from the start. Clipped samples
+  are logged once per stream. Mono and stereo plain DSD only (no DST, no multichannel, no `.iso`);
+  tags and cover from the file's ID3v2 tag.
 - `/media/track/<id>` serves one track, as below; the player itself no longer hands it out.
 - **A track from a CUE sheet:** a virtual WAV, a 44-byte header plus the PCM of the sample range
   from its `INDEX 01` to the next track's. The length is exact. A Range request maps to a sample;
@@ -243,8 +252,9 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 
 Not supported:
 
-- images other than FLAC (WAV, APE, WavPack), the binary CUESHEET block, DSD and other non-FLAC
-  formats — planned in [ADR-001](adr-001-lossless-formats-beyond-flac.md);
+- images other than FLAC (WAV, APE, WavPack, DSD), the binary CUESHEET block, non-FLAC PCM
+  formats — planned in [ADR-001](adr-001-lossless-formats-beyond-flac.md); a DSD file always plays
+  as a whole;
 - lossy formats (MP3, AAC, Ogg, Opus) — out of scope for good.
 
 ## 6. Equalizer
@@ -293,11 +303,11 @@ web player.
   answered, the backend's.
 - **Layout.** One page, no modal dialogs:
   - three columns with splitters (`react-resizable-panels`; they stack on screens ≤ 900 px);
-  - Library tree, playlist, and on the right the Output, Equalizer and Library folders cards;
+  - Library tree, playlist, and on the right the Output, Equalizer, DSD and Library folders cards;
   - under the playlist, behind a splitter of its own, the Properties card.
 - **Library tree** ([ADR-011](adr-011-library-tree-navigation.md)):
-  - folders, cue sheets and track files, names only (lengths are in the playlist); cue sheets and
-    files are leaves;
+  - folders, cue sheets and track files (FLAC, DSF, DFF), names only (lengths are in the
+    playlist); cue sheets and files are leaves;
   - → on a row builds the playlist from the node without touching playback;
   - a folder can be starred, to mark the releases that sound better: a set star stays on the row
     in yellow, on hover the star is a button with the current value left of →, a click flips it
@@ -329,12 +339,19 @@ web player.
   number, comment) and General (duration with samples, rate, channels, bits, bitrate, codec,
   encoding, tool, embedded cuesheet, audio MD5). `GET /api/track/:id/properties` reads the FLAC
   header again on each request; vendor, MD5 and comment are not kept in the index. The bitrate of
-  a cue track is its file's average.
+  a cue track is its file's average. A DSD track shows its own rate, 1 bit and e.g. "DSD128
+  (DSF)", and in Encoding the PCM it plays as.
+- **DSD card** ([ADR-028](adr-028-dsd-converted-to-pcm-in-the-player.md)): the PCM rate
+  (44.1 / 88.2 / 176.4 kHz, 176.4 by default) and the gain (0 / +3 / +6 dB, +6 by default, as
+  foobar2000) as button groups; a click saves at once (`GET`/`PUT /api/dsd`) and restarts a
+  playing DSD track where it is (`player.SetDSD`; a new rate rescans the library first).
+  Foldable like the other cards.
 - **Playlist and devices.** Only the playlist plays (a click on its row, or Play in its header). Devices are a
   list in the Output card with a Use button. The selected device's row carries its transport badge after its name
   (a lively green for PLAYING, light gray for quiet states, PAUSED on dark amber with white text for PAUSED_PLAYBACK); the
   Output header shows a badge only when the player itself is offline. The Output title line
-  also carries what is streamed and from where (local IP, rate, bits, channels, WAV or FLAC),
+  also carries what is streamed and from where (local IP, rate, bits, channels, WAV or FLAC, or
+  e.g. "DSD128 → PCM"),
   parts separated by bold dots. Row buttons appear on hover and are always visible on
   touch screens.
 - **Waiting for the renderer.** A spinner shows after the title of the row being started, and the
@@ -389,6 +406,7 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [025](adr-025-stop-is-stop.md) | Stop is Stop, on every renderer; transitions between tracks are their own |
 | [026](adr-026-state-as-server-sent-events.md) | The page gets the state as Server-Sent Events |
 | [027](adr-027-qt-window-with-miqt.md) | A Qt window (miqt) beside the web page, calling the player directly |
+| [028](adr-028-dsd-converted-to-pcm-in-the-player.md) | DSD files are converted to PCM in the player, up to 176.4 kHz |
 
 ## 9. Testing
 

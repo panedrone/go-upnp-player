@@ -42,6 +42,10 @@ type Track struct {
 	// Covered: a whole-file track whose file a cue sheet in the same folder refers
 	// to; folder playlists and search skip it in favour of the cue tracks.
 	Covered bool `json:"-"`
+	// DSD: a DSD file, played converted to PCM (ADR-028). SampleRate, Bits, Start and End
+	// are then the PCM's; DSDRate is the file's own rate.
+	DSD     *services.DSDFile `json:"-"`
+	DSDRate uint32            `json:"dsdRate,omitempty"`
 }
 
 // Node is a tree element.
@@ -72,7 +76,25 @@ var (
 
 	metaCache   = map[string]*FileMeta{}
 	metaCacheMu sync.Mutex
+
+	// dsdSettings: how DSD becomes PCM; read by scans and by streams in the background
+	dsdSettings atomic.Pointer[services.DSDSettings]
 )
+
+// SetDSD sets how DSD files are converted. The PCM rate is part of each DSD track, so a new
+// rate takes a rescan; the gain applies from the next stream.
+func SetDSD(s services.DSDSettings) {
+	s = s.Normalize()
+	dsdSettings.Store(&s)
+}
+
+// DSD is how DSD files are converted now.
+func DSD() services.DSDSettings {
+	if p := dsdSettings.Load(); p != nil {
+		return *p
+	}
+	return services.DefaultDSD()
+}
 
 // Status is reported to the UI.
 type Status struct {

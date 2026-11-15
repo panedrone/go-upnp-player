@@ -7,6 +7,7 @@ import Tree, { RevealRequest } from './Tree'
 import Playlist from './Playlist'
 import TrackProperties from './TrackProperties'
 import Equalizer from './Equalizer'
+import DsdCard from './DsdCard'
 import Settings from './Settings'
 
 
@@ -424,7 +425,7 @@ export default function App() {
                           `${track.sampleRate / 1000} kHz`,
                           `${track.bits} bit`,
                           track.channels === 2 ? 'stereo' : `${track.channels} ch`,
-                          track.fromCue ? 'cue → WAV' : 'FLAC',
+                          track.dsdRate ? `DSD${track.dsdRate / 44100} → PCM` : track.fromCue ? 'cue → WAV' : 'FLAC',
                         ]
                       : []),
                   ].map((part, i) => (
@@ -481,6 +482,7 @@ export default function App() {
             </ListGroup>
           </Card>
           <Equalizer onError={showErr} />
+          <DsdCard onError={showErr} />
           <Settings scanning={!!state?.library.scanning} tracks={state?.library.tracks ?? 0} />
         </div>
         </Panel>

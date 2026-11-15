@@ -17,6 +17,7 @@ export interface Track {
   bits: number
   duration: number
   fromCue: boolean
+  dsdRate?: number // a DSD file: its own rate; sampleRate and bits are the PCM it plays as
 }
 
 export interface TreeNode {
@@ -122,6 +123,16 @@ export const api = {
   openUpdate: () => req<void>('POST', '/api/update/open'),
   installUpdate: () => req<void>('POST', '/api/update/install'),
   saveEq: (enabled: boolean, gains: number[]) => req<void>('PUT', '/api/eq', { enabled, gains }),
+  dsd: () => req<DSDSettings>('GET', '/api/dsd'),
+  saveDsd: (rate: number, gainDb: number) => req<void>('PUT', '/api/dsd', { rate, gainDb }),
+}
+
+// how DSD files are converted to PCM, and the choices
+export interface DSDSettings {
+  rate: number
+  gainDb: number
+  rates: number[]
+  gains: number[]
 }
 
 // what the properties panel under the playlist shows

@@ -147,7 +147,9 @@ func startLocked(i int, seek float64) (err error) {
 func heldRun(viaNext bool, pi upnp.PositionInfo, i int, from float64) (runPlan, bool) {
 	mu.Lock()
 	defer mu.Unlock()
-	if !viaNext || runURI == "" || pi.TrackURI != runURI || !services.SameLength(pi.Duration, runLen) {
+	stale := staleRun
+	staleRun = false
+	if stale || !viaNext || runURI == "" || pi.TrackURI != runURI || !services.SameLength(pi.Duration, runLen) {
 		return runPlan{}, false
 	}
 	at, ok := streamTimeLocked(i, from)

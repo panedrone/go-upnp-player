@@ -1,8 +1,8 @@
 # ADR-001: Lossless formats beyond FLAC (DSF/DSD, WAV, AIFF, WavPack, APE, ALAC)
 
-**Status:** Proposed (2026-11-09). Nothing implemented yet. Open: check what the FiiO SR11
-actually does with DSF pass-through (native DSD or conversion to PCM inside GStreamer);
-pick a pure-Go decoder for WavPack/ALAC or leave them pass-through only; APE stays
+**Status:** Proposed (2026-11-09). DSD is decided otherwise: converted to PCM in the player,
+[ADR-028](adr-028-dsd-converted-to-pcm-in-the-player.md) (2026-11-15, 1.1.35). Nothing else
+implemented yet. Open: pick a pure-Go decoder for WavPack/ALAC or leave them pass-through only; APE stays
 pass-through only (no pure-Go decoder).
 
 ## Context
@@ -71,8 +71,10 @@ A hybrid of 1 and 2, decided per format:
   reference decoder.
 - **APE:** pass-through only, and only to renderers that declare it (FiiO); hidden for the
   others.
-- **DSF/DFF:** pass-through only to renderers that declare DSD (FiiO); hidden for the others.
-  No in-player DSD→PCM in the first step. Not presented as bit-perfect.
+- ~~**DSF/DFF:** pass-through only to renderers that declare DSD (FiiO); hidden for the others.
+  No in-player DSD→PCM in the first step. Not presented as bit-perfect.~~ Superseded 2026-11-15
+  by [ADR-028](adr-028-dsd-converted-to-pcm-in-the-player.md): DSD → PCM in the player, for every
+  renderer; the streamers' S/PDIF takes no DSD.
 - When the EQ is on, pass-through tracks play without it, and the UI says so.
 - A format a renderer cannot take is not offered for that renderer (greyed out in the tree),
   rather than failing on Play.

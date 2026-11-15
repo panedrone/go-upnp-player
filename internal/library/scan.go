@@ -18,7 +18,7 @@ func scanDir(idx *index, dir string) int {
 	if err != nil {
 		return 0
 	}
-	var cues, flacs []string
+	var cues, flacs, dsds []string
 	var subdirs []string
 	for _, e := range entries {
 		full := filepath.Join(dir, e.Name())
@@ -31,6 +31,8 @@ func scanDir(idx *index, dir string) int {
 			cues = append(cues, full)
 		case ".flac":
 			flacs = append(flacs, full)
+		case ".dsf", ".dff":
+			dsds = append(dsds, full)
 		}
 	}
 
@@ -50,6 +52,16 @@ func scanDir(idx *index, dir string) int {
 		}
 		idx.tracks = append(idx.tracks, tracks...)
 		nodes = append(nodes, Node{Path: cuePath, Name: filepath.Base(cuePath), Kind: "cue", Count: len(tracks)})
+	}
+	for _, f := range dsds {
+		// DSD files play as whole files: a cue sheet over a DSD image is not read (yet)
+		tracks := fileTracks(f)
+		if len(tracks) == 0 {
+			continue
+		}
+		idx.tracks = append(idx.tracks, tracks...)
+		t := tracks[0]
+		nodes = append(nodes, Node{Path: f, Name: filepath.Base(f), Kind: "file", Count: 1, ID: t.ID, Number: t.Number, Duration: t.Duration})
 	}
 	for _, f := range flacs {
 		// FLAC files are always shown, like a folder view in foobar2000, even when
@@ -155,12 +167,16 @@ func newTrack(leaf, audio string, ti services.TrackInfo, m *FileMeta, fromCue bo
 	if m.SampleRate > 0 {
 		dur = float64(ti.End-ti.Start) / float64(m.SampleRate)
 	}
-	return &Track{
+	t := &Track{
 		ID: hex.EncodeToString(h[:8]), Leaf: leaf, Path: audio, Number: ti.Number,
 		Title: ti.Title, Artist: ti.Artist, Album: ti.Album, Date: ti.Date, Genre: ti.Genre,
 		Start: ti.Start, End: ti.End, SampleRate: m.SampleRate, Channels: m.Channels, Bits: m.Bits,
 		Duration: dur, Seekable: m.Seekable, FromCue: fromCue, FileSize: m.Size, FileFrames: m.NSamples,
 	}
+	if m.DSD != nil {
+		t.DSD, t.DSDRate = m.DSD, m.DSD.Rate
+	}
+	return t
 }
 
 func fileMeta(path string) *FileMeta {
@@ -173,9 +189,13 @@ func fileMeta(path string) *FileMeta {
 	c := metaCache[key]
 	metaCacheMu.Unlock()
 	if c != nil && c.ModTime == st.ModTime().UnixNano() && c.Size == st.Size() {
-		return c
+		return asPCM(c)
 	}
-	m, err := readFlacMeta(path, st)
+	read := readFlacMeta
+	if isDSD(path) {
+		read = readDSDMeta
+	}
+	m, err := read(path, st)
 	if err != nil {
 		log.Printf("library: %v", err)
 		return nil
@@ -187,5 +207,18 @@ func fileMeta(path string) *FileMeta {
 	metaCacheMu.Lock()
 	metaCache[key] = m
 	metaCacheMu.Unlock()
-	return m
+	return asPCM(m)
+}
+
+// asPCM is a DSD file's meta as the PCM it plays as (ADR-028): the rate the settings pick,
+// 24 bits, its length in PCM samples. The cache keeps the file's own values. Other files as is.
+func asPCM(m *FileMeta) *FileMeta {
+	if m.DSD == nil {
+		return m
+	}
+	out := services.DSDOutRate(m.DSD.Rate, DSD().Rate)
+	p := *m
+	p.SampleRate, p.Bits = out, 24
+	p.NSamples = m.DSD.Samples / uint64(m.DSD.Rate/out)
+	return &p
 }

@@ -43,6 +43,8 @@ type Span struct {
 	// Seekable means the file has a SEEKTABLE. Without one mewkiz/flac builds the table
 	// by decoding the whole file, so without it we decode from the start and skip.
 	Seekable bool
+	// DSD: the file is DSD, converted to PCM at SampleRate (ADR-028); Start and End are PCM samples
+	DSD *services.DSDFile
 }
 
 // Layout is the geometry of the virtual WAV for this range.
@@ -73,6 +75,9 @@ type Reader struct {
 	// frames, when set, reads frames from a position found by bisection
 	// (files without a SEEKTABLE) instead of stream
 	frames *bufio.Reader
+
+	// dsd, when set, makes the blocks instead of a FLAC stream
+	dsd *dsdSource
 }
 
 // Open prepares reading from byte offset offset of the virtual WAV.
@@ -104,6 +109,15 @@ func Open(span Span, offset int64) (*Reader, error) {
 	}
 	if target >= span.End {
 		r.done = true
+		return r, nil
+	}
+
+	if span.DSD != nil {
+		d, err := openDSD(span, from)
+		if err != nil {
+			return nil, err
+		}
+		r.dsd, r.pos, r.cut = d, from, target
 		return r, nil
 	}
 
@@ -185,13 +199,7 @@ func (r *Reader) fill() error {
 		r.done = true
 		return nil
 	}
-	var fr *frame.Frame
-	var err error
-	if r.frames != nil {
-		fr, err = frame.Parse(r.frames)
-	} else {
-		fr, err = r.stream.ParseNext()
-	}
+	chans, err := r.nextBlock()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
 			r.done = true
@@ -200,12 +208,8 @@ func (r *Reader) fill() error {
 		return err
 	}
 	frameStart := r.pos
-	n := uint64(fr.BlockSize)
+	n := uint64(len(chans[0]))
 	r.pos += n
-	chans := make([][]int32, len(fr.Subframes))
-	for i, sf := range fr.Subframes {
-		chans[i] = sf.Samples
-	}
 	if p := eqSettings.Load(); p != r.eqSrc {
 		r.eqSrc = p
 		r.eq = nil
@@ -239,6 +243,28 @@ func (r *Reader) fill() error {
 	return nil
 }
 
+// nextBlock decodes the next FLAC frame, or converts the next DSD block, into samples per channel.
+func (r *Reader) nextBlock() ([][]int32, error) {
+	if r.dsd != nil {
+		return r.dsd.block()
+	}
+	var fr *frame.Frame
+	var err error
+	if r.frames != nil {
+		fr, err = frame.Parse(r.frames)
+	} else {
+		fr, err = r.stream.ParseNext()
+	}
+	if err != nil {
+		return nil, err
+	}
+	chans := make([][]int32, len(fr.Subframes))
+	for i, sf := range fr.Subframes {
+		chans[i] = sf.Samples
+	}
+	return chans, nil
+}
+
 // fadeIn raises the first served samples [from, to) of a frame out of silence.
 func (r *Reader) fadeIn(chans [][]int32, from, to int) {
 	for i := from; i < to && r.faded < r.fade; i++ {
@@ -252,6 +278,9 @@ func (r *Reader) fadeIn(chans [][]int32, from, to int) {
 
 // Close closes the file.
 func (r *Reader) Close() error {
+	if r.dsd != nil {
+		return r.dsd.Close()
+	}
 	if r.file != nil {
 		return r.file.Close()
 	}
