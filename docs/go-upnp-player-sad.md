@@ -1,7 +1,8 @@
 # go-upnp-player — Software Architecture Document (SAD)
 
 How the system is built right now. Updated in the same commit as the code. Why it is built this
-way, what was rejected and which renderer quirks forced it: the ADRs in §8.
+way, what was rejected and which renderer quirks forced it: the ADRs in §8. The player with the
+Qt window has a SAD of its own: [go-upnp-player-qt-sad.md](go-upnp-player-qt-sad.md).
 
 ## 1. Purpose and scope
 

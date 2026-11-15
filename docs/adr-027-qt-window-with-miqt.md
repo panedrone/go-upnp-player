@@ -4,6 +4,8 @@
 among the release's assets). **Open:** the update check offers the Qt copy the release page,
 not its setup; no Qt build for Linux or macOS is released.
 
+How it is built now: [the Qt player's SAD](go-upnp-player-qt-sad.md).
+
 ## Context
 
 The page (React, served by the player, shown in the browser or in a WebView2 window,
