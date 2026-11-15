@@ -408,6 +408,9 @@ export default function App() {
           </Card>
           <Card>
             <Card.Header className="d-flex align-items-center gap-2">
+              {/* the title and the smaller line after it sit on one text line (baseline), not on
+                  the centres of their boxes, which put the small text visibly higher */}
+              <span className="d-flex align-items-baseline gap-2 flex-grow-1 min-w-0">
               <span>Output</span>
               {/* what goes out and from where: a property of the output as a whole */}
               {(current || track) && (
@@ -432,6 +435,7 @@ export default function App() {
                   ))}
                 </small>
               )}
+              </span>
               {/* the header speaks only for the player itself; the device's own state sits on its row */}
               {!connected && <Badge bg={transportVariant[transport]} className="me-2">{transport}</Badge>}
               <Button size="sm" variant="outline-secondary" className="head-btn ms-auto flex-shrink-0" title="Search for devices again" onClick={() => run(api.refreshRenderers())} disabled={state?.discovering}>
