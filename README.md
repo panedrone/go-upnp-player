@@ -125,16 +125,7 @@ as in Releases, with no console window, add the linker flags:
 go install -ldflags "-s -w -H=windowsgui" github.com/panedrone/go-upnp-player/cmd/go-upnp-player@latest
 ```
 
-macOS: the same `go install`. Tested on macOS 12 Monterey, with the library on a Windows SMB share
-and playing to the BeagleBone. Go 1.27 needs macOS 13, so on Monterey take the
-latest Go 1.26. The player has no C code; `CGO_ENABLED=0` keeps the build away from Xcode's tools:
-
-```bash
-CGO_ENABLED=0 go install github.com/panedrone/go-upnp-player/cmd/go-upnp-player@latest
-```
-
-The page opens with `open`; settings go to `~/Library/Application Support/go-upnp-player`, the log
-and the cache to `~/Library/Caches/go-upnp-player`.
+macOS: see [Install (macOS)](#install-macos).
 
 ## Install (Linux)
 
@@ -151,6 +142,30 @@ The page opens in the default browser. Settings live in `~/.config/go-upnp-playe
 metadata cache in `~/.cache/go-upnp-player`. Ubuntu's firewall (ufw) is off by default; if it is on
 and no renderers show up, allow the home network, e.g. `sudo ufw allow from 192.168.0.0/24`
 (renderers answer the discovery request with incoming packets).
+
+## Install (macOS)
+
+Tested on macOS 12 Monterey. There is no app bundle; the player is built with Go:
+
+1. Go from [go.dev/dl](https://go.dev/dl/), the `.pkg` for your Mac. Go 1.27 needs macOS 13, so on
+   Monterey take the latest Go 1.26.
+2. The player, then start it; the page opens in the default browser:
+
+   ```bash
+   CGO_ENABLED=0 go install github.com/panedrone/go-upnp-player/cmd/go-upnp-player@latest
+   ~/go/bin/go-upnp-player -root /path/to/music
+   ```
+
+   The player has no C code; `CGO_ENABLED=0` keeps the build away from Xcode's tools, which macOS
+   otherwise offers to install.
+
+Settings live in `~/Library/Application Support/go-upnp-player`, the log and the metadata cache in
+`~/Library/Caches/go-upnp-player`. The macOS firewall is off by default; if it is on, allow
+incoming connections for go-upnp-player when asked (renderers download tracks from it).
+
+Music on a Windows PC: *Finder → Go → Connect to Server* → `smb://<PC>/<share>`; the share
+appears under `/Volumes/<share>`, which goes into **Library folders**. Windows does not share
+through an account without a password; use one that has one.
 
 ## Use
 
