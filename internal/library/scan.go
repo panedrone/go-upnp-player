@@ -216,9 +216,9 @@ func asPCM(m *FileMeta) *FileMeta {
 	if m.DSD == nil {
 		return m
 	}
-	out := services.DSDOutRate(m.DSD.Rate, DSD().Rate)
+	out := DSD().Rate
 	p := *m
 	p.SampleRate, p.Bits = out, 24
-	p.NSamples = m.DSD.Samples / uint64(m.DSD.Rate/out)
+	p.NSamples = services.DSDPCMSamples(m.DSD.Samples, m.DSD.Rate, out)
 	return &p
 }

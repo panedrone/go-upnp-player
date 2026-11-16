@@ -3,9 +3,9 @@ package services
 import "math"
 
 // DSD to PCM, done in the player (ADR-028). Renderers take PCM over HTTP; DSD itself, native or
-// packed as DoP, needs a DAC on USB, which a network streamer is not. The PCM rates are the
-// 44.1 kHz family up to 176.4 kHz: DSD rates are its multiples, so the conversion is a chain of
-// whole-number decimations, and 192 kHz is the S/PDIF limit of the streamers this player is for.
+// packed as DoP, needs a DAC on USB, which a network streamer is not. The PCM rates are both
+// families up to 192 kHz, as foobar2000 offers them (ADR-029): a rate of the DSD's own family is a
+// chain of whole-number decimations; one of the other family adds a rational resampler (160/147).
 
 // DSDSettings is how DSD is turned into PCM: the PCM rate and the gain.
 type DSDSettings struct {
@@ -13,8 +13,9 @@ type DSDSettings struct {
 	GainDB float64 `json:"gainDb"` // one of DSDGains
 }
 
-// DSDRates are the PCM rates to choose from.
-var DSDRates = []uint32{44100, 88200, 176400}
+// DSDRates are the PCM rates to choose from: every rate foobar2000 offers up to 192 kHz, the
+// S/PDIF limit of the streamers this player is for (the owner, 2026-11-16).
+var DSDRates = []uint32{44100, 48000, 88200, 96000, 176400, 192000}
 
 // DSDGains are the gains to choose from, dB. The SACD's 0 dB is 50 % modulation, -6 dBFS in PCM:
 // +6 brings it to full scale and clips loud remasters, 0 never clips.
@@ -43,19 +44,35 @@ func (s DSDSettings) Normalize() DSDSettings {
 	return s
 }
 
-// DSDOutRate is the PCM rate a DSD stream converts to: the DSD rate halved down from /16 while
-// it stays above the chosen rate. A DSD rate of the 48 kHz family (3.072 MHz) lands on its own
-// family's nearest rate (96 kHz for 88.2), never above the chosen one by more than 48/44.1.
-func DSDOutRate(dsdRate, chosen uint32) uint32 {
-	out := dsdRate / 16
-	for out > chosen+chosen/10 && out%2 == 0 {
-		out /= 2
+// DSDMidRate is the rate the decimations reach for a PCM rate out: out itself when it is of the
+// DSD rate's family, else the rate of that family at the same place (176.4 kHz for 192 from
+// DSD64, 192 kHz for 176.4 from a 3.072 MHz DSD); the resampler then takes it to out.
+func DSDMidRate(dsdRate, out uint32) uint32 {
+	switch {
+	case dsdRate%out == 0:
+		return out
+	case out%44100 == 0:
+		return out / 147 * 160
+	default:
+		return out / 160 * 147
 	}
-	return out
 }
 
-// DSDBytesPerSample is how many DSD bytes of one channel make one PCM sample.
-func DSDBytesPerSample(dsdRate, outRate uint32) int { return int(dsdRate / outRate / 8) }
+// dsdRatio is out/mid in lowest terms: up output samples for every down mid samples.
+func dsdRatio(mid, out uint32) (up, down int) {
+	a, b := mid, out
+	for b != 0 {
+		a, b = b, a%b
+	}
+	return int(out / a), int(mid / a)
+}
+
+// DSDPCMSamples is the length in PCM samples at out of samples DSD samples (bits) at dsdRate.
+func DSDPCMSamples(samples uint64, dsdRate, out uint32) uint64 {
+	mid := DSDMidRate(dsdRate, out)
+	up, down := dsdRatio(mid, out)
+	return samples / uint64(dsdRate/mid) * uint64(up) / uint64(down)
+}
 
 // DSDSilence is the DSD idle pattern: as many ones as zeros, nothing on the output.
 const DSDSilence = 0x69
@@ -70,7 +87,11 @@ type DSDConverter struct {
 	tables [][256]float64 // the first stage: per byte position, the sum for each byte value
 	hist   [][]byte       // per channel, the last len(tables)-1 bytes
 	stages []*firStage    // the halvings, then the last low-pass (factor 1)
+	res    *resampler     // to a rate of the other family; nil within the DSD's own
 	delay  int            // the whole chain's delay, output samples
+	// a cycle: cycOut output samples come from cycBytes DSD bytes of each channel; a stream
+	// starts on a cycle so it gives the same samples wherever it starts
+	cycOut, cycBytes int
 	// Clipped counts the samples that went over full scale and were clipped
 	Clipped int
 }
@@ -88,12 +109,16 @@ const dsdPassHz = 35000
 // dsdAttenDB is how far each stage pushes down what it must not let through.
 const dsdAttenDB = 120
 
-// NewDSDConverter makes a converter for channels channels of DSD at dsdRate into outRate.
-// dsdRate/outRate must be a power of two, 16 or more (DSDOutRate gives such rates).
+// NewDSDConverter makes a converter for channels channels of DSD at dsdRate into outRate, one
+// of DSDRates. dsdRate/DSDMidRate must be a power of two, 16 or more (DSD64 and up).
 func NewDSDConverter(dsdRate, outRate uint32, channels int, gainDB float64) *DSDConverter {
 	c := &DSDConverter{gain: math.Pow(10, gainDB/20)}
 	fs := float64(dsdRate)
-	pass := math.Min(dsdPassHz, float64(outRate)/2*0.9)
+	mid := DSDMidRate(dsdRate, outRate)
+	up, down := dsdRatio(mid, outRate)
+	c.cycOut, c.cycBytes = up, down*int(dsdRate/mid/8)
+	// the band ends below the lower Nyquist frequency of the two rates
+	pass := math.Min(dsdPassHz, float64(min(mid, outRate))/2*0.9)
 
 	// stage 1: bits to values at dsdRate/8; what lands on the music's band after it is kept down
 	rate1 := fs / 8
@@ -129,7 +154,7 @@ func NewDSDConverter(dsdRate, outRate uint32, channels int, gainDB float64) *DSD
 	off := 7 - float64(l1-1)/2
 
 	rate := rate1
-	for rate > float64(outRate) {
+	for rate > float64(mid) {
 		next := rate / 2
 		// what folds onto the band below pass is stopped; what folds above it, the last
 		// low-pass takes
@@ -145,9 +170,19 @@ func NewDSDConverter(dsdRate, outRate uint32, channels int, gainDB float64) *DSD
 		c.stages = append(c.stages, newFIR(taps, 1, channels))
 		off -= step * float64(len(taps)-1) / 2
 	}
-	c.delay = int(math.Round(-off / step))
+	delay := -off / step // mid samples
+	if up != down {
+		c.res = newResampler(up, down, pass, float64(min(mid, outRate))/2, float64(mid), channels)
+		// mid time scales by up/down; the resampler's filter centre is (n-1)/2 at up*mid
+		delay = delay*float64(up)/float64(down) + float64(len(c.res.taps)-1)/2/float64(down)
+	}
+	c.delay = int(math.Round(delay))
 	return c
 }
+
+// Cycle is the converter's unit of alignment: outSamples PCM samples from dsdBytes DSD bytes of
+// each channel (1 sample from DSD rate/PCM rate/8 bytes within the DSD's own family).
+func (c *DSDConverter) Cycle() (outSamples, dsdBytes int) { return c.cycOut, c.cycBytes }
 
 func newFIR(taps []float64, factor, channels int) *firStage {
 	s := &firStage{taps: taps, factor: factor, hist: make([][]float64, channels)}
@@ -160,14 +195,17 @@ func newFIR(taps []float64, factor, channels int) *firStage {
 // Delay is how many output samples the conversion lags behind its input.
 func (c *DSDConverter) Delay() int { return c.delay }
 
-// Process converts the next DSD bytes of every channel (equal lengths, a multiple of
-// DSDBytesPerSample) and returns the PCM samples per channel, 24-bit in int32.
+// Process converts the next DSD bytes of every channel (equal lengths, whole cycles' worth of
+// bytes, see Cycle) and returns the PCM samples per channel, 24-bit in int32.
 func (c *DSDConverter) Process(in [][]byte) [][]int32 {
 	out := make([][]int32, len(in))
 	for ch, bytes := range in {
 		x := c.first(ch, bytes)
 		for _, s := range c.stages {
 			x = s.run(ch, x)
+		}
+		if c.res != nil {
+			x = c.res.run(ch, x)
 		}
 		pcm := make([]int32, len(x))
 		for i, v := range x {
@@ -218,6 +256,61 @@ func (s *firStage) run(ch int, in []float64) []float64 {
 		out = append(out, sum)
 	}
 	copy(h, buf[len(buf)-len(h):])
+	return out
+}
+
+// resampler changes the rate by up/down (160/147 or 147/160) with a polyphase FIR: the input
+// stuffed with up-1 zeros between samples, low-passed at up*rate, every down-th value kept. Only
+// the taps that meet a real input are summed. It keeps state between calls, per channel.
+type resampler struct {
+	up, down int
+	taps     []float64 // at up*rate, scaled by up (the zeros take that share of the level)
+	hist     [][]float64
+	base     []int64 // the input index of hist[ch][0]
+	got      []int64 // inputs so far
+	next     []int64 // the next output index
+}
+
+func newResampler(up, down int, pass, stop, rate float64, channels int) *resampler {
+	taps := lowPass(pass, stop, rate*float64(up), dsdAttenDB)
+	for i := range taps {
+		taps[i] *= float64(up)
+	}
+	return &resampler{
+		up: up, down: down, taps: taps,
+		hist: make([][]float64, channels), base: make([]int64, channels),
+		got: make([]int64, channels), next: make([]int64, channels),
+	}
+}
+
+// run takes the next inputs of one channel and returns every output they complete. Inputs
+// before the first are zeros.
+func (r *resampler) run(ch int, in []float64) []float64 {
+	r.hist[ch] = append(r.hist[ch], in...)
+	r.got[ch] += int64(len(in))
+	up, down, n := int64(r.up), int64(r.down), int64(len(r.taps))
+	var out []float64
+	for {
+		t := r.next[ch] * down // the output's time at up*rate
+		i := t / up            // the newest input it takes
+		if i >= r.got[ch] {
+			break
+		}
+		sum := 0.0
+		// tap k meets input i-m for k = t-i*up + m*up
+		for k, j := t-i*up, i-r.base[ch]; k < n && j >= 0; k, j = k+up, j-1 {
+			sum += r.taps[k] * r.hist[ch][j]
+		}
+		out = append(out, sum)
+		r.next[ch]++
+	}
+	// keep the inputs the next output still reaches
+	keep := (r.next[ch]*down - (n - 1) + up - 1) / up
+	if drop := keep - r.base[ch]; drop > 0 {
+		drop = min(drop, int64(len(r.hist[ch])))
+		r.hist[ch] = append(r.hist[ch][:0], r.hist[ch][drop:]...)
+		r.base[ch] += drop
+	}
 	return out
 }
 

@@ -60,9 +60,11 @@ export interface PlayerState {
   error?: string
   waiting?: string // the renderer refused to play; the start is being retried
   discovering: boolean
+  autoScan: boolean // the Output card's Auto switch: a device search every second
   library: { scanning: boolean; tracks: number; scans: number }
   build?: string
   version?: string
+  dev?: string // the -web development run: the address it listens on
 }
 
 // the answer to "check for updates"; kind says how this copy is updated
@@ -112,6 +114,7 @@ export const api = {
   seek: (value: number) => req<void>('POST', '/api/player/seek', { value }),
   volume: (value: number) => req<void>('POST', '/api/player/volume', { value }),
   refreshRenderers: () => req<void>('POST', '/api/renderers/refresh'),
+  autoScanRenderers: (on: boolean) => req<void>('PUT', '/api/renderers/auto', { on }),
   selectRenderer: (udn: string) => req<void>('POST', '/api/renderers/select', { udn }),
   settings: () => req<{ roots: string[] }>('GET', '/api/settings'),
   saveSettings: (roots: string[]) => req<void>('PUT', '/api/settings', { roots }),

@@ -1,10 +1,14 @@
 package player
 
 import (
-	"github.com/panedrone/go-upnp-player/internal/config"
-	"github.com/panedrone/go-upnp-player/internal/upnp"
+	"slices"
+	"sort"
 	"sync"
 	"time"
+
+	"github.com/panedrone/go-upnp-player/internal/config"
+	"github.com/panedrone/go-upnp-player/internal/services"
+	"github.com/panedrone/go-upnp-player/internal/upnp"
 )
 
 // Discover finds renderers; if the selected one is absent, it takes the first one found.
@@ -36,6 +40,88 @@ func Discover() {
 	mu.Unlock()
 	setErr(err)
 	refreshVolume()
+}
+
+// SetAutoScan turns the Output card's Scan switch on or off. While on, AutoScanStep runs
+// every second (bg_workers.RunAutoScan) until it is turned off: a renderer may take minutes to
+// boot, so it never turns itself off (the owner, 2026-11-16).
+func SetAutoScan(on bool) {
+	mu.Lock()
+	autoScan, scanSeen = on, map[string]time.Time{}
+	mu.Unlock()
+}
+
+// AutoScanOn reports whether the Scan switch is on.
+func AutoScanOn() bool {
+	mu.Lock()
+	defer mu.Unlock()
+	return autoScan
+}
+
+// AutoScanStep searches for devices with a one-second wait, adds the new ones to the list and
+// drops those it has not heard for services.ScanGone (a device unplugged; one lost answer does
+// not drop it). Known devices are not asked for their descriptions again.
+func AutoScanStep() {
+	mu.Lock()
+	if !autoScan || discovering {
+		mu.Unlock()
+		return
+	}
+	known := append([]upnp.Device(nil), renderers...)
+	mu.Unlock()
+
+	c, cancel := ctx()
+	defer cancel()
+	found, err := rediscoverRenderers(c, time.Second, known)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if err != nil || !autoScan {
+		return
+	}
+	now := time.Now()
+	for _, d := range found {
+		scanSeen[d.UDN] = now
+	}
+	added := services.NewUDNs(udns(renderers), udns(found))
+	for _, d := range found {
+		for _, u := range added {
+			if d.UDN == u {
+				renderers = append(renderers, d)
+			}
+		}
+	}
+	// a device that came onto the list some other way (Refresh) counts from now
+	for _, d := range renderers {
+		if _, ok := scanSeen[d.UDN]; !ok {
+			scanSeen[d.UDN] = now
+		}
+	}
+	gone := services.GoneUDNs(udns(renderers), scanSeen, now)
+	kept := renderers[:0]
+	for _, d := range renderers {
+		if !slices.Contains(gone, d.UDN) {
+			kept = append(kept, d)
+		}
+	}
+	for _, u := range gone {
+		delete(scanSeen, u)
+	}
+	renderers = kept
+	if len(added) > 0 {
+		sort.Slice(renderers, func(i, j int) bool { return renderers[i].Name < renderers[j].Name })
+		if selected == "" {
+			selected = renderers[0].UDN
+		}
+	}
+}
+
+func udns(list []upnp.Device) []string {
+	out := make([]string, len(list))
+	for i, d := range list {
+		out[i] = d.UDN
+	}
+	return out
 }
 
 // halting counts the old renderers still being halted after a switch (for tests).

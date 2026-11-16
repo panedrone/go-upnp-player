@@ -18,7 +18,7 @@ where a stream starts mid-wave (Play, a seek), so it does not click. DSD has no 
 it is converted (below).
 
 FLAC files and single-file FLAC images with CUE sheets, played gapless. DSD files (`.dsf`,
-`.dff`) play converted to PCM at 44.1, 88.2 or 176.4 kHz: streamers take PCM, and S/PDIF carries
+`.dff`) play converted to PCM at 44.1 to 192 kHz: streamers take PCM, and S/PDIF carries
 no DSD ([ADR-028](docs/adr-028-dsd-converted-to-pcm-in-the-player.md)). An optional 18-band
 equalizer (55 Hz … 20 kHz, ±20 dB) reads and writes foobar2000 `.feq` presets. On Windows it
 installs with a window of its own, or as a native Qt app ([go-upnp-player Qt](#the-qt-player-windows));
@@ -185,7 +185,8 @@ through an account without a password; use one that has one.
   - `-window` — the UI in a window of its own even outside an installed copy (Windows);
   - `-browser` — the UI in the browser even in an installed copy;
   - `-web` — serve the page from a folder instead of the copy built into the exe, e.g.
-    `-web web/dist`: for development, a fresh `npm run build` shows on the next reload.
+    `-web web/dist`: for development, a fresh `npm run build` shows on the next reload; the status
+    bar then ends with a gold dev badge and the address the player listens on.
 
 ## License
 

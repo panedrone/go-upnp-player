@@ -84,6 +84,20 @@ func RefreshRenderers(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusAccepted)
 }
 
+type autoScanDTO struct {
+	On bool `json:"on"`
+}
+
+// AutoScanRenderers — PUT /api/renderers/auto {on}: the Output card's Scan switch
+func AutoScanRenderers(c fiber.Ctx) error {
+	var in autoScanDTO
+	if err := c.Bind().Body(&in); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	player.SetAutoScan(in.On)
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
 type selectDTO struct {
 	UDN string `json:"udn"`
 }

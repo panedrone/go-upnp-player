@@ -61,7 +61,7 @@ internal/upnp           SSDP discovery, SOAP AVTransport/RenderingControl/Connec
 internal/stream         FLAC → WAV for a sample range (+ equalizer), raw FLAC
 internal/library        folder walk, cue, tags, cover art, metadata cache
 internal/player         queue and commands to the selected renderer (package-level state)
-internal/bg_workers     renderer poll every second, re-discovery every minute
+internal/bg_workers     renderer poll every second, re-discovery every minute, the auto scan
 internal/power          keeping the PC awake while playing (Windows only)
 internal/selfupdate     the update check (GitHub's latest release) and go install of a new
                         version, only on the user's click
@@ -69,7 +69,8 @@ internal/config         settings in %AppData%\go-upnp-player\config.json
 internal/testkit        for tests only: generated FLAC files, a fake gmrender renderer
 web/                    React + React-Bootstrap (Vite); web/dist is built at design time,
                         committed, and embedded with go:embed (so go install needs no Node);
-                        -web <folder> serves it from disk instead (development)
+                        -web <folder> serves it from disk instead (development; the status
+                        bar shows a gold dev badge and the listening address)
 installer/              Windows installer script (Inno Setup 6), built at design time
 ```
 
@@ -122,7 +123,11 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 ## 3. Playback flow
 
 1. **Discovery.** M-SEARCH from every IPv4 interface, then the device description and
-   `GetProtocolInfo` (which MIME types the renderer accepts).
+   `GetProtocolInfo` (which MIME types the renderer accepts). The Output card's Refresh rebuilds
+   the list (a 3 s wait). Its **Scan** switch (`PUT /api/renderers/auto`, off on every start)
+   searches once a second with a 1 s wait, for a renderer being rebooted: it adds new devices,
+   drops one not heard for 5 s (unplugged; one lost answer does not drop it), does not fetch a known device's description
+   again, and runs until it is turned off (a renderer may take minutes to boot).
 2. **Stream URLs.** For each renderer, the local IP that routes to it (UDP dial) goes into the stream
    URLs. This keeps VPN, Hyper-V and WSL adapters out of the way.
 3. **Runs, not tracks** ([ADR-016](adr-016-clicks-between-tracks-on-fiio-coax.md)). The renderer
@@ -226,9 +231,12 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 - **DSD** (`.dsf`, `.dff`) is converted to 24-bit PCM on the way, at the rate and gain of the DSD
   card ([ADR-028](adr-028-dsd-converted-to-pcm-in-the-player.md)): to the rest of the player a DSD
   track is a PCM track of that rate. `services.DSDConverter`: a FIR on the bits through per-byte
-  tables (÷8), FIR halvings down to the rate, a 35 kHz low-pass (below 20 kHz at 44.1 kHz);
-  linear phase, 120 dB stopbands. A stream starting at a sample converts from a little earlier and
-  drops the run-in and the filters' delay, so it matches a stream from the start. Clipped samples
+  tables (÷8), FIR halvings down to the rate, a 35 kHz low-pass (below 20 kHz at 44.1/48 kHz);
+  for a rate of the other family the halvings stop at its counterpart (176.4 kHz for 192 from
+  DSD64) and a polyphase resampler (160/147 or 147/160) finishes
+  ([ADR-029](adr-029-dsd-every-rate-up-to-192.md)); linear phase, 120 dB stopbands. A stream
+  starting at a sample converts from a little earlier, on a whole resampler cycle, and drops the
+  run-in and the filters' delay, so it matches a stream from the start. Clipped samples
   are logged once per stream. Mono and stereo plain DSD only (no DST, no multichannel, no `.iso`);
   tags and cover from the file's ID3v2 tag.
 - `/media/track/<id>` serves one track, as below; the player itself no longer hands it out.
@@ -345,12 +353,13 @@ web player.
   a cue track is its file's average. A DSD track shows its own rate, 1 bit and e.g. "DSD128
   (DSF)", and in Encoding the PCM it plays as.
 - **DSD card** ([ADR-028](adr-028-dsd-converted-to-pcm-in-the-player.md)): the PCM rate
-  (44.1 / 88.2 / 176.4 kHz, 176.4 by default) and the gain (0 / +3 / +6 dB, +6 by default, as
+  (44.1 / 48 / 88.2 / 96 / 176.4 / 192 kHz as in foobar2000, 176.4 by default,
+  [ADR-029](adr-029-dsd-every-rate-up-to-192.md)) and the gain (0 / +3 / +6 dB, +6 by default, as
   foobar2000) as two selects on one line; a change saves at once (`GET`/`PUT /api/dsd`) and restarts a
   playing DSD track where it is (`player.SetDSD`; a new rate rescans the library first).
   Foldable like the other cards.
 - **Playlist and devices.** Only the playlist plays (a click on its row, or Play in its header). Devices are a
-  list in the Output card with a Use button. The selected device's row carries its transport badge after its name
+  list in the Output card with a Use button; Refresh and the Scan switch in its header. The selected device's row carries its transport badge after its name
   (a lively green for PLAYING, light gray for quiet states, PAUSED on dark amber with white text for PAUSED_PLAYBACK); the
   Output header shows a badge only when the player itself is offline. The Output title line
   also carries what is streamed and from where (local IP, rate, bits, channels, WAV or FLAC, or
@@ -410,6 +419,7 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [026](adr-026-state-as-server-sent-events.md) | The page gets the state as Server-Sent Events |
 | [027](adr-027-qt-window-with-miqt.md) | A Qt window (miqt) beside the web page, calling the player directly |
 | [028](adr-028-dsd-converted-to-pcm-in-the-player.md) | DSD files are converted to PCM in the player, up to 176.4 kHz |
+| [029](adr-029-dsd-every-rate-up-to-192.md) | DSD to PCM at every rate up to 192 kHz, both families |
 
 ## 9. Testing
 

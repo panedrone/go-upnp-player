@@ -52,3 +52,18 @@ func TestRunPlayerPollStopsWithContext(t *testing.T) {
 		t.Fatal("the worker did not stop")
 	}
 }
+
+func TestRunAutoScanStopsWithContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		RunAutoScan(ctx)
+		close(done)
+	}()
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the worker did not stop")
+	}
+}

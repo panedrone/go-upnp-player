@@ -34,12 +34,17 @@ type State struct {
 	Error        string         `json:"error,omitempty"`
 	// Waiting: the renderer refused to play and the start is being retried; a hint for
 	// the UI, not an error yet
-	Waiting     string         `json:"waiting,omitempty"`
-	Discovering bool           `json:"discovering"`
-	Library     library.Status `json:"library"`
+	Waiting     string `json:"waiting,omitempty"`
+	Discovering bool   `json:"discovering"`
+	// AutoScan: the Output card's Scan switch, searching for devices every second
+	AutoScan bool           `json:"autoScan"`
+	Library  library.Status `json:"library"`
 	// Build of the running exe: the UI reloads itself when it changes (after an update)
 	Build   string `json:"build"`
 	Version string `json:"version"`
+	// Dev is the address the player listens on when it serves the page from disk (-web);
+	// empty otherwise. The status bar shows it with a dev badge.
+	Dev string `json:"dev,omitempty"`
 	// Off: the playlist played out and the renderer was stopped; the player holds no
 	// stream and no position until the next start (the page shows no slider thumb)
 	Off bool `json:"off"`
@@ -74,6 +79,8 @@ var (
 	volume      = -1
 	lastErr     string
 	discovering bool
+	autoScan    bool
+	scanSeen    map[string]time.Time // while Scan is on: when each listed device last answered
 	mediaPort   int
 	tickCount   int
 	frozenSince time.Time // since when the reported position has not changed
@@ -107,6 +114,8 @@ var (
 	Build string
 	// Version is the release version, shown in the status bar; set once in main.
 	Version string
+	// Dev is the listening address in the -web development mode; set once in main.
+	Dev string
 )
 
 // Init sets the port on which Fiber serves /media (it goes into the links).
@@ -145,7 +154,7 @@ func Snapshot() State {
 		Renderers: renderers, Selected: selected, Transport: transport, Stalled: stalled,
 		WantPlaying: wantPlaying, Paused: paused, Position: position, Duration: duration,
 		Volume: volume, Index: index, QueueVersion: queueVersion, QueueLen: len(queue), Source: source,
-		Error: lastErr, Discovering: discovering, Library: library.GetStatus(), Build: Build, Version: Version,
+		Error: lastErr, Discovering: discovering, AutoScan: autoScan, Library: library.GetStatus(), Build: Build, Version: Version, Dev: Dev,
 		Off: off,
 	}
 	if index >= 0 && index < len(queue) {

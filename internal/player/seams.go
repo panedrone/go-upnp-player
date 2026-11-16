@@ -11,6 +11,8 @@ import (
 // can put a fake renderer on the "network" without SSDP.
 var (
 	DiscoverRenderers = upnp.Discover
+	// the auto scan's search: known devices are not asked again
+	rediscoverRenderers = upnp.Rediscover
 
 	lookupTrack = library.Get
 	sleep       = time.Sleep

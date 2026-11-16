@@ -28,6 +28,7 @@ func InitRoutes(app *fiber.App) {
 	api.Get("/settings", handlers.GetSettings)
 	api.Put("/settings", handlers.PutSettings)
 	api.Post("/renderers/refresh", handlers.RefreshRenderers)
+	api.Put("/renderers/auto", handlers.AutoScanRenderers)
 	api.Post("/renderers/select", handlers.SelectRenderer)
 	api.Post("/player/play", handlers.Play)
 	api.Post("/player/pause", handlers.Pause)

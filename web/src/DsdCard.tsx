@@ -62,7 +62,7 @@ export default function DsdCard({ onError }: Props) {
           <Card.Body>
             {s && (
               <div className="dsd-line">
-                {/* selects, one line: whole kHz (44, 88, 176) without fractions; the exact rate is in the title */}
+                {/* selects, one line: whole kHz (44, 48, 88, 96, 176, 192) without fractions; the exact rate is in the title */}
                 <span className="text-body-secondary">Rate</span>
                 <Form.Select
                   size="sm" className="dsd-select" aria-label="Rate" value={s.rate} title={`${s.rate} Hz`}

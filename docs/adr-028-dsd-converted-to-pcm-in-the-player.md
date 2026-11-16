@@ -2,6 +2,8 @@
 
 **Status:** Accepted 2026-11-15 (1.1.35). Heard on the BeagleBone 2026-11-16 (through an
 Amanero-type card, coax into the SMSL RAW-HA1): plays. **Open:** not yet heard on the FiiO SR11.
+The Rates point is replaced by [ADR-029](adr-029-dsd-every-rate-up-to-192.md) (2026-11-16): every
+rate up to 192 kHz, both families.
 DSD images with a cue sheet, SACD `.iso` images,
 DST-compressed `.dff` and multichannel DSD are not played.
 

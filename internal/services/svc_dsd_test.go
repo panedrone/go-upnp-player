@@ -57,12 +57,16 @@ func fitSine(x []int32, fs, freq float64) (amp, phase, residual float64) {
 func TestDSDConverterSine(t *testing.T) {
 	for _, tc := range []struct{ dsd, out uint32 }{
 		{2822400, 44100}, {2822400, 88200}, {2822400, 176400}, {5644800, 88200}, {5644800, 176400},
+		// the other family: through the resampler
+		{2822400, 48000}, {2822400, 96000}, {2822400, 192000}, {5644800, 192000},
+		{3072000, 44100}, {3072000, 176400}, {3072000, 192000},
 	} {
 		const freq, amp = 1000.0, 0.5
-		bps := DSDBytesPerSample(tc.dsd, tc.out)
-		nOut := int(tc.out / 4) // a quarter of a second
-		data := sigmaDelta(tc.dsd, freq, amp, nOut*bps)
 		c := NewDSDConverter(tc.dsd, tc.out, 1, 0)
+		cycOut, cycBytes := c.Cycle()
+		cycles := int(tc.out/4) / cycOut // a quarter of a second
+		nOut := cycles * cycOut
+		data := sigmaDelta(tc.dsd, freq, amp, cycles*cycBytes)
 		pcm := c.Process([][]byte{data})[0]
 		if len(pcm) != nOut {
 			t.Fatalf("%d→%d: %d samples, want %d", tc.dsd, tc.out, len(pcm), nOut)
@@ -90,25 +94,28 @@ func TestDSDConverterSine(t *testing.T) {
 	}
 }
 
-// Feeding the bytes in pieces gives the same samples as all at once: the state carries over.
+// Feeding the bytes in pieces gives the same samples as all at once: the state carries over,
+// the resampler's too.
 func TestDSDConverterChunks(t *testing.T) {
-	data := sigmaDelta(2822400, 3000, 0.4, 2*4000)
-	whole := NewDSDConverter(2822400, 176400, 2, 3).Process([][]byte{data, data})
-	c := NewDSDConverter(2822400, 176400, 2, 3)
-	var parts [2][]int32
-	for i := 0; i < len(data); i += 2 * 300 {
-		end := min(i+2*300, len(data))
-		got := c.Process([][]byte{data[i:end], data[i:end]})
-		parts[0] = append(parts[0], got[0]...)
-		parts[1] = append(parts[1], got[1]...)
-	}
-	for ch := range 2 {
-		if len(parts[ch]) != len(whole[ch]) {
-			t.Fatalf("ch %d: %d samples, want %d", ch, len(parts[ch]), len(whole[ch]))
+	for _, out := range []uint32{176400, 192000} {
+		data := sigmaDelta(2822400, 3000, 0.4, 2*4000)
+		whole := NewDSDConverter(2822400, out, 2, 3).Process([][]byte{data, data})
+		c := NewDSDConverter(2822400, out, 2, 3)
+		var parts [2][]int32
+		for i := 0; i < len(data); i += 2 * 300 {
+			end := min(i+2*300, len(data))
+			got := c.Process([][]byte{data[i:end], data[i:end]})
+			parts[0] = append(parts[0], got[0]...)
+			parts[1] = append(parts[1], got[1]...)
 		}
-		for i := range whole[ch] {
-			if parts[ch][i] != whole[ch][i] {
-				t.Fatalf("ch %d sample %d: %d, want %d", ch, i, parts[ch][i], whole[ch][i])
+		for ch := range 2 {
+			if len(parts[ch]) != len(whole[ch]) {
+				t.Fatalf("%d ch %d: %d samples, want %d", out, ch, len(parts[ch]), len(whole[ch]))
+			}
+			for i := range whole[ch] {
+				if parts[ch][i] != whole[ch][i] {
+					t.Fatalf("%d ch %d sample %d: %d, want %d", out, ch, i, parts[ch][i], whole[ch][i])
+				}
 			}
 		}
 	}
@@ -144,20 +151,29 @@ func TestDSDSilenceIsSilent(t *testing.T) {
 	}
 }
 
-func TestDSDOutRate(t *testing.T) {
-	for _, tc := range []struct{ dsd, chosen, want uint32 }{
-		{2822400, 176400, 176400}, {2822400, 88200, 88200}, {2822400, 44100, 44100},
-		{5644800, 176400, 176400}, {11289600, 88200, 88200},
-		{3072000, 176400, 192000}, {3072000, 88200, 96000},
+func TestDSDMidRate(t *testing.T) {
+	for _, tc := range []struct{ dsd, out, mid uint32 }{
+		{2822400, 176400, 176400}, {2822400, 44100, 44100}, {11289600, 88200, 88200},
+		{2822400, 192000, 176400}, {2822400, 48000, 44100}, {5644800, 96000, 88200},
+		{3072000, 192000, 192000}, {3072000, 176400, 192000}, {3072000, 44100, 48000},
 	} {
-		if got := DSDOutRate(tc.dsd, tc.chosen); got != tc.want {
-			t.Errorf("DSDOutRate(%d, %d) = %d, want %d", tc.dsd, tc.chosen, got, tc.want)
+		if got := DSDMidRate(tc.dsd, tc.out); got != tc.mid {
+			t.Errorf("DSDMidRate(%d, %d) = %d, want %d", tc.dsd, tc.out, got, tc.mid)
+		}
+	}
+}
+
+func TestDSDPCMSamples(t *testing.T) {
+	// a second of DSD64 is a second of PCM at any rate
+	for _, out := range DSDRates {
+		if got := DSDPCMSamples(2822400, 2822400, out); got != uint64(out) {
+			t.Errorf("one second at %d: %d samples", out, got)
 		}
 	}
 }
 
 func TestDSDSettingsNormalize(t *testing.T) {
-	if got := (DSDSettings{Rate: 192000, GainDB: 9}).Normalize(); got != DefaultDSD() {
+	if got := (DSDSettings{Rate: 100000, GainDB: 9}).Normalize(); got != DefaultDSD() {
 		t.Errorf("unknown values: %+v", got)
 	}
 	if got := (DSDSettings{Rate: 88200, GainDB: 3}).Normalize(); got != (DSDSettings{88200, 3}) {

@@ -10,7 +10,8 @@ import (
 	"github.com/panedrone/go-upnp-player/internal/services"
 )
 
-// dsdBlock is how many PCM samples one conversion step makes.
+// dsdBlock is about how many PCM samples one conversion step makes (whole cycles of the
+// converter).
 const dsdBlock = 4096
 
 // dsdSource converts a DSD file to PCM from a given PCM sample on (ADR-028). The conversion
@@ -20,10 +21,11 @@ type dsdSource struct {
 	f    *os.File
 	d    services.DSDFile
 	conv *services.DSDConverter
-	bps  int64 // DSD bytes of one channel per PCM sample
-	next int64 // the next DSD byte of each channel to convert; below 0 or past the end: silence
-	drop int   // converted samples still to drop
-	path string
+	// a step converts whole cycles: cycOut PCM samples from cycBytes DSD bytes per channel
+	cycOut, cycBytes int64
+	next             int64 // the next DSD byte of each channel to convert; below 0 or past the end: silence
+	drop             int   // converted samples still to drop
+	path             string
 }
 
 func openDSD(span Span, from uint64) (*dsdSource, error) {
@@ -35,26 +37,33 @@ func openDSD(span Span, from uint64) (*dsdSource, error) {
 	s := &dsdSource{
 		f: f, d: d, path: span.Path,
 		conv: services.NewDSDConverter(d.Rate, span.SampleRate, d.Channels, library.DSD().GainDB),
-		bps:  int64(services.DSDBytesPerSample(d.Rate, span.SampleRate)),
 	}
-	warm := 2*s.conv.Delay() + 64
-	s.next = (int64(from) - int64(warm)) * s.bps
-	s.drop = warm + s.conv.Delay()
+	o, b := s.conv.Cycle()
+	s.cycOut, s.cycBytes = int64(o), int64(b)
+	// start converting a little earlier, on a cycle (rounded down, below 0 too)
+	start := int64(from) - int64(2*s.conv.Delay()+64)
+	k := start / s.cycOut
+	if start%s.cycOut < 0 {
+		k--
+	}
+	s.next = k * s.cycBytes
+	s.drop = int(int64(from)-k*s.cycOut) + s.conv.Delay()
 	return s, nil
 }
 
 // block converts the next dsdBlock samples of every channel.
 func (s *dsdSource) block() ([][]int32, error) {
 	for {
+		n := max(1, dsdBlock/s.cycOut) * s.cycBytes
 		in := make([][]byte, s.d.Channels)
 		for ch := range in {
-			b, err := s.read(ch, s.next, dsdBlock*s.bps)
+			b, err := s.read(ch, s.next, n)
 			if err != nil {
 				return nil, err
 			}
 			in[ch] = b
 		}
-		s.next += dsdBlock * s.bps
+		s.next += n
 		out := s.conv.Process(in)
 		if s.drop >= len(out[0]) {
 			s.drop -= len(out[0])

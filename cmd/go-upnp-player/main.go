@@ -72,6 +72,9 @@ func main() {
 	handlers.AppVersion = server.Version
 	player.Build = build
 	player.Version = server.Version
+	if web.FromDisk() {
+		player.Dev = strings.TrimSuffix(ui, "/")
+	}
 	addr := ":" + strconv.Itoa(*port)
 	ln, err := net.Listen("tcp4", addr)
 	if err != nil {
@@ -132,6 +135,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	go bg_workers.RunPlayerPoll(ctx)
+	go bg_workers.RunAutoScan(ctx)
 	// the Quit button in the UI takes the same path as Ctrl+C
 	handlers.RequestShutdown = stop
 

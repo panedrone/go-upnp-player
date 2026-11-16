@@ -139,8 +139,8 @@ input.form-range:disabled::-webkit-slider-thumb { background-color: var(--bs-bod
 input.form-range:disabled::-moz-range-thumb { background-color: var(--bs-body-bg); border-color: var(--bs-border-color); }
 input.form-range:focus::-webkit-slider-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs-secondary-rgb), .3); }
 input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs-secondary-rgb), .3); }
-#eq-enabled:checked { background-color: var(--bs-secondary); border-color: var(--bs-secondary); }
-#eq-enabled:focus { box-shadow: 0 0 0 .2rem rgba(var(--bs-secondary-rgb), .3); }
+#eq-enabled:checked, #auto-scan:checked { background-color: var(--bs-secondary); border-color: var(--bs-secondary); }
+#eq-enabled:focus, #auto-scan:focus { box-shadow: 0 0 0 .2rem rgba(var(--bs-secondary-rgb), .3); }
 
 /* a row the tree just jumped to: a short flash, then back to normal */
 @keyframes reveal-flash {

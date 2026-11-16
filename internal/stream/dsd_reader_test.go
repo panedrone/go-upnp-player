@@ -85,33 +85,39 @@ func readSamples(t *testing.T, span Span, offset int64) []int32 {
 }
 
 // A DSD stream started in the middle gives the very samples a stream from the start gives
-// there (after the start's own 10 ms fade-in), and the length is the file's.
+// there (after the start's own 10 ms fade-in), and the length is the file's; at 192 kHz too,
+// through the resampler.
 func TestDSDStreamFromTheMiddle(t *testing.T) {
+	for _, out := range []uint32{88200, 192000} {
+		dsdStreamFromTheMiddle(t, out)
+	}
+}
+
+func dsdStreamFromTheMiddle(t *testing.T, out uint32) {
 	// the gain is a setting: 0 dB here, whatever the default
 	old := library.DSD()
-	library.SetDSD(services.DSDSettings{Rate: 88200, GainDB: 0})
+	library.SetDSD(services.DSDSettings{Rate: out, GainDB: 0})
 	t.Cleanup(func() { library.SetDSD(old) })
 	path, d := writeTestDSF(t, 0.5)
-	const out = 88200
-	n := d.Samples / uint64(d.Rate/out)
+	n := services.DSDPCMSamples(d.Samples, d.Rate, out)
 	span := Span{Path: path, Start: 0, End: n, SampleRate: out, Channels: 2, Bits: 24, Seekable: true, DSD: &d}
 	whole := readSamples(t, span, 0)
 	if uint64(len(whole)) != n*2 {
-		t.Fatalf("%d samples, want %d", len(whole), n*2)
+		t.Fatalf("%d: %d samples, want %d", out, len(whole), n*2)
 	}
 	peak := int32(0)
 	for _, v := range whole[2*2000:] {
 		peak = max(peak, v, -v)
 	}
 	if want := int32(3355443); math.Abs(float64(peak-want)) > float64(want)/50 {
-		t.Errorf("peak %d, want about %d", peak, want)
+		t.Errorf("%d: peak %d, want about %d", out, peak, want)
 	}
 	const k = 20000 // a PCM sample in the middle
 	part := readSamples(t, span, int64(services.WavHeaderLen+k*6))
-	fade := 2 * (out*fadeMs/1000 + 1)
+	fade := 2 * (int(out)*fadeMs/1000 + 1)
 	for i := fade; i < len(part); i++ {
 		if part[i] != whole[2*k+i] {
-			t.Fatalf("sample %d from the middle: %d, from the start: %d", i, part[i], whole[2*k+i])
+			t.Fatalf("%d: sample %d from the middle: %d, from the start: %d", out, i, part[i], whole[2*k+i])
 		}
 	}
 }

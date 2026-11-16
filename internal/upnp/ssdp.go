@@ -27,6 +27,16 @@ var searchTargets = []string{
 // Discover sends M-SEARCH from all IPv4 interfaces and collects the renderers
 // that respond within timeout.
 func Discover(ctx context.Context, timeout time.Duration) ([]Device, error) {
+	return Rediscover(ctx, timeout, nil)
+}
+
+// Rediscover is Discover that takes a device answering from a location of known as it is,
+// without fetching its description again: the auto scan searches every second.
+func Rediscover(ctx context.Context, timeout time.Duration, known []Device) ([]Device, error) {
+	byLoc := make(map[string]Device, len(known))
+	for _, d := range known {
+		byLoc[d.Location] = d
+	}
 	locations := make(map[string]struct{})
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -47,6 +57,10 @@ func Discover(ctx context.Context, timeout time.Duration) ([]Device, error) {
 	devices := make(map[string]Device)
 	var dwg sync.WaitGroup
 	for loc := range locations {
+		if d, ok := byLoc[loc]; ok {
+			devices[d.UDN] = d
+			continue
+		}
 		dwg.Add(1)
 		go func(loc string) {
 			defer dwg.Done()

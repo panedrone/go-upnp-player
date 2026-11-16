@@ -439,14 +439,24 @@ export default function App() {
               </span>
               {/* the header speaks only for the player itself; the device's own state sits on its row */}
               {!connected && <Badge bg={transportVariant[transport]} className="me-2">{transport}</Badge>}
-              <Button size="sm" variant="outline-secondary" className="head-btn ms-auto flex-shrink-0" title="Search for devices again" onClick={() => run(api.refreshRenderers())} disabled={state?.discovering}>
+              {/* Scan: a search every second, for a device being rebooted, until it is turned off */}
+              <Form.Check
+                type="switch" id="auto-scan" className="ms-auto me-2 flex-shrink-0" label="Scan"
+                title="Search for devices every second until turned off"
+                checked={!!state?.autoScan} onChange={(e) => run(api.autoScanRenderers(e.target.checked))}
+              />
+              <Button size="sm" variant="outline-secondary" className="head-btn flex-shrink-0" title="Search for devices again" onClick={() => run(api.refreshRenderers())} disabled={state?.discovering}>
                 {state?.discovering ? <Spinner size="sm" className="head-spinner" /> : <RefreshIcon />}
               </Button>
             </Card.Header>
             {/* devices as a list; select with a button that appears on hover after the name */}
             <ListGroup variant="flush">
               {renderers.length === 0 && (
-                <ListGroup.Item className="text-body-secondary small">{state?.discovering ? 'Searching…' : 'No renderers found'}</ListGroup.Item>
+                <ListGroup.Item className="text-body-secondary small d-flex align-items-center">
+                  {/* a spinner while a search is under way or Scan is on */}
+                  {(state?.discovering || state?.autoScan) && <Spinner size="sm" className="me-2 flex-shrink-0" />}
+                  {state?.discovering ? 'Searching…' : state?.autoScan ? 'Scanning for devices…' : 'No renderers found'}
+                </ListGroup.Item>
               )}
               {renderers.map((r) => {
                 const sel = r.udn === state?.selected
@@ -491,7 +501,8 @@ export default function App() {
           busy with on the left, then an error (it used to stretch the Output card under the
           devices and shift the layout), then the answer about updates beside the cloud button
           that asked for it, then the version; no React or Vite versions, which only tell an
-          outsider what the UI is built with */}
+          outsider what the UI is built with. A run with -web (the page from disk) ends with a
+          gold dev badge and the address it listens on, so it is not taken for the installed one */}
       <footer className="status-bar border-top bg-body-tertiary text-body-secondary d-flex align-items-center gap-3">
         <span className="status-msg text-truncate flex-grow-1" title={state?.waiting || ''}>
           {state?.waiting && (
@@ -518,6 +529,12 @@ export default function App() {
           </Button>
           {state?.version}
         </span>
+        {state?.dev && (
+          <span className="flex-shrink-0 d-flex align-items-center gap-2">
+            <Badge bg="warning" text="dark">dev</Badge>
+            {state.dev}
+          </span>
+        )}
       </footer>
     </div>
   )
