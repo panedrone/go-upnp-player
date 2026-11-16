@@ -1,8 +1,8 @@
 # ADR-028: DSD files are converted to PCM in the player, up to 176.4 kHz
 
-**Status:** Accepted 2026-11-15 (1.1.35). **Open:** not yet heard on the renderers: the
-conversion was checked by its tests and on the library's DSF files (level, spectrum, speed), not by
-playing them on the BeagleBone and the FiiO SR11. DSD images with a cue sheet, SACD `.iso` images,
+**Status:** Accepted 2026-11-15 (1.1.35). Heard on the BeagleBone 2026-11-16 (through an
+Amanero-type card, coax into the SMSL RAW-HA1): plays. **Open:** not yet heard on the FiiO SR11.
+DSD images with a cue sheet, SACD `.iso` images,
 DST-compressed `.dff` and multichannel DSD are not played.
 
 How it works now: [SAD §4](go-upnp-player-sad.md#4-serving-tracks) and §7.
