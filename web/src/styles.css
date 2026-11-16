@@ -18,6 +18,8 @@ body { overflow: hidden; font-size: 14px; }
 .status-msg { min-width: 0; }
 /* the error area: as wide as its text, at most half the bar; the full text is its tooltip */
 .status-err { flex: 0 1 auto; min-width: 0; max-width: 50%; }
+/* the answer about updates: its own area, just left of the cloud button that asked */
+.status-upd { flex: 0 1 auto; min-width: 0; max-width: 60%; margin-right: -.5rem; }
 
 /* columns and splitters */
 .col-library, .col-tracks { display: flex; flex-direction: column; }

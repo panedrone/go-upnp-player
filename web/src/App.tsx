@@ -487,15 +487,14 @@ export default function App() {
         </div>
         </Panel>
       </PanelGroup>
-      {/* status bar: what the player is busy with on the left, then an error in an area of its
-          own (it used to stretch the Output card under the devices and shift the layout, and
-          here it overwrites nothing), its version on the right; no React or Vite versions, which
-          only tell an outsider what the UI is built with */}
+      {/* status bar, one area per kind of message so none hides another: what the player is
+          busy with on the left, then an error (it used to stretch the Output card under the
+          devices and shift the layout), then the answer about updates beside the cloud button
+          that asked for it, then the version; no React or Vite versions, which only tell an
+          outsider what the UI is built with */}
       <footer className="status-bar border-top bg-body-tertiary text-body-secondary d-flex align-items-center gap-3">
         <span className="status-msg text-truncate flex-grow-1" title={state?.waiting || ''}>
-          {updateNote ? (
-            <UpdateMessage note={updateNote} onClose={() => setUpdateNote(null)} onInstall={installUpdate} />
-          ) : state?.waiting && (
+          {state?.waiting && (
             <>
               <Spinner size="sm" className="me-2" />
               {state.waiting}
@@ -503,7 +502,12 @@ export default function App() {
           )}
         </span>
         {error && <span className="status-err text-danger text-truncate" title={error}>{error}</span>}
-        {/* check for updates beside the version it compares: the answer shows in this bar too */}
+        {updateNote && (
+          <span className="status-upd text-truncate">
+            <UpdateMessage note={updateNote} onClose={() => setUpdateNote(null)} onInstall={installUpdate} />
+          </span>
+        )}
+        {/* check for updates beside the version it compares; the answer is just left of it */}
         <span className="flex-shrink-0 d-flex align-items-center gap-1">
           <Button
             size="sm" variant="link" className="status-update"

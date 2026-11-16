@@ -113,7 +113,9 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 - The status bar shows on the left what the player is busy with (a refused start being retried,
   with the attempt and the seconds left), then the latest error in red in an area of its own
   (at most half the bar, the full text in its tooltip; it overwrites nothing, and the Output card
-  no longer stretches for it), and on the right the player's version alone (no name, no `v`, no build id). React and Vite versions are not shown: they only tell an outsider what the UI is built
+  no longer stretches for it), then the answer about updates in an area of its own just left of
+  the cloud button (it never hides what the player is busy with), and on the right the player's
+  version alone (no name, no `v`, no build id). React and Vite versions are not shown: they only tell an outsider what the UI is built
   with.
 
 ## 3. Playback flow
