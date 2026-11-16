@@ -183,7 +183,9 @@ through an account without a password; use one that has one.
   - `-port` — port for the UI, the API and the track streams, 8090 by default;
   - `-no-browser` — do not open the browser or a window;
   - `-window` — the UI in a window of its own even outside an installed copy (Windows);
-  - `-browser` — the UI in the browser even in an installed copy.
+  - `-browser` — the UI in the browser even in an installed copy;
+  - `-web` — serve the page from a folder instead of the copy built into the exe, e.g.
+    `-web web/dist`: for development, a fresh `npm run build` shows on the next reload.
 
 ## License
 

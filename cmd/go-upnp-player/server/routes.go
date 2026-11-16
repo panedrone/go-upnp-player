@@ -3,6 +3,8 @@
 package server
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/static"
 	"github.com/panedrone/go-upnp-player/internal/handlers"
@@ -56,9 +58,16 @@ func InitRoutes(app *fiber.App) {
 	// modification time, the browser kept a stale index.html that pointed at the
 	// previous build's hashed bundle, and after an update the page came up blank
 	// (2026-11-09). The hashed bundles themselves may be cached.
+	// With -web the files come from disk; the middleware then keeps no open
+	// file handlers, so a fresh npm run build shows on the next reload.
+	cacheFor := time.Duration(0) // the middleware's default
+	if web.FromDisk() {
+		cacheFor = -1
+	}
 	app.Get("/*", handlers.FreshIndex, static.New("", static.Config{
-		FS:         web.Dist(),
-		IndexNames: []string{"index.html"},
+		FS:            web.Dist(),
+		IndexNames:    []string{"index.html"},
+		CacheDuration: cacheFor,
 		ModifyResponse: func(c fiber.Ctx) error {
 			if services.IsIndexPath(c.Path()) {
 				c.Set(fiber.HeaderCacheControl, "no-cache")

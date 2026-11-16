@@ -68,7 +68,8 @@ internal/selfupdate     the update check (GitHub's latest release) and go instal
 internal/config         settings in %AppData%\go-upnp-player\config.json
 internal/testkit        for tests only: generated FLAC files, a fake gmrender renderer
 web/                    React + React-Bootstrap (Vite); web/dist is built at design time,
-                        committed, and embedded with go:embed (so go install needs no Node)
+                        committed, and embedded with go:embed (so go install needs no Node);
+                        -web <folder> serves it from disk instead (development)
 installer/              Windows installer script (Inno Setup 6), built at design time
 ```
 
@@ -328,7 +329,7 @@ web player.
   the right; volume, theme and Quit in a card above Output
   (volume is the selected device's). What plays is shown in the playlist: its row is bold and
   marked ▶ left of the track number. A click anywhere on a row plays it; under the pointer its title
-  is underlined. The i in a column of its own after the duration, shown on row hover, shows the
+  is underlined. The i button right after the title, shown on row hover like the tree's buttons, shows the
   track's properties and leaves playback alone. Album headers show
   the total time.
 - **The years** in the playlist's album headers (page and Qt): the album's own year, then the

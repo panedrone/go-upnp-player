@@ -57,13 +57,13 @@ export function UpdateIcon() {
   )
 }
 
-// "Properties": an i in a circle, after a playlist title the pointer is on
+// "Properties": an i, on the row button after a playlist title; the size and stroke of the
+// other row buttons' icons
 export function InfoIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-      <circle cx="8" cy="8" r="6.3" />
-      <path d="M8 7.2v4.3" />
-      <circle cx="8" cy="4.9" r=".55" fill="currentColor" stroke="none" />
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <path d="M8 7v6.5" />
+      <circle cx="8" cy="3.2" r="1.3" fill="currentColor" stroke="none" />
     </svg>
   )
 }

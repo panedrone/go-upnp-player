@@ -66,13 +66,8 @@ body { overflow: hidden; font-size: 14px; }
 /* a click on a row shows its properties */
 .track-table tr { cursor: pointer; user-select: none; }
 .track-table .col-num { width: 44px; padding-left: 0; }
-/* properties: an i in a column of its own after the duration, shown on row hover */
-.track-table .col-props { width: 28px; padding-left: 0; padding-right: 0; text-align: center; }
-/* the row under the pointer: its title underlined (a click plays it) and its i shown */
-.props-icon { display: inline-flex; align-items: center; vertical-align: middle; visibility: hidden; }
+/* the row under the pointer: its title underlined (a click plays it); its i button shows by .hover-btn */
 .track-table tr:hover .track-title { text-decoration: underline; }
-.track-table tr:hover .props-icon { visibility: visible; }
-.track-table .col-props:hover .props-icon { color: var(--bs-body-color); }
 /* the number at the right of its cell; the room left of it holds the playing mark, centred */
 /* a line high even with no number (tracks without a TRACKNUMBER tag): the mark stays on the
    middle of the title's line, not at the top of an empty cell (2026-11-15) */
@@ -110,7 +105,6 @@ body { overflow: hidden; font-size: 14px; }
 /* touch screens: no hover, so row buttons are always visible */
 @media (hover: none) {
   .btn.hover-btn { visibility: visible; }
-  .props-icon { visibility: visible; }
 }
 
 
@@ -189,6 +183,8 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
    button, the icon in its middle, close to the label (a wider pill sat too far from it,
    2026-11-15); after the playlist's own .hover-btn padding, so it wins */
 .btn.hover-btn.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 18px; padding: 0; margin-left: 2px; border-radius: var(--bs-border-radius-sm); }
+/* the tree row's flex gap (5px) plus that margin: the same 7px after a playlist title (2026-11-16) */
+.track-table .btn.hover-btn.icon-btn { margin-left: 7px; }
 
 /* the update message in the status bar: its action and its × as plain inline links */
 .status-bar .btn.status-link, .status-bar .btn.status-close { padding: 0 0 0 .5rem; border: 0; vertical-align: baseline; font-size: inherit; line-height: inherit; }

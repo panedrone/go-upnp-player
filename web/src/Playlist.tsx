@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Badge, Image, Spinner, Table } from 'react-bootstrap'
+import { Badge, Button, Image, Spinner, Table } from 'react-bootstrap'
 import { artUrl, fmtTime, Track } from './api'
 import { InfoIcon, PlayIcon } from './icons'
 
@@ -82,26 +82,26 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay, sele
                       </td>
                       <td>
                         <div className="row-label">
-                          {/* a click anywhere on the row plays it; the i after the duration shows the
+                          {/* a click anywhere on the row plays it; the i right after the title shows the
                               track's properties */}
                           <span className={'text-truncate track-title' + (playing ? '' : ' text-body-secondary')}>
                             {t.title}
                             {t.artist && t.artist !== g.artist ? <small className="text-body-secondary"> — {t.artist}</small> : null}
                           </span>
+                          <Button
+                            size="sm" variant="secondary" className="hover-btn icon-btn" title="Show properties"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onSelect(t.id)
+                            }}
+                          >
+                            <InfoIcon />
+                          </Button>
                           {/* while the start is under way, right after the title */}
                           {pendingIndex === i && <Spinner size="sm" className="ms-2 flex-shrink-0 text-body-secondary" />}
                         </div>
                       </td>
                       <td className="col-dur text-end text-body-secondary">{fmtTime(t.duration)}</td>
-                      <td
-                        className="col-props text-body-secondary" title="Show properties"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onSelect(t.id)
-                        }}
-                      >
-                        <span className="props-icon"><InfoIcon /></span>
-                      </td>
                     </tr>
                   )
                 })}

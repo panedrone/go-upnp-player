@@ -30,6 +30,7 @@ import (
 	"github.com/panedrone/go-upnp-player/internal/selfupdate"
 	"github.com/panedrone/go-upnp-player/internal/services"
 	"github.com/panedrone/go-upnp-player/internal/stream"
+	"github.com/panedrone/go-upnp-player/web"
 )
 
 func init() {
@@ -43,7 +44,15 @@ func main() {
 	noBrowser := flag.Bool("no-browser", false, "do not open the UI in a browser on start")
 	inWindow := flag.Bool("window", false, "show the UI in a window of its own instead of the browser (Windows; the default for an installed copy)")
 	inBrowser := flag.Bool("browser", false, "show the UI in the browser even in an installed copy")
+	webDir := flag.String("web", "", "serve the UI from this folder (e.g. web/dist) instead of the copy built into the exe; for development")
 	flag.Parse()
+	if *webDir != "" {
+		// checked before anything else: a wrong folder is a typo, not a page without files
+		if _, err := os.Stat(filepath.Join(*webDir, "index.html")); err != nil {
+			log.Fatalf("-web: %v", err)
+		}
+		web.UseDir(*webDir)
+	}
 	useWindow := !*noBrowser && !*inBrowser && (*inWindow || installed())
 
 	// The exe is built without a console (-H=windowsgui): there is nowhere to see
