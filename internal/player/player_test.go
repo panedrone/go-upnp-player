@@ -82,7 +82,7 @@ func resetState() {
 	index, wantPlaying, paused, lastCmd, nextURL = -1, false, false, time.Time{}, ""
 	transport, position, duration, volume, lastErr = "", 0, 0, -1, ""
 	discovering, mediaPort, tickCount, resumeAt = false, 0, 0, -1
-	autoScan, scanSeen = false, nil
+	autoScan, scanSeen, dsdApplying = false, nil, 0
 	frozenSince, stalled = time.Time{}, false
 	lastPollAt, lastTrackURI, racingTicks, racingIndex, racingFrom, racingFixAt = time.Time{}, "", 0, 0, 0, time.Time{}
 	pendingIndex, pendingPos, pendingSince, pendingTry, pendingTries = 0, 0, time.Time{}, time.Time{}, 0

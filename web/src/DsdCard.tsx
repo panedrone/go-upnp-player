@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Collapse, Form } from 'react-bootstrap'
+import { Button, Card, Collapse, Form, Spinner } from 'react-bootstrap'
 import { api, DSDSettings } from './api'
 import { ChevronIcon } from './icons'
 
@@ -7,12 +7,14 @@ const openKey = 'go-upnp-player.dsd-open'
 
 interface Props {
   onError: (msg: string) => void
+  applying: boolean // the server is still applying a change (state.dsdApplying)
 }
 
 // DSD: how .dsf/.dff files become PCM on their way to the streamer (ADR-028). The settings live
 // on the server in their own file; a change applies at once.
-export default function DsdCard({ onError }: Props) {
+export default function DsdCard({ onError, applying }: Props) {
   const [s, setS] = useState<DSDSettings | null>(null)
+  const [saving, setSaving] = useState(0) // changes sent, not yet answered
   // whether the card body is shown: a per-browser convenience, as for the other cards
   const [open, setOpen] = useState(() => {
     try {
@@ -36,10 +38,13 @@ export default function DsdCard({ onError }: Props) {
   const save = (next: DSDSettings) => {
     const prev = s
     setS(next)
-    api.saveDsd(next.rate, next.gainDb).catch((e) => {
-      setS(prev)
-      onError(e instanceof Error ? e.message : String(e))
-    })
+    setSaving((n) => n + 1)
+    api.saveDsd(next.rate, next.gainDb)
+      .catch((e) => {
+        setS(prev)
+        onError(e instanceof Error ? e.message : String(e))
+      })
+      .finally(() => setSaving((n) => n - 1))
   }
 
   return (
@@ -81,6 +86,9 @@ export default function DsdCard({ onError }: Props) {
                     <option key={g} value={g}>{g > 0 ? `+${g}` : g} dB</option>
                   ))}
                 </Form.Select>
+                {/* right of the selects while a change is sent and applied (a new rate rescans the
+                    library and restarts the playing DSD track) */}
+                {(saving > 0 || applying) && <Spinner size="sm" className="text-body-secondary" title="Applying" />}
               </div>
             )}
             <div className="form-text mt-2">

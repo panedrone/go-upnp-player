@@ -37,8 +37,10 @@ type State struct {
 	Waiting     string `json:"waiting,omitempty"`
 	Discovering bool   `json:"discovering"`
 	// AutoScan: the Output card's Scan switch, searching for devices every second
-	AutoScan bool           `json:"autoScan"`
-	Library  library.Status `json:"library"`
+	AutoScan bool `json:"autoScan"`
+	// DSDApplying: a change of the DSD card is being applied (rescan, restart of the track)
+	DSDApplying bool           `json:"dsdApplying,omitempty"`
+	Library     library.Status `json:"library"`
 	// Build of the running exe: the UI reloads itself when it changes (after an update)
 	Build   string `json:"build"`
 	Version string `json:"version"`
@@ -80,6 +82,7 @@ var (
 	lastErr     string
 	discovering bool
 	autoScan    bool
+	dsdApplying int                  // DSD changes still being applied
 	scanSeen    map[string]time.Time // while Scan is on: when each listed device last answered
 	mediaPort   int
 	tickCount   int
@@ -154,7 +157,7 @@ func Snapshot() State {
 		Renderers: renderers, Selected: selected, Transport: transport, Stalled: stalled,
 		WantPlaying: wantPlaying, Paused: paused, Position: position, Duration: duration,
 		Volume: volume, Index: index, QueueVersion: queueVersion, QueueLen: len(queue), Source: source,
-		Error: lastErr, Discovering: discovering, AutoScan: autoScan, Library: library.GetStatus(), Build: Build, Version: Version, Dev: Dev,
+		Error: lastErr, Discovering: discovering, AutoScan: autoScan, DSDApplying: dsdApplying > 0, Library: library.GetStatus(), Build: Build, Version: Version, Dev: Dev,
 		Off: off,
 	}
 	if index >= 0 && index < len(queue) {

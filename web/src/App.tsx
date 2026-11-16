@@ -442,10 +442,10 @@ export default function App() {
               {/* Scan: a search every second, for a device being rebooted, until it is turned off */}
               <Form.Check
                 type="switch" id="auto-scan" className="ms-auto me-2 flex-shrink-0" label="Scan"
-                title="Search for devices every second until turned off"
+                title="Scan for devices every second until turned off"
                 checked={!!state?.autoScan} onChange={(e) => run(api.autoScanRenderers(e.target.checked))}
               />
-              <Button size="sm" variant="outline-secondary" className="head-btn flex-shrink-0" title="Search for devices again" onClick={() => run(api.refreshRenderers())} disabled={state?.discovering}>
+              <Button size="sm" variant="outline-secondary" className="head-btn flex-shrink-0" title="Scan for devices again" onClick={() => run(api.refreshRenderers())} disabled={state?.discovering}>
                 {state?.discovering ? <Spinner size="sm" className="head-spinner" /> : <RefreshIcon />}
               </Button>
             </Card.Header>
@@ -455,7 +455,7 @@ export default function App() {
                 <ListGroup.Item className="text-body-secondary small d-flex align-items-center">
                   {/* a spinner while a search is under way or Scan is on */}
                   {(state?.discovering || state?.autoScan) && <Spinner size="sm" className="me-2 flex-shrink-0" />}
-                  {state?.discovering ? 'Searching…' : state?.autoScan ? 'Scanning for devices…' : 'No renderers found'}
+                  {state?.discovering || state?.autoScan ? 'Scanning for devices…' : 'No renderers found'}
                 </ListGroup.Item>
               )}
               {renderers.map((r) => {
@@ -492,7 +492,7 @@ export default function App() {
             </ListGroup>
           </Card>
           <Equalizer onError={showErr} />
-          <DsdCard onError={showErr} />
+          <DsdCard onError={showErr} applying={!!state?.dsdApplying} />
           <Settings scanning={!!state?.library.scanning} tracks={state?.library.tracks ?? 0} />
         </div>
         </Panel>

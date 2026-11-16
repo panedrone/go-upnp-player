@@ -60,7 +60,8 @@ export interface PlayerState {
   error?: string
   waiting?: string // the renderer refused to play; the start is being retried
   discovering: boolean
-  autoScan: boolean // the Output card's Auto switch: a device search every second
+  autoScan: boolean // the Output card's Scan switch: a device search every second
+  dsdApplying?: boolean // a DSD card change is being applied (rescan, restart of the track)
   library: { scanning: boolean; tracks: number; scans: number }
   build?: string
   version?: string

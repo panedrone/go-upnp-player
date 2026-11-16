@@ -356,7 +356,8 @@ web player.
   (44.1 / 48 / 88.2 / 96 / 176.4 / 192 kHz as in foobar2000, 176.4 by default,
   [ADR-029](adr-029-dsd-every-rate-up-to-192.md)) and the gain (0 / +3 / +6 dB, +6 by default, as
   foobar2000) as two selects on one line; a change saves at once (`GET`/`PUT /api/dsd`) and restarts a
-  playing DSD track where it is (`player.SetDSD`; a new rate rescans the library first).
+  playing DSD track where it is (`player.SetDSD`; a new rate rescans the library first); a spinner
+  right of the selects while that is under way (`dsdApplying` in the state).
   Foldable like the other cards.
 - **Playlist and devices.** Only the playlist plays (a click on its row, or Play in its header). Devices are a
   list in the Output card with a Use button; Refresh and the Scan switch in its header. The selected device's row carries its transport badge after its name
