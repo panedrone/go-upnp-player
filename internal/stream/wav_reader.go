@@ -1,4 +1,4 @@
-// Package stream serves a sample range of a FLAC file as a WAV stream.
+// Package stream serves a sample range of a FLAC, WAV or DSD file as a WAV stream.
 package stream
 
 import (
@@ -45,6 +45,8 @@ type Span struct {
 	Seekable bool
 	// DSD: the file is DSD, converted to PCM at SampleRate (ADR-028); Start and End are PCM samples
 	DSD *services.DSDFile
+	// WAV: the file is a WAV; its samples are read as they are
+	WAV *services.WAVFile
 }
 
 // Layout is the geometry of the virtual WAV for this range.
@@ -78,6 +80,8 @@ type Reader struct {
 
 	// dsd, when set, makes the blocks instead of a FLAC stream
 	dsd *dsdSource
+	// pcm, when set, reads the blocks from a WAV file
+	pcm *pcmSource
 }
 
 // Open prepares reading from byte offset offset of the virtual WAV.
@@ -118,6 +122,14 @@ func Open(span Span, offset int64) (*Reader, error) {
 			return nil, err
 		}
 		r.dsd, r.pos, r.cut = d, from, target
+		return r, nil
+	}
+	if span.WAV != nil {
+		p, err := openPCM(span, from)
+		if err != nil {
+			return nil, err
+		}
+		r.pcm, r.pos, r.cut = p, from, target
 		return r, nil
 	}
 
@@ -243,10 +255,14 @@ func (r *Reader) fill() error {
 	return nil
 }
 
-// nextBlock decodes the next FLAC frame, or converts the next DSD block, into samples per channel.
+// nextBlock decodes the next FLAC frame, reads the next WAV block or converts the next DSD
+// block, into samples per channel.
 func (r *Reader) nextBlock() ([][]int32, error) {
 	if r.dsd != nil {
 		return r.dsd.block()
+	}
+	if r.pcm != nil {
+		return r.pcm.block()
 	}
 	var fr *frame.Frame
 	var err error
@@ -280,6 +296,9 @@ func (r *Reader) fadeIn(chans [][]int32, from, to int) {
 func (r *Reader) Close() error {
 	if r.dsd != nil {
 		return r.dsd.Close()
+	}
+	if r.pcm != nil {
+		return r.pcm.Close()
 	}
 	if r.file != nil {
 		return r.file.Close()

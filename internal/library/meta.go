@@ -25,6 +25,8 @@ type FileMeta struct {
 	Tags       map[string]string `json:"t,omitempty"`
 	// DSD: a .dsf or .dff file; SampleRate is then the DSD rate and NSamples its 1-bit samples
 	DSD *services.DSDFile `json:"dsd,omitempty"`
+	// WAV: a .wav file
+	WAV *services.WAVFile `json:"wav,omitempty"`
 }
 
 // parseBlocks reads only the metadata blocks and does not touch the audio. The
@@ -102,6 +104,37 @@ func isDSD(path string) bool {
 	return false
 }
 
+// isWAV reports a WAV file by its extension.
+func isWAV(path string) bool { return strings.EqualFold(filepath.Ext(path), ".wav") }
+
+// readWAVMeta reads the chunks of a WAV file (not the audio): its LIST INFO tags, and an ID3
+// tag over them when the file has one.
+var readWAVMeta = func(path string, st os.FileInfo) (*FileMeta, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	w, tags, err := services.ParseWAV(f, st.Size())
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	m := &FileMeta{
+		ModTime: st.ModTime().UnixNano(), Size: st.Size(),
+		SampleRate: w.Rate, Channels: uint8(w.Channels), Bits: uint8(w.Bits), NSamples: w.Frames,
+		Seekable: true, Tags: tags, WAV: &w,
+	}
+	if tag, err := readTagAt(f, w.Tag, w.TagSize); err == nil {
+		if t, ok := services.ParseID3(tag, false); ok {
+			for k, v := range t.Tags {
+				m.Tags[k] = v
+			}
+			m.HasPicture = t.HasPicture
+		}
+	}
+	return m, nil
+}
+
 // maxTag caps what is read of an ID3 tag (a cover is part of it).
 const maxTag = 32 << 20
 
@@ -130,7 +163,7 @@ var readDSDMeta = func(path string, st os.FileInfo) (*FileMeta, error) {
 		SampleRate: d.Rate, Channels: uint8(d.Channels), Bits: 1, NSamples: d.Samples,
 		Seekable: true, Tags: map[string]string{}, DSD: &d,
 	}
-	if tag, err := readDSDTag(f, d); err == nil {
+	if tag, err := readTagAt(f, d.Tag, d.TagSize); err == nil {
 		if t, ok := services.ParseID3(tag, false); ok {
 			m.Tags, m.HasPicture = t.Tags, t.HasPicture
 		}
@@ -138,26 +171,27 @@ var readDSDMeta = func(path string, st os.FileInfo) (*FileMeta, error) {
 	return m, nil
 }
 
-func readDSDTag(f *os.File, d services.DSDFile) ([]byte, error) {
-	if d.Tag == 0 || d.TagSize <= 0 {
+// readTagAt reads the ID3 tag of size bytes at offset at of a DSD or WAV file.
+func readTagAt(f *os.File, at, size int64) ([]byte, error) {
+	if at == 0 || size <= 0 {
 		return nil, os.ErrNotExist
 	}
-	tag := make([]byte, min(d.TagSize, maxTag))
-	n, err := f.ReadAt(tag, d.Tag)
+	tag := make([]byte, min(size, maxTag))
+	n, err := f.ReadAt(tag, at)
 	if n == 0 {
 		return nil, err
 	}
 	return tag[:n], nil
 }
 
-// readDSDPicture returns the cover from a DSD file's ID3 tag.
-var readDSDPicture = func(path string, d services.DSDFile) ([]byte, string, error) {
+// readID3Picture returns the cover from the ID3 tag of a DSD or WAV file.
+var readID3Picture = func(path string, at, size int64) ([]byte, string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, "", err
 	}
 	defer func() { _ = f.Close() }()
-	tag, err := readDSDTag(f, d)
+	tag, err := readTagAt(f, at, size)
 	if err != nil {
 		return nil, "", err
 	}
@@ -168,14 +202,14 @@ var readDSDPicture = func(path string, d services.DSDFile) ([]byte, string, erro
 	return t.Picture, t.PictureMIME, nil
 }
 
-// readDSDComment returns the comment of a DSD file's ID3 tag, for the properties panel.
-func readDSDComment(path string, d services.DSDFile) string {
+// readID3Comment returns the comment of a DSD or WAV file's ID3 tag, for the properties panel.
+func readID3Comment(path string, at, size int64) string {
 	f, err := os.Open(path)
 	if err != nil {
 		return ""
 	}
 	defer func() { _ = f.Close() }()
-	tag, err := readDSDTag(f, d)
+	tag, err := readTagAt(f, at, size)
 	if err != nil {
 		return ""
 	}

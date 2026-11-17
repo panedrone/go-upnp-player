@@ -17,9 +17,10 @@ things touch them, and only when they apply: the equalizer while it is on, and a
 where a stream starts mid-wave (Play, a seek), so it does not click. DSD has no PCM samples to keep:
 it is converted (below).
 
-FLAC files and single-file FLAC images with CUE sheets, played gapless. DSD files (`.dsf`,
-`.dff`) play converted to PCM at 44.1 to 192 kHz: streamers take PCM, and S/PDIF carries
-no DSD ([ADR-028](docs/adr-028-dsd-converted-to-pcm-in-the-player.md)). An optional 18-band
+FLAC and WAV files, and single-file FLAC or WAV images with CUE sheets, played gapless. DSD
+files (`.dsf`, `.dff`) play converted to PCM at 44.1 to 192 kHz: streamers take PCM, and S/PDIF
+carries no DSD ([ADR-028](docs/adr-028-dsd-converted-to-pcm-in-the-player.md)). The path of the
+samples, format by format: [SAD §4](docs/go-upnp-player-sad.md#4-serving-tracks). An optional 18-band
 equalizer (55 Hz … 20 kHz, ±20 dB) reads and writes foobar2000 `.feq` presets. On Windows it
 installs with a window of its own, or as a native Qt app ([go-upnp-player Qt](#the-qt-player-windows));
 the zip and the `go install` builds for Linux and macOS use the browser. From a phone the same page
@@ -41,8 +42,8 @@ quirks forced it and how far each is overcome: the ADRs in
 
 ## Install (Windows)
 
-Requirements: Windows 10/11 x64, a UPnP/DLNA renderer on the same network, a library of FLAC
-files and/or FLAC images with `.cue` sheets.
+Requirements: Windows 10/11 x64, a UPnP/DLNA renderer on the same network, a library of FLAC,
+WAV or DSD files, and/or FLAC or WAV images with `.cue` sheets.
 
 1. Download `go-upnp-player-setup.exe` from
    [Releases](https://github.com/panedrone/go-upnp-player/releases) and run it. It installs for

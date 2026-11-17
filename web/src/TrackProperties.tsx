@@ -16,7 +16,7 @@ function fmtPrecise(sec: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}.${frac}` : `${m}:${ss}.${frac}`
 }
 
-// Properties of one playlist track: its tags and what the FLAC header says.
+// Properties of one playlist track: its tags and what the file's header says.
 export default function TrackProperties({ id }: { id: string | null }) {
   const [props, setProps] = useState<TrackProps | null>(null)
   const [err, setErr] = useState('')

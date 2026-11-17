@@ -46,6 +46,9 @@ type Track struct {
 	// are then the PCM's; DSDRate is the file's own rate.
 	DSD     *services.DSDFile `json:"-"`
 	DSDRate uint32            `json:"dsdRate,omitempty"`
+	// WAV: a WAV file, its samples read as they are
+	WAV    *services.WAVFile `json:"-"`
+	Format string            `json:"format"` // the file's format for the page: FLAC, WAV or DSD
 }
 
 // Node is a tree element.

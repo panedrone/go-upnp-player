@@ -24,7 +24,7 @@ const MaxRunData = 0xF000_0000
 func TrackSpan(t *library.Track, fromMs int64) Span {
 	return Span{
 		Path: t.Path, Start: services.FromSample(t.Start, t.End, t.SampleRate, fromMs), End: t.End,
-		SampleRate: t.SampleRate, Channels: t.Channels, Bits: t.Bits, Seekable: t.Seekable, DSD: t.DSD,
+		SampleRate: t.SampleRate, Channels: t.Channels, Bits: t.Bits, Seekable: t.Seekable, DSD: t.DSD, WAV: t.WAV,
 	}
 }
 

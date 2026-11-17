@@ -68,12 +68,14 @@ func TaggedTrack(path string, nSamples uint64, tags map[string]string) TrackInfo
 	}
 }
 
-// ResolveCueFile finds the audio file a FILE refers to. A common case after
-// EAC: the cue says "album.wav" while "album.flac" sits next to it. So we try
-// the same name with .flac, and if the folder has exactly one FLAC, that one.
+// ResolveCueFile finds the audio file a FILE refers to: that file when it is a FLAC or a WAV
+// and exists. A common case after EAC: the cue says "album.wav" while only "album.flac" sits
+// next to it. So we try the same name with .flac, and if the folder has exactly one audio file
+// (FLAC or WAV), that one.
 func ResolveCueFile(cueDir, name string, exists func(string) bool, flacsInDir []string) string {
 	direct := filepath.Join(cueDir, name)
-	if strings.EqualFold(filepath.Ext(direct), ".flac") && exists(direct) {
+	ext := strings.ToLower(filepath.Ext(direct))
+	if (ext == ".flac" || ext == ".wav") && exists(direct) {
 		return direct
 	}
 	alt := strings.TrimSuffix(direct, filepath.Ext(direct)) + ".flac"

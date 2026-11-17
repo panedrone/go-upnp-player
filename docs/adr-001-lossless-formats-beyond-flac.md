@@ -1,8 +1,8 @@
 # ADR-001: Lossless formats beyond FLAC (DSF/DSD, WAV, AIFF, WavPack, APE, ALAC)
 
 **Status:** Proposed (2026-11-09). DSD is decided otherwise: converted to PCM in the player,
-[ADR-028](adr-028-dsd-converted-to-pcm-in-the-player.md) (2026-11-15, 1.1.35). Nothing else
-implemented yet. Open: pick a pure-Go decoder for WavPack/ALAC or leave them pass-through only; APE stays
+[ADR-028](adr-028-dsd-converted-to-pcm-in-the-player.md) (2026-11-15, 1.1.35). WAV implemented
+as decided below, read in the player (2026-11-17, 1.1.42; SAD §4). AIFF not yet. Open: pick a pure-Go decoder for WavPack/ALAC or leave them pass-through only; APE stays
 pass-through only (no pure-Go decoder).
 
 ## Context

@@ -17,9 +17,9 @@ flowchart LR
         API["Fiber API"]
         PL["player<br/>queue, poll"]
         LIB["library<br/>tree, CUE, tags"]
-        ST["stream<br/>FLAC → WAV + EQ"]
+        ST["stream<br/>FLAC, WAV, DSD → WAV + EQ"]
     end
-    FILES[("FLAC / CUE<br/>files")]
+    FILES[("FLAC / WAV / DSD<br/>CUE files")]
     R["UPnP renderer<br/>(FiiO, BeagleBone)"]
 
     UI -- "REST commands; state as SSE, /api/events" --> API
@@ -28,7 +28,7 @@ flowchart LR
     LIB --> FILES
     ST --> FILES
     PL -- "SOAP: SetURI, Play, Pause, Seek" --> R
-    R -- "HTTP GET /media/track (Range)" --> ST
+    R -- "HTTP GET /media/run (Range)" --> ST
 
     classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
     classDef app fill:#dcfce7,stroke:#16a34a,color:#14532d
@@ -66,7 +66,7 @@ internal/power          keeping the PC awake while playing (Windows only)
 internal/selfupdate     the update check (GitHub's latest release) and go install of a new
                         version, only on the user's click
 internal/config         settings in %AppData%\go-upnp-player\config.json
-internal/testkit        for tests only: generated FLAC files, a fake gmrender renderer
+internal/testkit        for tests only: generated FLAC and WAV files, a fake gmrender renderer
 web/                    React + React-Bootstrap (Vite); web/dist is built at design time,
                         committed, and embedded with go:embed (so go install needs no Node);
                         -web <folder> serves it from disk instead (development; the status
@@ -218,6 +218,51 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 
 ## 4. Serving tracks
 
+How a file's samples reach the renderer, by format. Every branch ends in the same WAV writer;
+only the dashed boxes change the samples, and only when they apply.
+
+```mermaid
+flowchart LR
+    FLAC[(".flac")]
+    WAV[(".wav")]
+    DSD[(".dsf / .dff")]
+    CUE[(".cue or CUESHEET tag")]
+
+    DEC["FLAC decoder<br/>frame by SEEKTABLE<br/>or bisection"]
+    PCM["read as is<br/>any sample is a seek"]
+    CONV["DSD → PCM, 24 bit<br/>rate and gain of the DSD card"]
+
+    EQQ{"equalizer on?"}
+    EQ["18-band EQ"]
+    FADE["10 ms fade-in<br/>where a stream starts"]
+    RUN["run: tracks of one format<br/>back to back under<br/>one 44-byte WAV header"]
+    R["renderer"]
+
+    CUE -. "sample range of a track" .-> DEC
+    CUE -. "sample range of a track" .-> PCM
+    FLAC --> DEC
+    WAV --> PCM
+    DSD --> CONV
+    DEC --> EQQ
+    PCM --> EQQ
+    CONV --> EQQ
+    EQQ -- yes --> EQ --> FADE
+    EQQ -- no --> FADE
+    FADE --> RUN
+    RUN -- "HTTP GET /media/run/ID.wav, Range = seek" --> R
+
+    classDef data fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef app fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef touch fill:#fff,stroke:#dc2626,color:#7f1d1d,stroke-dasharray: 5 3
+    classDef dev fill:#fce7f3,stroke:#db2777,color:#831843
+    class FLAC,WAV,DSD,CUE data
+    class DEC,PCM,RUN,EQQ app
+    class CONV,EQ,FADE touch
+    class R dev
+```
+
+A new rate, bit depth or channel count starts a new run (`stream.SameFormat`).
+
 - **A run** (`/media/run/<id>.wav`, what the renderer plays): one WAV header for the whole run,
   then the tracks' PCM back to back. The player registers a run before it hands out the URL; the
   last 16 are kept, a renderer may come back for one (a seek is a Range request). Tracks that
@@ -239,6 +284,12 @@ The browser's `localStorage` keeps only per-viewer conveniences:
   run-in and the filters' delay, so it matches a stream from the start. Clipped samples
   are logged once per stream. Mono and stereo plain DSD only (no DST, no multichannel, no `.iso`);
   tags and cover from the file's ID3v2 tag.
+- **WAV** (`.wav`, integer PCM of 8, 16, 24 or 32 bits, plain or extensible header) goes out
+  through the same WAV writer as a CUE track: its samples as they are, under a 44-byte header, so a
+  WAV track runs, seeks and takes the equalizer like any other (`services.ParseWAV`,
+  `stream.pcmSource`; any sample is a seek away, nothing to decode). Tags from LIST INFO, an ID3
+  tag in an `id3 ` chunk over them, a cover from that tag. Float and compressed WAV are skipped
+  with a line in the log; RF64 is not read.
 - `/media/track/<id>` serves one track, as below; the player itself no longer hands it out.
 - **A track from a CUE sheet:** a virtual WAV, a 44-byte header plus the PCM of the sample range
   from its `INDEX 01` to the next track's. The length is exact. A Range request maps to a sample;
@@ -255,7 +306,8 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 
 - Encodings: UTF-8 (with and without BOM), UTF-16 with BOM, otherwise cp1251 or cp1252. The code
   page is picked by decoding as both and comparing the results (`pickCodePage`).
-- `FILE "x.wav"` with `x.flac` next to it; the only FLAC in the folder.
+- `FILE "x.wav"`: that WAV when it exists, else `x.flac` next to it, else the only FLAC or WAV
+  in the folder. A WAV image plays like a FLAC one.
 - Several `FILE` entries in one cue; EAC "gaps appended" layout (INDEX 01 under the next FILE).
 - A track without INDEX 01 is dropped, not the whole sheet. Frame numbers ≥ 75 from broken rips
   are tolerated.
@@ -263,8 +315,8 @@ The browser's `localStorage` keeps only per-viewer conveniences:
 
 Not supported:
 
-- images other than FLAC (WAV, APE, WavPack, DSD), the binary CUESHEET block, non-FLAC PCM
-  formats — planned in [ADR-001](adr-001-lossless-formats-beyond-flac.md); a DSD file always plays
+- images other than FLAC and WAV (APE, WavPack, DSD), the binary CUESHEET block, other PCM
+  formats (AIFF) — planned in [ADR-001](adr-001-lossless-formats-beyond-flac.md); a DSD file always plays
   as a whole;
 - lossy formats (MP3, AAC, Ogg, Opus) — out of scope for good.
 
@@ -317,7 +369,7 @@ web player.
   - Library tree, playlist, and on the right the Output, Equalizer, DSD and Library folders cards;
   - under the playlist, behind a splitter of its own, the Properties card.
 - **Library tree** ([ADR-011](adr-011-library-tree-navigation.md)):
-  - folders, cue sheets and track files (FLAC, DSF, DFF), names only (lengths are in the
+  - folders, cue sheets and track files (FLAC, WAV, DSF, DFF), names only (lengths are in the
     playlist); cue sheets and files are leaves;
   - → on a row builds the playlist from the node without touching playback;
   - a folder can be starred, to mark the releases that sound better: a set star stays on the row
@@ -351,7 +403,8 @@ web player.
   encoding, tool, embedded cuesheet, audio MD5). `GET /api/track/:id/properties` reads the FLAC
   header again on each request; vendor, MD5 and comment are not kept in the index. The bitrate of
   a cue track is its file's average. A DSD track shows its own rate, 1 bit and e.g. "DSD128
-  (DSF)", and in Encoding the PCM it plays as.
+  (DSF)", and in Encoding the PCM it plays as. A WAV track shows "PCM (WAV)"; the Output line
+  names the format of the playing file (FLAC, WAV, cue → WAV, DSD… → PCM).
 - **DSD card** ([ADR-028](adr-028-dsd-converted-to-pcm-in-the-player.md)): the PCM rate
   (44.1 / 48 / 88.2 / 96 / 176.4 / 192 kHz as in foobar2000, 176.4 by default,
   [ADR-029](adr-029-dsd-every-rate-up-to-192.md)) and the gain (0 / +3 / +6 dB, +6 by default, as

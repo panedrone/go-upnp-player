@@ -18,6 +18,7 @@ export interface Track {
   duration: number
   fromCue: boolean
   dsdRate?: number // a DSD file: its own rate; sampleRate and bits are the PCM it plays as
+  format?: 'FLAC' | 'WAV' | 'DSD' // the file's format
 }
 
 export interface TreeNode {

@@ -369,3 +369,37 @@ func TestFindArt(t *testing.T) {
 		t.Fatalf("%+v", a)
 	}
 }
+
+// A WAV file is in the tree like a FLAC, with its LIST INFO tags; a cue sheet over a WAV
+// image plays that WAV.
+func TestWAVFiles(t *testing.T) {
+	reset()
+	t.Cleanup(reset)
+	root := t.TempDir()
+	one := testkit.WAV{Rate: 44100, Channels: 2, Bits: 16, Samples: make([]int32, 2*44100*3),
+		Info: map[string]string{"INAM": "Almost Evil", "IART": "Infraction"}}
+	testkit.WriteWAV(t, filepath.Join(root, "Infraction - Almost Evil.wav"), one)
+	img := filepath.Join(root, "image")
+	if err := os.MkdirAll(img, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testkit.WriteWAV(t, filepath.Join(img, "a.wav"), testkit.WAV{Rate: 44100, Channels: 2, Bits: 16, Samples: make([]int32, 2*44100*90)})
+	touch(t, img, map[string]string{"a.cue": twoTracks})
+	Scan([]string{root})
+
+	if got := names(Children(root)); got != "dir:image file:Infraction - Almost Evil.wav" {
+		t.Fatalf("root: %s", got)
+	}
+	tr := TracksUnder(filepath.Join(root, "Infraction - Almost Evil.wav"))
+	if len(tr) != 1 || tr[0].Title != "Almost Evil" || tr[0].Artist != "Infraction" || tr[0].Format != "WAV" || tr[0].WAV == nil || tr[0].Duration != 3 {
+		t.Fatalf("track %+v", tr)
+	}
+	cue := TracksUnder(filepath.Join(img, "a.cue"))
+	if len(cue) != 2 || cue[1].Title != "Two" || cue[1].WAV == nil || !cue[1].FromCue || cue[1].Path != filepath.Join(img, "a.wav") {
+		t.Fatalf("cue tracks %+v", cue)
+	}
+	p, err := PropertiesOf(tr[0])
+	if err != nil || p.Codec != "PCM (WAV)" || p.BitrateKbps < 1400 || p.BitrateKbps > 1420 {
+		t.Fatalf("properties %+v %v", p, err)
+	}
+}

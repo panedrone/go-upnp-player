@@ -77,6 +77,9 @@ func PropertiesOf(t *Track) (*Properties, error) {
 	if t.DSD != nil {
 		return dsdProperties(t), nil
 	}
+	if t.WAV != nil {
+		return wavProperties(t), nil
+	}
 	d, err := readFileDetails(t.Path)
 	if err != nil {
 		return nil, err
@@ -97,10 +100,28 @@ func dsdProperties(t *Track) *Properties {
 	ratio := uint64(d.Rate / t.SampleRate)
 	return &Properties{
 		Number: t.Number, Title: t.Title, Artist: t.Artist, Album: t.Album, Date: t.Date, Genre: t.Genre,
-		Comment: readDSDComment(t.Path, *d), Duration: t.Duration, Samples: (t.End - t.Start) * ratio,
+		Comment: readID3Comment(t.Path, d.Tag, d.TagSize), Duration: t.Duration, Samples: (t.End - t.Start) * ratio,
 		SampleRate: d.Rate, Channels: t.Channels, Bits: 1,
 		BitrateKbps: services.AvgBitrateKbps(t.FileSize, d.Samples, d.Rate),
 		Codec:       d.DSDKind() + " (" + d.Format + ")",
 		Encoding:    fmt.Sprintf("plays as PCM %g kHz, 24 bit", float64(t.SampleRate)/1000),
+	}
+}
+
+// wavProperties: a WAV file; its comment from an ID3 tag, or from LIST INFO (in the index tags).
+func wavProperties(t *Track) *Properties {
+	w := t.WAV
+	comment := readID3Comment(t.Path, w.Tag, w.TagSize)
+	if comment == "" {
+		if m := fileMeta(t.Path); m != nil {
+			comment = m.Tags["COMMENT"]
+		}
+	}
+	return &Properties{
+		Number: t.Number, Title: t.Title, Artist: t.Artist, Album: t.Album, Date: t.Date, Genre: t.Genre,
+		Comment: comment, Duration: t.Duration, Samples: t.End - t.Start,
+		SampleRate: t.SampleRate, Channels: t.Channels, Bits: t.Bits,
+		BitrateKbps: services.AvgBitrateKbps(t.FileSize, t.FileFrames, t.SampleRate),
+		Codec:       "PCM (WAV)", Encoding: "lossless",
 	}
 }

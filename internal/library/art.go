@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-// Art is a track's cover: an image from the folder or one embedded in the FLAC.
+// Art is a track's cover: an image from the folder or one embedded in the file.
 type Art struct {
 	Path string // image file, if one was found in the folder
 	Data []byte // otherwise the embedded one
@@ -29,8 +29,11 @@ func FindArt(t *Track) *Art {
 		return &Art{Path: p, Mime: mimeByExt(p)}
 	}
 	read := readEmbeddedPicture
-	if t.DSD != nil {
-		read = func(path string) ([]byte, string, error) { return readDSDPicture(path, *t.DSD) }
+	switch {
+	case t.DSD != nil:
+		read = func(path string) ([]byte, string, error) { return readID3Picture(path, t.DSD.Tag, t.DSD.TagSize) }
+	case t.WAV != nil:
+		read = func(path string) ([]byte, string, error) { return readID3Picture(path, t.WAV.Tag, t.WAV.TagSize) }
 	}
 	if data, mime, err := read(t.Path); err == nil {
 		return &Art{Data: data, Mime: mime}

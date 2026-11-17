@@ -18,7 +18,7 @@ func scanDir(idx *index, dir string) int {
 	if err != nil {
 		return 0
 	}
-	var cues, flacs, dsds []string
+	var cues, flacs, dsds []string // flacs: the WAV files too, shown and used the same way
 	var subdirs []string
 	for _, e := range entries {
 		full := filepath.Join(dir, e.Name())
@@ -29,7 +29,7 @@ func scanDir(idx *index, dir string) int {
 		switch strings.ToLower(filepath.Ext(e.Name())) {
 		case ".cue":
 			cues = append(cues, full)
-		case ".flac":
+		case ".flac", ".wav":
 			flacs = append(flacs, full)
 		case ".dsf", ".dff":
 			dsds = append(dsds, full)
@@ -129,7 +129,7 @@ func cueTracks(cuePath string, flacs []string, exists func(string) bool, covered
 	return out
 }
 
-// wholeFileTrack is a FLAC file shown as one track regardless of any embedded
+// wholeFileTrack is a FLAC or WAV file shown as one track regardless of any embedded
 // cue sheet, marked Covered (an external cue sheet already describes it).
 func wholeFileTrack(path string) []*Track {
 	m := fileMeta(path)
@@ -173,8 +173,13 @@ func newTrack(leaf, audio string, ti services.TrackInfo, m *FileMeta, fromCue bo
 		Start: ti.Start, End: ti.End, SampleRate: m.SampleRate, Channels: m.Channels, Bits: m.Bits,
 		Duration: dur, Seekable: m.Seekable, FromCue: fromCue, FileSize: m.Size, FileFrames: m.NSamples,
 	}
-	if m.DSD != nil {
-		t.DSD, t.DSDRate = m.DSD, m.DSD.Rate
+	switch {
+	case m.DSD != nil:
+		t.DSD, t.DSDRate, t.Format = m.DSD, m.DSD.Rate, "DSD"
+	case m.WAV != nil:
+		t.WAV, t.Format = m.WAV, "WAV"
+	default:
+		t.Format = "FLAC"
 	}
 	return t
 }
@@ -192,8 +197,11 @@ func fileMeta(path string) *FileMeta {
 		return asPCM(c)
 	}
 	read := readFlacMeta
-	if isDSD(path) {
+	switch {
+	case isDSD(path):
 		read = readDSDMeta
+	case isWAV(path):
+		read = readWAVMeta
 	}
 	m, err := read(path, st)
 	if err != nil {

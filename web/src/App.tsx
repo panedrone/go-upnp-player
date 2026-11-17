@@ -425,7 +425,7 @@ export default function App() {
                           `${track.sampleRate / 1000} kHz`,
                           `${track.bits} bit`,
                           track.channels === 2 ? 'stereo' : `${track.channels} ch`,
-                          track.dsdRate ? `DSD${track.dsdRate / 44100} → PCM` : track.fromCue ? 'cue → WAV' : 'FLAC',
+                          track.dsdRate ? `DSD${track.dsdRate / 44100} → PCM` : track.fromCue ? 'cue → WAV' : (track.format ?? 'FLAC'),
                         ]
                       : []),
                   ].map((part, i) => (
