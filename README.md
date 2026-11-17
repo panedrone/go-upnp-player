@@ -38,7 +38,7 @@ samples out by its own oscillator: the computer is out of the audio path.
 A Go (Fiber v3) server with a React page embedded in it. How it works:
 [docs/go-upnp-player-sad.md](docs/go-upnp-player-sad.md). Why it is built this way, which renderer
 quirks forced it and how far each is overcome: the ADRs in
-[SAD §8](docs/go-upnp-player-sad.md#8-decisions-and-renderer-quirks-adr).
+[docs/go-upnp-player-adr.md](docs/go-upnp-player-adr.md). The page: [docs/go-upnp-player-ui-sad.md](docs/go-upnp-player-ui-sad.md).
 
 ## Install (Windows)
 

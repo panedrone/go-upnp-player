@@ -7,7 +7,7 @@ rate up to 192 kHz, both families.
 DSD images with a cue sheet, SACD `.iso` images,
 DST-compressed `.dff` and multichannel DSD are not played.
 
-How it works now: [SAD §4](go-upnp-player-sad.md#4-serving-tracks) and §7.
+How it works now: [SAD §4](go-upnp-player-sad.md#4-serving-tracks) and [the UI SAD](go-upnp-player-ui-sad.md).
 
 ## Context
 

@@ -4,7 +4,7 @@
 [ADR-028](adr-028-dsd-converted-to-pcm-in-the-player.md). **Open:** 48, 96 and 192 kHz not yet
 heard on the streamers.
 
-How it works now: [SAD §4](go-upnp-player-sad.md#4-serving-tracks) and §7.
+How it works now: [SAD §4](go-upnp-player-sad.md#4-serving-tracks) and [the UI SAD](go-upnp-player-ui-sad.md).
 
 ## Context
 
