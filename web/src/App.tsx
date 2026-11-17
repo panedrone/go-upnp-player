@@ -374,7 +374,7 @@ export default function App() {
               <Form.Range className="flex-grow-1" min={0} max={100} value={volume} title="Volume" {...volProps} />
               <small className="text-body-secondary vol-num">{state && state.volume >= 0 ? volume : '–'}</small>
               <Button
-                size="sm" variant="outline-secondary" className="head-btn ms-2 flex-shrink-0"
+                size="sm" variant="outline-secondary" className="head-btn flex-shrink-0"
                 title={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               >
@@ -438,10 +438,10 @@ export default function App() {
               )}
               </span>
               {/* the header speaks only for the player itself; the device's own state sits on its row */}
-              {!connected && <Badge bg={transportVariant[transport]} className="me-2">{transport}</Badge>}
+              {!connected && <Badge bg={transportVariant[transport]}>{transport}</Badge>}
               {/* Scan: a search every second, for a device being rebooted, until it is turned off */}
               <Form.Check
-                type="switch" id="auto-scan" className="ms-auto me-2 flex-shrink-0" label="Scan"
+                type="switch" id="auto-scan" className="ms-auto flex-shrink-0" label="Scan"
                 title="Scan for devices every second until turned off"
                 checked={!!state?.autoScan} onChange={(e) => run(api.autoScanRenderers(e.target.checked))}
               />

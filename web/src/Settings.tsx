@@ -47,11 +47,11 @@ export default function Settings({ scanning, tracks }: Props) {
 
   return (
     <Card>
-      <Card.Header className="d-flex align-items-center">
+      <Card.Header className="d-flex align-items-center gap-2">
         <span className="me-auto">Library folders</span>
         <small className="text-body-secondary">{scanning ? 'scanning…' : `${tracks} tracks`}</small>
         <Button
-          size="sm" variant="outline-secondary" className="head-btn ms-2"
+          size="sm" variant="outline-secondary" className="head-btn"
           title={open ? 'Hide the library folders' : 'Show the library folders'} aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >

@@ -141,8 +141,14 @@ input.form-range:focus::-webkit-slider-thumb { box-shadow: 0 0 0 .2rem rgba(var(
 input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs-secondary-rgb), .3); }
 /* a switch in a card header (Equalizer On, Output Scan): on the middle of the header's line, as
    its buttons; Bootstrap's own margins left it 2.5 px high (2026-11-16) */
-.card-header .form-check.form-switch { display: flex; align-items: center; gap: .5em; min-height: 24px; margin-bottom: 0; padding-left: 0; }
+.card-header .form-check.form-switch { display: flex; align-items: center; gap: .5rem; min-height: 24px; margin-bottom: 0; padding-left: 0; }
 .card-header .form-switch .form-check-input { float: none; margin: 0; }
+/* every gap in a card header is the header's own gap-2 (8 px): title to its small line, text to a
+   switch, a switch to its label, a label to a button. No extra margins on single elements */
+/* header text next to 24 px buttons, switches and the volume slider: the boxes are centred, but
+   the system font draws its capitals 1 px below the middle of its line box, so the text looked
+   1 px low beside the controls (measured on screenshots at 100 % and 200 %): lift it by 1 px */
+.card-header > span, .card-header > small, .card-header .form-check-label { position: relative; top: -1px; }
 #eq-enabled:checked, #auto-scan:checked { background-color: var(--bs-secondary); border-color: var(--bs-secondary); }
 #eq-enabled:focus, #auto-scan:focus { box-shadow: 0 0 0 .2rem rgba(var(--bs-secondary-rgb), .3); }
 

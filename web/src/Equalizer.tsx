@@ -135,14 +135,17 @@ export default function Equalizer({ onError }: Props) {
 
   return (
     <Card>
-      <Card.Header className="d-flex align-items-center">
-        <span className="me-auto">Equalizer <small className="text-body-secondary">±{eq.maxGain} dB</small></span>
+      <Card.Header className="d-flex align-items-center gap-2">
+        <span className="d-flex align-items-baseline gap-2 me-auto">
+          <span>Equalizer</span>
+          <small className="text-body-secondary">±{eq.maxGain} dB</small>
+        </span>
         <Form.Check
           type="switch" id="eq-enabled" label={eq.enabled ? 'On' : 'Off'}
           checked={eq.enabled} onChange={(e) => save({ ...eq, enabled: e.target.checked })}
         />
         <Button
-          size="sm" variant="outline-secondary" className="head-btn ms-2"
+          size="sm" variant="outline-secondary" className="head-btn"
           title={open ? 'Hide the equalizer' : 'Show the equalizer'} aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >
