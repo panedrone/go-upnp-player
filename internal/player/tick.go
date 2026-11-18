@@ -117,7 +117,10 @@ func Tick() {
 		lastCmd = now
 		moved = true
 	}
-	if piErr == nil && len(runIDs) > 0 && wantPlaying {
+	// Only the player's own stream says where the playlist is. A renderer just switched to
+	// may still hold a stream of its own, and its position read as ours moved the playlist
+	// on, or started the next track over, while the player was paused.
+	if piErr == nil && len(runIDs) > 0 && wantPlaying && pi.TrackURI == runURI {
 		k, pos := locateLocked(streamPos, index-runQ)
 		if qi := queueIndexLocked(k); qi != index {
 			// the stream went on into its next track; an edited playlist may not have

@@ -212,7 +212,9 @@ The browser's `localStorage` keeps only per-viewer conveniences:
      ([ADR-015](adr-015-start-at-position-as-a-stream.md)).
    - The player keeps where that stream starts in its first track: a seek before it restarts the
      track from there.
-   - While paused, the position is remembered for the next Play.
+   - While paused, the position is remembered for the next Play, and nothing starts.
+   - Only the player's own stream moves the playlist on: a renderer that still holds a stream of
+     its own does not change the track or the position.
    - The old renderer is stopped (`stopRenderer`) at the same time as the start on the new one:
      a renderer that does not answer does not hold the switch. The transport state is cleared on
      the switch; the new renderer's own state shows after its first poll.

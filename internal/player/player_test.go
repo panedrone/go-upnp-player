@@ -496,6 +496,38 @@ func TestSelectWhilePausedResumesThereOnPlay(t *testing.T) {
 	}
 }
 
+// A renderer switched to while paused may hold a stream of its own; its position is not
+// the playlist's: the track and the position stay, and nothing starts (seen live
+// 2026-11-18: the next track started over on the new renderer).
+func TestSelectWhilePausedIgnoresTheNewRenderersOwnStream(t *testing.T) {
+	for _, st := range []string{"PLAYING", "PAUSED_PLAYBACK", "STOPPED"} {
+		t.Run(st, func(t *testing.T) {
+			r1 := setup(t)
+			r2 := newRenderer(t, "r2")
+			r2.With(func(s *testkit.RendererState) { s.State, s.URI, s.Pos = st, "http://other/stream", 500 })
+			renderers = append(renderers, r2.Device)
+			playingAt(r1, []string{"a", "b", "c"}, 1, 100)
+			paused = true
+			if err := Select("r2"); err != nil {
+				t.Fatal(err)
+			}
+			halting.Wait()
+			for range 5 {
+				mu.Lock()
+				lastCmd = time.Now().Add(-time.Minute)
+				mu.Unlock()
+				Tick()
+			}
+			if r2.Count("Play") != 0 || r2.Count("SetAVTransportURI") != 0 {
+				t.Fatalf("started: play %d setURI %d", r2.Count("Play"), r2.Count("SetAVTransportURI"))
+			}
+			if index != 1 || position != 100 || resumeAt != 100 || !paused {
+				t.Fatalf("index %d position %v resumeAt %v paused %v", index, position, resumeAt, paused)
+			}
+		})
+	}
+}
+
 func TestResume(t *testing.T) {
 	r := setup(t)
 	if err := Resume(); err == nil || !strings.Contains(err.Error(), "empty") {
