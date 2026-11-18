@@ -12,14 +12,13 @@ body { overflow: hidden; font-size: 14px; }
 .form-range.seek.off::-moz-range-thumb { visibility: hidden; }
 .vol-num { width: 24px; text-align: right; }
 
-/* status bar at the bottom of the window */
-.status-bar { flex: none; padding: 0 12px; font-size: 0.875rem; white-space: nowrap; height: 30px; line-height: 1.5; }
-/* one height whatever it shows: a message's × or a spinner must not push the bar taller */
-.status-msg { min-width: 0; }
-/* the error area: as wide as its text, at most half the bar; the full text is its tooltip */
-.status-err { flex: 0 1 auto; min-width: 0; max-width: 50%; }
-/* the answer about updates: its own area, just left of the cloud button that asked */
-.status-upd { flex: 0 1 auto; min-width: 0; max-width: 60%; margin-right: -.5rem; }
+/* status bar at the bottom of the window: 30 px for one line, taller when a message wraps.
+   A message is never cut with an ellipsis: it wraps and stays whole (the owner, 2026-11-18) */
+.status-bar { flex: none; padding: 3px 12px; font-size: 0.875rem; min-height: 30px; line-height: 1.5; }
+/* the waiting line, the error and the answer about updates wrap inside their own area;
+   a long word (an URL in an error) breaks rather than leaving the window */
+.status-msg, .status-err, .status-upd { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.status-upd { margin-right: -.5rem; }
 
 /* columns and splitters */
 .col-library, .col-tracks { display: flex; flex-direction: column; }

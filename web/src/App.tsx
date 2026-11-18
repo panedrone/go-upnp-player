@@ -235,6 +235,14 @@ export default function App() {
   const renderers = state?.renderers ?? []
   const current = renderers.find((r) => r.udn === state?.selected)
   const error = actionErr || state?.error || (stalled ? 'The renderer reports playing, but its position is not moving. It may be hung: restart it.' : '')
+  // the cross on the error hides that error; a different one, or the same one after it has
+  // gone, shows again. The player keeps an error until a later command succeeds, and one it
+  // has recovered from without a command stayed red for good
+  const [dismissedErr, setDismissedErr] = useState('')
+  useEffect(() => {
+    if (error !== dismissedErr) setDismissedErr('')
+  }, [error]) // only when the error changes, not when it is dismissed
+  const shownErr = error && error !== dismissedErr ? error : ''
   const transport = connected ? (state?.waiting ? 'CONNECTING' : stalled ? 'STALLED' : state?.transport || 'IDLE') : 'BACKEND OFFLINE'
 
   return (
@@ -504,17 +512,30 @@ export default function App() {
           outsider what the UI is built with. A run with -web (the page from disk) ends with a
           gold dev badge and the address it listens on, so it is not taken for the installed one */}
       <footer className="status-bar border-top bg-body-tertiary text-body-secondary d-flex align-items-center gap-3">
-        <span className="status-msg text-truncate flex-grow-1" title={state?.waiting || ''}>
-          {state?.waiting && (
-            <>
-              <Spinner size="sm" className="me-2" />
-              {state.waiting}
-            </>
-          )}
-        </span>
-        {error && <span className="status-err text-danger text-truncate" title={error}>{error}</span>}
+        {/* messages from the left edge; only the update block sits at the right, by the version */}
+        {state?.waiting && (
+          <span className="status-msg">
+            <Spinner size="sm" className="me-2" />
+            {state.waiting}
+          </span>
+        )}
+        {shownErr && (
+          <span className="status-err d-flex align-items-center min-w-0">
+            <span className="text-danger">{shownErr}</span>
+            <Button
+              size="sm" variant="link" className="status-close text-body-secondary flex-shrink-0" title="Hide this error"
+              onClick={() => {
+                setDismissedErr(shownErr)
+                setActionErr('')
+              }}
+            >
+              ×
+            </Button>
+          </span>
+        )}
+        <span className="flex-grow-1" />
         {updateNote && (
-          <span className="status-upd text-truncate">
+          <span className="status-upd">
             <UpdateMessage note={updateNote} onClose={() => setUpdateNote(null)} onInstall={installUpdate} />
           </span>
         )}
@@ -573,6 +594,13 @@ function UpdateMessage({ note, onClose, onInstall }: {
   const close = (
     <Button size="sm" variant="link" className="status-close text-body-secondary" title="Close" onClick={onClose}>×</Button>
   )
+  // the text wraps beside its ×, and the × stays on the middle of the text, not after its last word
+  const closable = (text: React.ReactNode, cls: string, onClick?: () => void) => (
+    <span className="d-flex align-items-center" {...(onClick ? { role: 'button', title: 'Click to close', onClick } : {})}>
+      <span className={cls}>{text}</span>
+      {close}
+    </span>
+  )
   const open = () => void api.openUpdate().catch(() => {})
   switch (note.kind) {
     case 'checking':
@@ -580,23 +608,23 @@ function UpdateMessage({ note, onClose, onInstall }: {
     case 'installing':
       return <><Spinner size="sm" className="me-2" />Updating to {note.version} with go install; the player restarts when it is built…</>
     case 'installed':
-      return <span className="status-blink">go-upnp-player {note.version} is installed, but the player did not restart by itself: quit it and start it again.{close}</span>
+      return closable(<>go-upnp-player {note.version} is installed, but the player did not restart by itself: quit it and start it again.</>, 'status-blink')
     case 'latest':
-      return <span className="status-blink" role="button" title="Click to close" onClick={onClose}>You have the latest version, {note.version}.{close}</span>
+      return closable(<>You have the latest version, {note.version}.</>, 'status-blink', onClose)
     case 'error':
-      return <span className="text-danger">Could not check for updates: {note.message}{close}</span>
+      return closable(<>Could not check for updates: {note.message}</>, 'text-danger')
   }
   const o = note.offer!
-  return (
-    <span className="status-blink">
+  return closable(
+    <>
       go-upnp-player {o.latest} is available.
       {o.kind === 'go' ? (
         <Button size="sm" variant="link" className="status-link" title={o.command} onClick={() => onInstall(o.latest)}>Update with go install</Button>
       ) : (
         <Button size="sm" variant="link" className="status-link" onClick={open}>{o.kind === 'setup' ? 'Download the setup' : 'Open the release page'}</Button>
       )}
-      {close}
-    </span>
+    </>,
+    'status-blink',
   )
 }
 

@@ -25,6 +25,9 @@ web player.
   ×, the way this copy updates: the setup copy downloads the new setup, a `go install` copy
   rebuilds itself and restarts, the zip opens the release page. Pages open in the system browser
   through `POST /api/update/open`.
+- **Status bar.** The busy message and the error start at the left, the update offer stays at the
+  right by the version. No text is cut with an ellipsis: a long one wraps and the bar grows. The
+  error has a × that hides it until it changes; every × sits centred beside its text.
 - **State.** The page reads `GET /api/events` (Server-Sent Events): the state now, then one event
   per change, the same JSON as `GET /api/state`. The backend wakes the stream after every poll of
   the renderer (once a second) and after every command, and sends a snapshot only if it differs
