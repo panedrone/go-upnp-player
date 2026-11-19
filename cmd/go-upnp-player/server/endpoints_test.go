@@ -286,16 +286,18 @@ func TestEndpointsScenario(t *testing.T) {
 		_, whole := c.do("GET", path, "")
 		_, one := c.do("GET", "/media/track/"+cueTracks[0].ID+".wav", "")
 		_, two := c.do("GET", "/media/track/"+cueTracks[1].ID+".wav", "")
-		// every stream's first 10 ms rise out of silence, the run's seam does not
-		const fade = 441 * 4
 		seam := len(one) // the second track's data starts here in the run
-		if string(whole[:4]) != "RIFF" || len(whole) != len(one)+len(two)-44 ||
-			!bytes.Equal(whole[44+fade:seam], one[44+fade:]) || !bytes.Equal(whole[seam+fade:], two[44+fade:]) ||
-			bytes.Equal(whole[seam:seam+fade], two[44:44+fade]) {
-			t.Fatalf("run %d bytes, tracks %d + %d", len(whole), len(one), len(two))
+		// the run ends in a tail of silence, so that the player's Stop reaches the
+		// renderer over a live stream (ADR-031)
+		tail := int(stream.TailSamples(44100)) * 4
+		music := len(one) + len(two) - 44
+		if string(whole[:4]) != "RIFF" || len(whole) != music+tail ||
+			!bytes.Equal(whole[44:seam], one[44:]) || !bytes.Equal(whole[seam:music], two[44:]) ||
+			!bytes.Equal(whole[music:], make([]byte, tail)) {
+			t.Fatalf("run %d bytes, tracks %d + %d, tail %d", len(whole), len(one), len(two), tail)
 		}
 		resp, part := c.do("GET", path, "", "Range", fmt.Sprintf("bytes=%d-%d", seam-4000, seam+3999))
-		if resp.StatusCode != 206 || len(part) != 8000 || !bytes.Equal(part[fade:], whole[seam-4000+fade:seam+4000]) {
+		if resp.StatusCode != 206 || len(part) != 8000 || !bytes.Equal(part, whole[seam-4000:seam+4000]) {
 			t.Fatalf("%d, a range across the seam: %d bytes", resp.StatusCode, len(part))
 		}
 		c.status(204, "POST", "/api/player/play", `{"index":1}`)

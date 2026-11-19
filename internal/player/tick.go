@@ -68,7 +68,7 @@ func Tick() {
 		}
 		streamPos = pi.Position
 	}
-	streamDur := runLen
+	streamDur := runStream
 	if pi.Duration > 0 {
 		streamDur = pi.Duration
 	}
@@ -92,7 +92,10 @@ func Tick() {
 		lastTrackURI, lastPollAt = pi.TrackURI, now
 	}
 	nextAt := nextStartLocked()
-	curDur := runLen
+	curDur, music := curRun.stream, 0.0
+	if len(runIDs) > 0 && piErr == nil && pi.TrackURI == runURI {
+		music = runLen
+	}
 	if len(runIDs) == 0 {
 		curDur = trackDuration(index) - offset // nothing started here: the track as it was
 	}
@@ -107,7 +110,8 @@ func Tick() {
 		Position:     pi.Position,
 		LastPosition: lastStream,
 		CurDuration:  curDur,
-		NextDuration: nextRun.length,
+		NextDuration: nextRun.stream,
+		MusicLength:  music,
 	}
 	action := services.DecideTick(in)
 	moved, strayed := false, false
@@ -175,10 +179,15 @@ func Tick() {
 		mu.Lock()
 		wantPlaying = false
 		finishedAt = time.Now()
+		if services.MusicPlayedOut(in) {
+			// the music is over and the tail of silence is playing: stop now, while the
+			// renderer still has a live stream, so it releases the sound device (ADR-031)
+			finishedAt = time.Now().Add(-haltDelay)
+		}
 		mu.Unlock()
 	}
 	mu.Lock()
-	haltNow := !finishedAt.IsZero() && time.Since(finishedAt) >= 2*time.Second
+	haltNow := !finishedAt.IsZero() && time.Since(finishedAt) >= haltDelay
 	if haltNow || wantPlaying {
 		finishedAt = time.Time{}
 	}
@@ -196,6 +205,11 @@ func Tick() {
 		}
 	}
 }
+
+// haltDelay is how long after the end of a stream the renderer is stopped: the position
+// comes in whole seconds and up to half a second of music may be left. A run that ends in
+// its tail of silence needs no wait (ADR-031).
+const haltDelay = 2 * time.Second
 
 // switchOff ends a played-out playlist the way foobar2000 does: the renderer is stopped,
 // confirmed STOPPED, and the player forgets its stream and position. Left at the end of

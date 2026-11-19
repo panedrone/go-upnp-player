@@ -12,11 +12,8 @@ import (
 )
 
 // A WAV file goes out bit for bit: the stream from any sample on is the file's own PCM
-// from there (the fade-in off), under a plain header.
+// from there, under a plain header.
 func TestWAVSpanIsTheFilesPCM(t *testing.T) {
-	old := fadeMs
-	fadeMs = 0
-	t.Cleanup(func() { fadeMs = old })
 	const frames = 3*pcmBlock + 77
 	samples := make([]int32, 2*frames)
 	for i := range samples {

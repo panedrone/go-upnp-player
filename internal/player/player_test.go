@@ -102,11 +102,26 @@ func playingAt(r *testkit.Renderer, ids []string, i int, pos float64) {
 		setRunLocked(rp)
 		streamPos, duration = pos, rp.durs[0]
 		uri = rp.uri
-		r.SetURILength(uri, rp.length)
+		r.SetURILength(uri, rp.stream) // what the DIDL declares: the music plus the tail
 	}
 	r.With(func(s *testkit.RendererState) {
 		s.State, s.URI, s.Pos = "PLAYING", uri, pos
 	})
+}
+
+// queueNextForced queues the run at queue index ni as the next URI. queueNext itself does
+// that only when the next run has the same format — an album split over the RIFF size
+// limit (ADR-031) — which fixtures this small cannot produce.
+func queueNextForced(t *testing.T, r *testkit.Renderer, ni int) runPlan {
+	t.Helper()
+	rp := runOn(t, r, ni, 0)
+	if err := upnp.SetNextURI(context.Background(), r.Device, rp.uri, rp.meta); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	nextURL, nextRun = rp.uri, rp
+	mu.Unlock()
+	return rp
 }
 
 // runOn plans the run from queue track i as the player would and tells the fake its length.
@@ -116,7 +131,7 @@ func runOn(t *testing.T, r *testkit.Renderer, i int, from float64) runPlan {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r.SetURILength(rp.uri, rp.length)
+	r.SetURILength(rp.uri, rp.stream)
 	return rp
 }
 
@@ -662,14 +677,11 @@ func TestDoWithoutRenderer(t *testing.T) {
 func TestTickAdvancesWhenRendererMovedOn(t *testing.T) {
 	r := setup(t)
 	playingAt(r, []string{"a", "hi", "c"}, 0, 239)
-	queueNext(r.Device)
+	queueNextForced(t, r, 1)
 	r.With(func(s *testkit.RendererState) { s.URI, s.Pos = nextURL, 1 })
 	Tick()
 	if index != 1 || config.Get().Playlist.Index != 1 {
 		t.Fatalf("index %d saved %d", index, config.Get().Playlist.Index)
-	}
-	if r.Get().Next != runOn(t, r, 2, 0).uri {
-		t.Fatalf("next %s", r.Get().Next)
 	}
 	if transport != "PLAYING" || duration != 200 || position != 1 {
 		t.Fatalf("transport %s duration %v position %v", transport, duration, position)
@@ -912,7 +924,10 @@ func TestRunLayout(t *testing.T) {
 	if strings.Join(rp.ids, ",") != "a,b,c" || rp.length != 620 || rp.starts[1] != 240 || rp.starts[2] != 420 {
 		t.Fatalf("ids %v length %v starts %v", rp.ids, rp.length, rp.starts)
 	}
-	if !strings.Contains(rp.meta, "/media/art/a") || !strings.Contains(rp.meta, `duration="0:10:20`) {
+	if rp.stream != 623 { // the music plus the tail of silence (ADR-031)
+		t.Fatalf("stream %v", rp.stream)
+	}
+	if !strings.Contains(rp.meta, "/media/art/a") || !strings.Contains(rp.meta, `duration="0:10:23`) {
 		t.Fatal(rp.meta)
 	}
 	if from := runOn(t, r, 1, 30); from.length != 150+200 || from.from != 30 || strings.Join(from.ids, ",") != "b,c" {
@@ -1015,8 +1030,10 @@ func TestNewStreamSwitchesLikeFoobar(t *testing.T) {
 	if st.State != "PLAYING" || st.URI != runOn(t, r, 1, 0).uri || index != 1 {
 		t.Fatalf("%+v index %d", st, index)
 	}
-	// gapless playback stays: the following run is still queued as next
-	if st.Next != runOn(t, r, 2, 0).uri {
+	// The run after this one changes format, so it is not queued as next: letting the
+	// renderer take such a stream through its own gapless path leaves gmrender holding
+	// the device open at this run's rate and resampling the next one (ADR-031).
+	if st.Next != "" {
 		t.Fatalf("next %q", st.Next)
 	}
 }
@@ -1194,22 +1211,30 @@ func TestSeekWithAStreamFromAPosition(t *testing.T) {
 	}
 }
 
-// The renderer moving on from such a stream to the next track is an advance like
-// any other; the next track's stream starts at 0 again.
+// Moving on from such a stream to the next track: the next one changes format, so it is
+// not queued as next (ADR-031). Its music plays out, the tail of silence starts, and the
+// player takes the renderer to the next stream itself; it starts at 0 again.
 func TestAdvanceFromAStreamFromAPosition(t *testing.T) {
 	r := setup(t)
 	queue = []string{"a", "hi"}
 	if err := startLocked(0, 50); err != nil {
 		t.Fatal(err)
 	}
-	next := r.Get().Next
-	if next != runOn(t, r, 1, 0).uri {
+	if next := r.Get().Next; next != "" {
 		t.Fatalf("next %q", next)
 	}
-	r.With(func(s *testkit.RendererState) { s.URI, s.Next, s.Pos = next, "", 1 })
+	stops := r.Count("Stop")
+	lastCmd = time.Now().Add(-time.Minute) // past the grace after a start
+	// a second into the tail: the music of this stream is over
+	r.With(func(s *testkit.RendererState) { s.Pos = runLen + 1 })
 	Tick()
-	if s := Snapshot(); s.Index != 1 || s.Position != 1 || s.Duration != 200 || offset != 0 {
-		t.Fatalf("index %d position %v duration %v offset %v", s.Index, s.Position, s.Duration, offset)
+	if s := Snapshot(); s.Index != 1 || offset != 0 || r.Get().URI != runOn(t, r, 1, 0).uri {
+		t.Fatalf("index %d offset %v uri %s", s.Index, offset, r.Get().URI)
+	}
+	// the new stream was started the way foobar2000 starts one: Stop first, over a stream
+	// that is still live, so the renderer releases its sound device (ADR-031)
+	if r.Count("Stop") != stops+1 || r.Get().State != "PLAYING" {
+		t.Fatalf("stops %d (was %d) state %s", r.Count("Stop"), stops, r.Get().State)
 	}
 }
 
@@ -1225,9 +1250,10 @@ func TestEndOfPlaylistSwitchesOff(t *testing.T) {
 	r.With(func(s *testkit.RendererState) { s.Pos = end })
 	Tick()
 	if r.Count("Stop") != 0 || r.Count("Pause") != 0 {
-		t.Fatal("stopped right at the end: the last fraction of a second would be cut")
+		t.Fatal("stopped right at the end of the music: the last fraction of a second would be cut")
 	}
-	finishedAt = time.Now().Add(-2 * time.Second)
+	// a second into the tail of silence: stopped at once, while the stream is still live
+	r.With(func(s *testkit.RendererState) { s.Pos = end + 1 })
 	Tick()
 	s := Snapshot()
 	if s.Stalled || wantPlaying || !s.Off || s.Position != 0 || runURI != "" ||
@@ -1249,7 +1275,7 @@ func TestEndOfPlaylistSwitchesOff(t *testing.T) {
 func TestPlayedOutRendererIgnoresSeekAndPlay(t *testing.T) {
 	r := setup(t)
 	playingAt(r, []string{"a", "b"}, 0, 50)
-	uri, end := runURI, runLen
+	uri, end := runURI, runStream
 	wantPlaying = false
 	r.With(func(s *testkit.RendererState) { s.State, s.URI, s.Pos = "PAUSED_PLAYBACK", uri, end })
 	_ = PlayIndex(0)
@@ -1268,7 +1294,8 @@ func TestEndOfPlaylistOnAStreamFromNearTheEnd(t *testing.T) {
 	rp := runOn(t, r, 0, 239.5)
 	setRunLocked(rp)
 	r.SetURILength(rp.uri, 0) // what the renderer says about a half-second stream
-	r.With(func(s *testkit.RendererState) { s.State, s.URI, s.Pos = "PLAYING", rp.uri, 0 })
+	// the half second of music is over and the tail of silence is playing (ADR-031)
+	r.With(func(s *testkit.RendererState) { s.State, s.URI, s.Pos = "PLAYING", rp.uri, 2 })
 	Tick()
 	if s := Snapshot(); s.Stalled || wantPlaying {
 		t.Fatalf("stalled %v want %v", s.Stalled, wantPlaying)

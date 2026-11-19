@@ -249,3 +249,30 @@ func TestPlausibleStep(t *testing.T) {
 		}
 	}
 }
+
+// The music of a stream has played out and the tail of silence is playing: the player acts
+// there instead of waiting for the stream to run out, both with a next run and without.
+// Acting while the stream is live is what lets the renderer release its sound device
+// (ADR-031).
+func TestMusicPlayedOutDrivesTheTick(t *testing.T) {
+	in := TickInput{
+		WantPlaying: true, State: "PLAYING", SinceCmd: time.Minute,
+		MusicLength: 300, CurDuration: 303, Duration: 303, Position: 299,
+	}
+	if MusicPlayedOut(in) || DecideTick(in) != TickNone {
+		t.Fatalf("the last second of music: %v", DecideTick(in))
+	}
+	in.Position = 301 // a second into the tail
+	if !MusicPlayedOut(in) || DecideTick(in) != TickFinished {
+		t.Fatalf("in the tail, nothing next: %v", DecideTick(in))
+	}
+	in.HasNext = true
+	if DecideTick(in) != TickPlayNext {
+		t.Fatalf("in the tail, a next run: %v", DecideTick(in))
+	}
+	// without a music length (a renderer's own stream, not the player's) nothing changes
+	in.MusicLength = 0
+	if MusicPlayedOut(in) || DecideTick(in) != TickNone {
+		t.Fatalf("no music length: %v", DecideTick(in))
+	}
+}

@@ -95,7 +95,7 @@ func startLocked(i int, seek float64) (err error) {
 	}
 	uri, meta := rp.uri, rp.meta
 	restarted := false
-	if plan.ViaNext && pi.TrackURI == uri && services.SameLength(pi.Duration, rp.length) {
+	if plan.ViaNext && pi.TrackURI == uri && services.SameLength(pi.Duration, rp.stream) {
 		restarted = true
 		// the renderer already has this very stream: restart it in place. The URI
 		// alone is not proof — gmrender reports the queued next URI early — so the
@@ -149,7 +149,7 @@ func heldRun(viaNext bool, pi upnp.PositionInfo, i int, from float64) (runPlan, 
 	defer mu.Unlock()
 	stale := staleRun
 	staleRun = false
-	if stale || !viaNext || runURI == "" || pi.TrackURI != runURI || !services.SameLength(pi.Duration, runLen) {
+	if stale || !viaNext || runURI == "" || pi.TrackURI != runURI || !services.SameLength(pi.Duration, runStream) {
 		return runPlan{}, false
 	}
 	at, ok := streamTimeLocked(i, from)
@@ -200,19 +200,27 @@ func playRetried(d upnp.Device) error {
 	return fmt.Errorf("%w: %v", errPlayRefused, err)
 }
 
-// queueNext queues the run after the current one via SetNextAVTransportURI (gapless
-// between runs: they change only where the format changes). If unsupported, no harm
-// done: DecideTick starts the next run itself.
+// queueNext queues the run after the current one via SetNextAVTransportURI, for the one
+// case where the next run has the same format: an album too long for the RIFF size field.
+// A run otherwise ends where the format changes, and letting the renderer take that next
+// stream through its own gapless path is what leaves gmrender resampling it into the rate
+// the device is already open at (ADR-031). Such a next run is not queued: the player waits
+// for the music to play out and starts it with Stop, SetAVTransportURI, Play (ADR-025).
+// If SetNext is unsupported, no harm done: DecideTick starts the next run itself.
 func queueNext(d upnp.Device) {
 	mu.Lock()
 	ni := runQ + len(runIDs)
 	ok := len(runIDs) > 0 && runCoherentLocked() && ni < len(queue)
+	cur := curRun
 	mu.Unlock()
 	if !ok {
 		return
 	}
 	rp, err := planRun(d, ni, 0)
 	if err != nil {
+		return
+	}
+	if rp.rate != cur.rate || rp.channels != cur.channels || rp.bits != cur.bits {
 		return
 	}
 	c, cancel := ctx()

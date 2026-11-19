@@ -85,7 +85,7 @@ func readSamples(t *testing.T, span Span, offset int64) []int32 {
 }
 
 // A DSD stream started in the middle gives the very samples a stream from the start gives
-// there (after the start's own 10 ms fade-in), and the length is the file's; at 192 kHz too,
+// there, and the length is the file's; at 192 kHz too,
 // through the resampler.
 func TestDSDStreamFromTheMiddle(t *testing.T) {
 	for _, out := range []uint32{88200, 192000} {
@@ -114,8 +114,7 @@ func dsdStreamFromTheMiddle(t *testing.T, out uint32) {
 	}
 	const k = 20000 // a PCM sample in the middle
 	part := readSamples(t, span, int64(services.WavHeaderLen+k*6))
-	fade := 2 * (int(out)*fadeMs/1000 + 1)
-	for i := fade; i < len(part); i++ {
+	for i := 0; i < len(part); i++ {
 		if part[i] != whole[2*k+i] {
 			t.Fatalf("%d: sample %d from the middle: %d, from the start: %d", out, i, part[i], whole[2*k+i])
 		}

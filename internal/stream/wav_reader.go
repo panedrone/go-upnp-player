@@ -30,9 +30,6 @@ func EQActive() bool {
 	return p != nil && p.Active()
 }
 
-// fadeMs is how long the start of a stream rises out of silence (see Open).
-var fadeMs = 10
-
 // Span is what to cut: a file and a sample range [Start, End).
 type Span struct {
 	Path       string
@@ -71,9 +68,6 @@ type Reader struct {
 	eqSrc *services.EQSettings // settings the eq was built from
 	eq    *services.EQ
 
-	// fade: the first this many samples served rise from silence; faded: how many have
-	fade, faded int
-
 	// frames, when set, reads frames from a position found by bisection
 	// (files without a SEEKTABLE) instead of stream
 	frames *bufio.Reader
@@ -98,10 +92,6 @@ func Open(span Span, offset int64) (*Reader, error) {
 		r.skip = skip
 	}
 	target := span.Start + rel
-	// A stream that starts here starts the music mid-wave: a step out of silence is a
-	// click of its own (the FiiO, 2026-11-11). Its first 10 ms rise instead, as
-	// foobar2000 fades in after a seek. A run's next part goes on with no fade.
-	r.fade = int(span.SampleRate) * fadeMs / 1000
 	// With the equalizer on, decoding starts a little earlier: its filters run in on the
 	// music before the first sample served, instead of starting cold on it.
 	from := target
@@ -245,7 +235,6 @@ func (r *Reader) fill() error {
 		to = r.span.End - frameStart
 		r.done = true
 	}
-	r.fadeIn(chans, int(from), int(to))
 	r.pending = r.layout.AppendSamples(r.pending[:0], chans, int(from), int(to))
 	if r.skip > 0 {
 		s := min(r.skip, int64(len(r.pending)))
@@ -279,17 +268,6 @@ func (r *Reader) nextBlock() ([][]int32, error) {
 		chans[i] = sf.Samples
 	}
 	return chans, nil
-}
-
-// fadeIn raises the first served samples [from, to) of a frame out of silence.
-func (r *Reader) fadeIn(chans [][]int32, from, to int) {
-	for i := from; i < to && r.faded < r.fade; i++ {
-		r.faded++
-		g := float64(r.faded) / float64(r.fade+1)
-		for ch := range chans {
-			chans[ch][i] = int32(float64(chans[ch][i]) * g)
-		}
-	}
 }
 
 // Close closes the file.

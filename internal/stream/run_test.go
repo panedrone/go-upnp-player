@@ -39,7 +39,6 @@ func twoFiles(t *testing.T) (Span, Span) {
 // A run is the tracks' PCM back to back under one header, and any byte offset of it
 // can be asked for (a renderer's seek is a Range request).
 func TestRunIsTheTracksBackToBack(t *testing.T) {
-	noFade(t) // byte-exact comparisons: see TestStreamStartFadesIn
 	a, b := twoFiles(t)
 	run := Run{Spans: []Span{a, b}}
 	whole := readRun(t, run, 0)
@@ -77,7 +76,6 @@ func TestRunMergesAnImage(t *testing.T) {
 // Over a seam between two files the equalizer goes on as if the music did: its
 // filters are not started cold at the second file.
 func TestRunEqualizerCarriesOverTheSeam(t *testing.T) {
-	noFade(t) // byte-exact comparisons: see TestStreamStartFadesIn
 	a, b := twoFiles(t)
 	run := Run{Spans: []Span{a, b}}
 	flat := readRun(t, run, 0)[44:]
@@ -159,71 +157,10 @@ func TestRetiredRunIsSilence(t *testing.T) {
 	}
 }
 
-// noFade turns the fade at stream starts off for a test that compares bytes exactly.
-func noFade(t *testing.T) {
-	t.Helper()
-	fadeMs = 0
-	t.Cleanup(func() { fadeMs = 10 })
-}
-
-func samples16(b []byte) []int {
-	out := make([]int, len(b)/2)
-	for i := range out {
-		out[i] = int(int16(binary.LittleEndian.Uint16(b[i*2:])))
-	}
-	return out
-}
-
-func abs(v int) int { return max(v, -v) }
-
-// A stream that starts mid-music rises out of silence over its first 10 ms instead of
-// stepping into the wave; after that it is the music, sample for sample.
-func TestStreamStartFadesIn(t *testing.T) {
-	path, total := writeTestFLAC(t, 10, 4096, 1000)
-	span := Span{Path: path, End: total, SampleRate: 44100, Channels: 2, Bits: 16}
-	off := int64(44 + 5000*4)
-	faded := samples16(readAll(t, span, off))
-	fadeMs = 0
-	plain := samples16(readAll(t, span, off))
-	fadeMs = 10
-	n := 441 * 2 // 10 ms of stereo samples
-	if len(faded) != len(plain) {
-		t.Fatalf("%d samples, want %d", len(faded), len(plain))
-	}
-	for i := range n {
-		if abs(faded[i]) > abs(plain[i]) {
-			t.Fatalf("sample %d: %d louder than the music's %d", i, faded[i], plain[i])
-		}
-	}
-	if abs(faded[0]) > abs(plain[0])/100+1 {
-		t.Fatalf("the first sample %d does not start near silence (music %d)", faded[0], plain[0])
-	}
-	for i := n; i < len(plain); i++ {
-		if faded[i] != plain[i] {
-			t.Fatalf("sample %d differs after the fade", i)
-		}
-	}
-}
-
-// Within a run only the start fades: the next part goes on from the previous one.
-func TestRunSeamIsNotFaded(t *testing.T) {
-	a, b := twoFiles(t)
-	run := Run{Spans: []Span{a, b}}
-	faded := readRun(t, run, 0)
-	fadeMs = 0
-	plain := readRun(t, run, 0)
-	fadeMs = 10
-	head := 44 + 441*4
-	if bytes.Equal(faded[:head], plain[:head]) || !bytes.Equal(faded[head:], plain[head:]) {
-		t.Fatal("only the first 10 ms of the run may differ")
-	}
-}
-
 // A start in the middle of an album (ADR-020): the run opens at the album's first track,
 // and the renderer's first request gets silence up to the chosen track, then the music.
 // Any later request, a seek back into the album included, gets the music.
 func TestRunLeadIsSilentOnlyOnTheFirstRequest(t *testing.T) {
-	noFade(t)
 	a, b := twoFiles(t)
 	music := readRun(t, Run{Spans: []Span{a, b}}, 0)
 	lead := a.End - a.Start // the chosen track is b
@@ -251,5 +188,35 @@ func TestRunLeadIsSilentOnlyOnTheFirstRequest(t *testing.T) {
 	}
 	if back := read(44); !bytes.Equal(back, music[44:]) {
 		t.Fatal("a seek back to the run's start must get the music, not the silent lead")
+	}
+}
+
+// A run ends in a tail of silence: the stream does not run out the moment the music does,
+// so the player's Stop reaches a renderer that is still playing and gmrender releases the
+// sound device instead of holding it open at this run's rate (ADR-031).
+func TestRunEndsInATailOfSilence(t *testing.T) {
+	a, b := twoFiles(t)
+	tail := TailSamples(a.SampleRate)
+	plain := readRun(t, Run{Spans: []Span{a, b}}, 0)
+	run := Run{Spans: []Span{a, b}, Tail: tail}
+	whole := readRun(t, run, 0)
+	ba := int(run.Layout().BlockAlign())
+	if run.Music() != (a.End-a.Start)+(b.End-b.Start) || run.Layout().Samples != run.Music()+tail {
+		t.Fatalf("music %d of %d samples", run.Music(), run.Layout().Samples)
+	}
+	if int64(len(whole)) != run.Layout().TotalLen() {
+		t.Fatalf("%d bytes, want %d", len(whole), run.Layout().TotalLen())
+	}
+	// the music is untouched and the tail is digital silence
+	if !bytes.Equal(whole[44:len(plain)], plain[44:]) {
+		t.Fatal("the music changed")
+	}
+	if !bytes.Equal(whole[len(plain):], make([]byte, int(tail)*ba)) {
+		t.Fatal("the tail is not silence")
+	}
+	// a seek into the tail serves what is left of it
+	off := int64(len(plain)) + int64(tail)*int64(ba)/2
+	if rest := readRun(t, run, off); !bytes.Equal(rest, make([]byte, int64(len(whole))-off)) {
+		t.Fatalf("a seek into the tail: %d bytes, want %d of silence", len(rest), int64(len(whole))-off)
 	}
 }

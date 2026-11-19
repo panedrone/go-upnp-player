@@ -28,9 +28,15 @@ type runPlan struct {
 	// lead: where a restart in place seeks to in the stream the renderer holds, s
 	// (heldRun); 0 for a new stream, which starts at the chosen place
 	lead   float64
-	length float64 // the stream's length, s
-	uri    string
-	meta   string
+	length float64 // the music in the stream, s (the tail is not music)
+	stream float64 // the whole stream, s: the music plus the tail of silence (ADR-031)
+	// the stream's format: a next run always differs in it, except where one album had
+	// to be split over the RIFF size limit
+	rate     uint32
+	channels uint8
+	bits     uint8
+	uri      string
+	meta     string
 }
 
 // The current run, set by a successful start or an advance to the queued run; guarded by mu.
@@ -39,7 +45,8 @@ var (
 	runIDs    []string
 	runStarts []float64
 	runDurs   []float64
-	runLen    float64
+	runLen    float64 // the music in the current run, s
+	runStream float64 // the whole stream of the current run, s (music plus tail)
 	runURI    string
 	curRun    runPlan // the current run as planned (its fields above are its copy)
 	nextRun   runPlan // the run queued with SetNextAVTransportURI (nextURL is its URI)
@@ -109,14 +116,16 @@ func layoutRun(d upnp.Device, ids []string, i int, from float64) (runPlan, error
 		data += size
 		spans = append(spans, sp)
 	}
-	run := stream.Run{Spans: spans}
+	rp.rate, rp.channels, rp.bits = spans[0].SampleRate, spans[0].Channels, spans[0].Bits
+	rp.stream = rp.length + stream.TailSeconds
+	run := stream.Run{Spans: spans, Tail: stream.TailSamples(spans[0].SampleRate)}
 	id := stream.RegisterRun(run)
 	mime := services.PickMime(d.SinkProtocols, "audio/wav", "audio/x-wav")
 	base := "http://" + d.LocalIP + ":" + strconv.Itoa(mediaPort)
 	rp.uri = base + "/media/run/" + id + ".wav?ct=" + url.QueryEscape(mime)
 	rp.meta = services.BuildDIDL(services.TrackMeta{
 		Title: t0.Title, Artist: t0.Artist, Album: t0.Album, Date: t0.Date, Genre: t0.Genre,
-		TrackNumber: t0.Number, Duration: rp.length, SampleRate: t0.SampleRate,
+		TrackNumber: t0.Number, Duration: rp.stream, SampleRate: t0.SampleRate,
 		Bits: t0.Bits, Channels: t0.Channels, Size: run.Layout().TotalLen(), Mime: mime, URL: rp.uri,
 		ArtURL: base + "/media/art/" + t0.ID,
 	})
@@ -127,6 +136,7 @@ func layoutRun(d upnp.Device, ids []string, i int, from float64) (runPlan, error
 func setRunLocked(rp runPlan) {
 	curRun, curRun.lead = rp, 0
 	runQ, runIDs, runStarts, runDurs, runLen, runURI = rp.q, rp.ids, rp.starts, rp.durs, rp.length, rp.uri
+	runStream = rp.stream
 	offset = rp.from
 	streamPos, seekAt = 0, time.Time{}
 	nextURL, nextRun = "", runPlan{}

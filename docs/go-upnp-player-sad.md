@@ -141,7 +141,9 @@ The browser's `localStorage` keeps only per-viewer conveniences:
    switches streams between its tracks, so its output never runs dry there. The player keeps the
    run's layout and turns the renderer's position in the stream into the track and the position in
    it for the page. A run ends where the format changes or before 3.75 GB of PCM (the RIFF size
-   field); the next run is queued gapless (step 5).
+   field), and it ends in 3 s of silence after its music: the player stops the renderer there,
+   while the stream is still live, so gmrender releases the sound device and the next stream opens
+   it at its own rate ([ADR-031](adr-031-a-run-ends-in-silence-so-stop-arrives-live.md)).
    - Next, Prev, a click on a track of the run and a seek within it reach it within the stream.
      While music plays, the renderer is first paused on silence (`Pause`, its stream let go and
      the renderer seeked where it stands), then restarted in place at the target, every step sent
@@ -176,7 +178,11 @@ The browser's `localStorage` keeps only per-viewer conveniences:
    A start whose `Play` is still refused (`501 Playing failed`, e.g. the amplifier is not yet on the
    BeagleBone's USB input) is retried by the poll every 2 s for up to 10 s. Meanwhile the page
    shows CONNECTING, with the attempt and the seconds left in the status bar ([ADR-014](adr-014-retry-refused-start.md)).
-5. **Gapless between runs.** Right after a run starts, `SetNextAVTransportURI` queues the next one.
+5. **Gapless between runs.** Right after a run starts, `SetNextAVTransportURI` queues the next one
+   — only where its format matches, which is one album split over the RIFF size limit. A next run of
+   another format is left to the tick, which starts it with Stop, SetAVTransportURI and Play once the
+   music has played out (ADR-031): through the renderer's own gapless path it would have been
+   resampled into the rate the device was already open at.
 6. **Poll** every second: `GetTransportInfo` + `GetPositionInfo` → `services.DecideTick`, all in
    the renderer's own figures, the stream's:
    - the position in the stream gives the playing track; moving into the next track of the run
@@ -237,8 +243,7 @@ flowchart LR
 
     EQQ{"equalizer on?"}
     EQ["18-band EQ"]
-    FADE["10 ms fade-in<br/>where a stream starts"]
-    RUN["run: tracks of one format<br/>back to back under<br/>one 44-byte WAV header"]
+    RUN["run: tracks of one format<br/>back to back under<br/>one 44-byte WAV header,<br/>then 3 s of silence"]
     R["renderer"]
 
     CUE -. "sample range of a track" .-> DEC
@@ -249,9 +254,8 @@ flowchart LR
     DEC --> EQQ
     PCM --> EQQ
     CONV --> EQQ
-    EQQ -- yes --> EQ --> FADE
-    EQQ -- no --> FADE
-    FADE --> RUN
+    EQQ -- yes --> EQ --> RUN
+    EQQ -- no --> RUN
     RUN -- "HTTP GET /media/run/ID.wav, Range = seek" --> R
 
     classDef data fill:#fef3c7,stroke:#d97706,color:#78350f
@@ -260,7 +264,7 @@ flowchart LR
     classDef dev fill:#fce7f3,stroke:#db2777,color:#831843
     class FLAC,WAV,DSD,CUE data
     class DEC,PCM,RUN,EQQ app
-    class CONV,EQ,FADE touch
+    class CONV,EQ touch
     class R dev
 ```
 
@@ -272,10 +276,9 @@ A new rate, bit depth or channel count starts a new run (`stream.SameFormat`).
   continue one another in one file (a CUE image) are decoded as one range, with no seam at all.
   Between two files the equalizer's filters carry over, as if the music did. A Range request maps
   to a track and a sample in it ([ADR-016](adr-016-clicks-between-tracks-on-fiio-coax.md)).
-- **Every stream starts softly:** its first 10 ms rise out of silence, as foobar2000 fades in
-  after a seek. Music cut in mid-wave is a step out of silence, a click on any output. A run's
-  next part goes on with no fade. With the equalizer on, decoding starts 200 ms before the first
-  sample served, so the filters run in on the music instead of starting cold.
+- **A stream is the file's own samples:** nothing is faded, shaped or padded on the way out
+  ([ADR-030](adr-030-no-fade-in-the-stream.md)). With the equalizer on, decoding starts 200 ms
+  before the first sample served, so the filters run in on the music instead of starting cold.
 - **DSD** (`.dsf`, `.dff`) is converted to 24-bit PCM on the way, at the rate and gain of the DSD
   card ([ADR-028](adr-028-dsd-converted-to-pcm-in-the-player.md)): to the rest of the player a DSD
   track is a PCM track of that rate. `services.DSDConverter`: a FIR on the bits through per-byte

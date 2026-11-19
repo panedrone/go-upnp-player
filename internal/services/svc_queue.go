@@ -29,6 +29,7 @@ type TickInput struct {
 	Position     float64 // RelTime now
 	LastPosition float64 // RelTime at the previous poll
 	CurDuration  float64 // length of the current queue track per the library
+	MusicLength  float64 // the music in the stream the renderer holds, s (0: unknown)
 	NextDuration float64 // length of the next queue track per the library
 }
 
@@ -52,7 +53,7 @@ func DecideTick(in TickInput) TickAction {
 	if in.SinceCmd < StartGrace {
 		return TickNone
 	}
-	if in.State == "STOPPED" || in.State == "NO_MEDIA_PRESENT" || lastTrackPlayedOut(in) {
+	if in.State == "STOPPED" || in.State == "NO_MEDIA_PRESENT" || MusicPlayedOut(in) || lastTrackPlayedOut(in) {
 		if in.HasNext {
 			return TickPlayNext
 		}
@@ -82,6 +83,15 @@ func reallyAdvanced(in TickInput) bool {
 // start of a track that has already ended.
 func AtEnd(position, duration float64) bool {
 	return duration > 0 && position >= duration-2
+}
+
+// MusicPlayedOut: the stream's music has played out and the renderer is into the tail of
+// silence (ADR-031). Acting here, instead of waiting for the stream to run out, is what
+// keeps the next run from being resampled: the Stop that follows reaches a renderer that is
+// still PLAYING, so gmrender closes the sound device and the next stream opens it at its own
+// rate. It applies to a run with a next one as much as to the last: both end in a Stop.
+func MusicPlayedOut(in TickInput) bool {
+	return in.State == "PLAYING" && in.MusicLength > 0 && in.Position >= in.MusicLength+1
 }
 
 // lastTrackPlayedOut: the last track's position has reached its length. The FiiO

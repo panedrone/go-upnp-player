@@ -43,16 +43,36 @@ type Run struct {
 	// are not to be heard. Every later request (a seek is a Range request) gets the
 	// music (ADR-020).
 	Lead uint64
+	// Tail: samples of silence served after the music. A stream that runs out on its own
+	// leaves gmrender holding the sound device open at the rate it was opened with, and the
+	// next stream of another rate is then resampled into it silently (measured on the
+	// BeagleBone, 2026-11-19). The tail keeps the renderer PLAYING for that moment, so the
+	// player's Stop reaches it over a live stream and the device is released (ADR-031).
+	Tail uint64
 }
 
-// Layout is the geometry of the run's WAV.
-func (r Run) Layout() services.WavLayout {
+// TailSeconds is how long the silence after a run's music lasts. Long enough that a
+// renderer rounding its position to whole seconds cannot make the player act on it while
+// the last second of music still plays, and that one poll falls inside it.
+const TailSeconds = 3
+
+// TailSamples is the silence appended to a run at the given rate.
+func TailSamples(rate uint32) uint64 { return uint64(rate) * TailSeconds }
+
+// Music is the run's samples of music, without the tail.
+func (r Run) Music() uint64 {
 	var n uint64
 	for _, s := range r.Spans {
 		n += s.End - s.Start
 	}
+	return n
+}
+
+// Layout is the geometry of the run's WAV, the tail included: it is part of the stream
+// the renderer is told to expect.
+func (r Run) Layout() services.WavLayout {
 	f := r.Spans[0]
-	return services.NewWavLayout(f.SampleRate, f.Channels, f.Bits, n)
+	return services.NewWavLayout(f.SampleRate, f.Channels, f.Bits, r.Music()+r.Tail)
 }
 
 // parts merges spans that continue one another in the same file (the tracks of a
@@ -203,7 +223,7 @@ func openSilence(r Run, offset int64) (io.ReadCloser, error) {
 }
 
 // openWithLead serves a request from the stream's start: the header, silence for the
-// lead, then the music from there, faded in as any stream start is.
+// lead, then the music from there.
 func openWithLead(r Run, offset int64) (io.ReadCloser, error) {
 	layout := r.Layout()
 	leadBytes := int64(r.Lead) * int64(layout.BlockAlign())
@@ -240,10 +260,10 @@ type runReader struct {
 	next   int // the part to open after cur
 	cur    *Reader
 	skip   int64 // bytes to drop from the first part (a Range landing mid-sample)
+	tail   int64 // bytes of silence still to serve after the parts (Run.Tail)
 	first  int64 // sample offset into the first part opened
 	// handoff: the part just finished, whose equalizer the next part continues
 	handoff *Reader
-	opened  bool // a part was opened already: the next ones continue it
 }
 
 func openRun(r Run, offset int64) (io.ReadCloser, error) {
@@ -252,6 +272,8 @@ func openRun(r Run, offset int64) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("offset %d out of range", offset)
 	}
 	rr := &runReader{parts: r.parts()}
+	ba := layout.BlockAlign()
+	rr.tail = int64(r.Tail) * ba
 	sample, skip, inHeader := layout.LocateOffset(offset)
 	if inHeader {
 		rr.header = layout.Header()[offset:]
@@ -268,6 +290,11 @@ func openRun(r Run, offset int64) (io.ReadCloser, error) {
 		rr.first = int64(sample)
 		break
 	}
+	if rr.next >= len(rr.parts) { // the offset lands in the tail: serve what is left of it
+		rr.tail -= int64(sample)*ba + rr.skip
+		rr.skip = 0
+		rr.tail = max(rr.tail, 0)
+	}
 	return rr, nil
 }
 
@@ -281,7 +308,14 @@ func (r *runReader) Read(p []byte) (int, error) {
 	for n < len(p) {
 		if r.cur == nil {
 			if r.next >= len(r.parts) {
-				break
+				if r.tail <= 0 {
+					break
+				}
+				c := min(int64(len(p)-n), r.tail)
+				clear(p[n : n+int(c)])
+				r.tail -= c
+				n += int(c)
+				continue
 			}
 			if err := r.open(); err != nil {
 				if n > 0 {
@@ -321,10 +355,6 @@ func (r *runReader) open() error {
 		rd.eq, rd.eqSrc = h.eq, h.eqSrc
 		r.handoff = nil
 	}
-	if r.opened {
-		rd.fade = 0 // the music goes on from the previous part: no fade
-	}
-	r.opened = true
 	r.first, r.skip = 0, 0
 	r.cur = rd
 	r.next++
