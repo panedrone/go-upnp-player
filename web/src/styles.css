@@ -5,6 +5,13 @@ body { overflow: hidden; font-size: 14px; }
 .min-h-0 { min-height: 0; }
 .min-w-0 { min-width: 0; }
 
+/* Everything that is clicked or dragged shows the hand cursor; Bootstrap leaves it off
+   switches, checkboxes, their labels, sliders and selects. */
+.form-check-input, .form-check-input + .form-check-label, .form-range, .form-select,
+[role="button"] { cursor: pointer; }
+.form-check-input:disabled, .form-check-input:disabled + .form-check-label,
+.form-range:disabled, .form-select:disabled { cursor: default; }
+
 /* player: seek in the Playlist header, volume in its own card */
 .form-range.seek { min-width: 80px; }
 /* switched off after the playlist played out: no thumb, as in foobar2000 */

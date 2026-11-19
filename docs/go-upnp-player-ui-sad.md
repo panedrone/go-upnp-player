@@ -104,7 +104,9 @@ web player.
     centre;
   - equalizer presets, Load… and Save… are quiet gray words, not framed buttons: the equalizer
     is a side tool and must not pull the eye;
-  - album art in the playlist is 64 px.
+  - album art in the playlist is 64 px;
+  - everything that is clicked or dragged shows the hand cursor: buttons, rows, switches and their
+    labels, sliders, selects. A new control gets it too; a disabled one does not.
 - **Icon.** `web/public/favicon.svg` is the source (a streamer box with a play badge);
   `web/public/favicon-32.png`, `assets/icon-256.png` and `assets/icon.ico` are rendered from it.
   The `.ico` goes beside the exe in the zip and the setups, and a copy in
