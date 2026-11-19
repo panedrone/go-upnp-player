@@ -58,6 +58,9 @@ body { overflow: hidden; font-size: 14px; }
 .row-label { display: flex; align-items: center; min-width: 0; }
 /* a device row mixes a small monospace IP, the name and a badge: one text line, not box centres */
 .renderer-row .row-label { align-items: baseline; }
+/* ...except the spinner, which has no text in it: an empty inline-block takes its bottom
+   margin edge as a baseline, so baseline alignment hangs the circle below the name */
+.renderer-row .row-label .spinner-border { align-self: center; }
 .tree-toggle { width: 12px; flex: none; display: flex; align-items: center; justify-content: center; }
 .tree-icon { flex: none; font-size: 12px; display: flex; align-items: center; }
 
