@@ -34,11 +34,11 @@ func TracksUnder(path string) []*Track {
 	mu.RLock()
 	defer mu.RUnlock()
 	path = filepath.Clean(path)
-	prefix := strings.ToLower(path) + string(filepath.Separator)
-	lp := strings.ToLower(path)
+	prefix := pathKey(path) + string(filepath.Separator)
+	lp := pathKey(path)
 	var out []*Track
 	for _, t := range cur.tracks {
-		ll := strings.ToLower(t.Leaf)
+		ll := pathKey(t.Leaf)
 		// the node itself always plays; under a folder, a file covered by a cue
 		// sheet is skipped — its cue tracks are already in the list
 		if ll == lp || (strings.HasPrefix(ll, prefix) && !t.Covered) {

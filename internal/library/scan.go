@@ -189,7 +189,7 @@ func fileMeta(path string) *FileMeta {
 	if err != nil {
 		return nil
 	}
-	key := strings.ToLower(path)
+	key := pathKey(path)
 	metaCacheMu.Lock()
 	c := metaCache[key]
 	metaCacheMu.Unlock()

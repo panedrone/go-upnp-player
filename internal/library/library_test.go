@@ -403,3 +403,27 @@ func TestWAVFiles(t *testing.T) {
 		t.Fatalf("properties %+v %v", p, err)
 	}
 }
+
+// On a case-sensitive file system two folders differing only in case are two albums, each
+// with its own cover: the cache must not hand one's cover to the other.
+func TestArtCacheKeepsCase(t *testing.T) {
+	if foldCase {
+		t.Skip("the file system folds case here")
+	}
+	reset()
+	root := t.TempDir()
+	touch(t, root, map[string]string{
+		"Album/folder.jpg": "x", "Album/t.cue": "x",
+		"album/folder.png": "x", "album/t.cue": "x",
+	})
+	orig := readEmbeddedPicture
+	t.Cleanup(func() { readEmbeddedPicture = orig })
+	readEmbeddedPicture = func(string) ([]byte, string, error) { return nil, "", os.ErrNotExist }
+
+	for dir, want := range map[string]string{"Album": "folder.jpg", "album": "folder.png"} {
+		a := FindArt(&Track{Leaf: filepath.Join(root, dir, "t.cue")})
+		if a == nil || filepath.Base(a.Path) != want {
+			t.Fatalf("%s: %+v", dir, a)
+		}
+	}
+}

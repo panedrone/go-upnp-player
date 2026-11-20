@@ -46,7 +46,7 @@ func FindArt(t *Track) *Art {
 }
 
 func dirArt(dir string) string {
-	key := strings.ToLower(dir)
+	key := pathKey(dir)
 	artCacheMu.Lock()
 	if p, ok := artCache[key]; ok {
 		artCacheMu.Unlock()
