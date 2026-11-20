@@ -128,7 +128,12 @@ The browser's `localStorage` keeps only per-viewer conveniences:
    the list (a 3 s wait). Its **Scan** switch (`PUT /api/renderers/auto`, off on every start)
    searches once a second with a 1 s wait, for a renderer being rebooted: it adds new devices,
    drops one not heard for 5 s (unplugged; one lost answer does not drop it), does not fetch a known device's description
-   again, and runs until it is turned off (a renderer may take minutes to boot).
+   again, and runs until it is turned off (a renderer may take minutes to boot). Neither Scan nor
+   Refresh drops the **selected** renderer: silent, it shows OFFLINE until it is back, and a device
+   answering from a new address is taken there. If a renderer comes back from OFFLINE without the
+   player's stream (Valera rebuilt after its card left the bus), playback stops in place: nothing is
+   sent, and Play continues there
+   ([ADR-032](adr-032-a-silent-renderer-stays-listed-offline.md)).
 2. **Stream URLs.** For each renderer, the local IP that routes to it (UDP dial) goes into the stream
    URLs. This keeps VPN, Hyper-V and WSL adapters out of the way.
 3. **Runs, not tracks** ([ADR-016](adr-016-clicks-between-tracks-on-fiio-coax.md)). The renderer

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"time"
@@ -237,4 +238,23 @@ func IsStaleBundlePath(p string) bool {
 // ahead is left to the racing check (Racing), which needs several polls in a row.
 func PlausibleStep(last, now float64) bool {
 	return now-last >= -1.5
+}
+
+// LostTheStream: a renderer back from OFFLINE no longer holds the player's stream - it
+// reports STOPPED or NO_MEDIA_PRESENT, or a stream that is not the player's. Valera's
+// gmediarender is rebuilt when its sound card leaves the bus while held (the amplifier
+// switched to another input) and comes back empty; taken at its word, NO_MEDIA_PRESENT
+// started the next track into a card that was not there (ADR-032). A renderer that missed a
+// few polls and still plays the player's stream has lost nothing.
+func LostTheStream(state, trackURI, runURI string, positionKnown bool) bool {
+	if state == "STOPPED" || state == "NO_MEDIA_PRESENT" {
+		return true
+	}
+	return positionKnown && runURI != "" && trackURI != runURI
+}
+
+// Clock is a position as the page shows it: m:ss.
+func Clock(sec float64) string {
+	s := int(sec)
+	return fmt.Sprintf("%d:%02d", s/60, s%60)
 }

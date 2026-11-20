@@ -32,6 +32,7 @@ func Tick() {
 		mu.Lock()
 		transport = "OFFLINE"
 		stalled = false
+		wentOffline = true
 		mu.Unlock()
 		return
 	}
@@ -39,6 +40,25 @@ func Tick() {
 
 	mu.Lock()
 	transport = ti.State
+	back := wentOffline
+	wentOffline = false
+	if back && wantPlaying && services.LostTheStream(ti.State, pi.TrackURI, runURI, piErr == nil) {
+		// Back from OFFLINE without the player's stream: the renderer was rebuilt (Valera
+		// after its card left the bus, ADR-032) or its output switched away. Taken as a
+		// Stop that keeps the place: nothing is sent and nothing plays on by itself; the
+		// next Play continues where the music was cut.
+		at := position
+		wantPlaying, paused = false, false
+		pendingSince = time.Time{}
+		nextURL, nextRun = "", runPlan{}
+		setRunLocked(runPlan{})
+		resumeAt = at
+		mu.Unlock()
+		log.Printf("player: %s came back from OFFLINE without the stream (%s); stopped at %.0f s", d.Name, ti.State, at)
+		setErr(fmt.Errorf("renderer %s went offline and came back without the stream: stopped, Play continues at %s",
+			d.Name, services.Clock(at)))
+		return
+	}
 	// The renderer counts in its stream: a run of tracks (ADR-016) that may start into
 	// its first track (ADR-015). The UI gets the track and the position in it.
 	lastStream, lastIndex, lastPos := streamPos, index, position

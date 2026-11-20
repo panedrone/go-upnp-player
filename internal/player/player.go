@@ -88,6 +88,9 @@ var (
 	tickCount   int
 	frozenSince time.Time // since when the reported position has not changed
 	stalled     bool
+	// wentOffline: the last poll found the renderer not answering; the first answer after
+	// it is checked for the player's stream (services.LostTheStream, ADR-032)
+	wentOffline bool
 	// racing detection (services.Racing): the previous poll, the run of racing polls,
 	// where the run started and when the renderer was last restarted because of it
 	lastPollAt time.Time

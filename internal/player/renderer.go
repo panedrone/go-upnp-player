@@ -28,11 +28,22 @@ func Discover() {
 	mu.Lock()
 	discovering = false
 	if err == nil {
-		renderers = found
 		ok := false
 		for _, d := range found {
 			ok = ok || d.UDN == selected
 		}
+		if !ok && selected != "" {
+			// the selected renderer stays on the list while it is silent: it shows OFFLINE
+			// instead of vanishing (Valera rebuilding itself after its card left, ADR-032)
+			for _, d := range renderers {
+				if d.UDN == selected {
+					found = append(found, d)
+					sort.Slice(found, func(i, j int) bool { return found[i].Name < found[j].Name })
+					break
+				}
+			}
+		}
+		renderers = found
 		if !ok && len(found) > 0 && selected == "" {
 			selected = found[0].UDN
 		}
@@ -82,6 +93,13 @@ func AutoScanStep() {
 	now := time.Now()
 	for _, d := range found {
 		scanSeen[d.UDN] = now
+		// a device back at another address (a renderer restarted on a new port) is taken
+		// as it answers now: the old address would leave it OFFLINE for good
+		for i := range renderers {
+			if renderers[i].UDN == d.UDN {
+				renderers[i] = d
+			}
+		}
 	}
 	added := services.NewUDNs(udns(renderers), udns(found))
 	for _, d := range found {
@@ -100,12 +118,16 @@ func AutoScanStep() {
 	gone := services.GoneUDNs(udns(renderers), scanSeen, now)
 	kept := renderers[:0]
 	for _, d := range renderers {
-		if !slices.Contains(gone, d.UDN) {
+		// the selected renderer is never dropped: silent, it is shown OFFLINE until it is
+		// back, the way a FiiO SR11 with its amplifier on another input is (ADR-032)
+		if d.UDN == selected || !slices.Contains(gone, d.UDN) {
 			kept = append(kept, d)
 		}
 	}
 	for _, u := range gone {
-		delete(scanSeen, u)
+		if u != selected {
+			delete(scanSeen, u)
+		}
 	}
 	renderers = kept
 	if len(added) > 0 {
@@ -140,7 +162,7 @@ func Select(udn string) error {
 	// the new renderer's state is unknown until it is polled: the badge must not carry
 	// the old one's (a red OFFLINE moved from the BeagleBone to the FiiO, 2026-11-10)
 	transport = ""
-	frozenSince, stalled = time.Time{}, false
+	frozenSince, stalled, wentOffline = time.Time{}, false, false
 	lastTrackURI, racingTicks, racingFixAt = "", 0, time.Time{}
 	pendingSince = time.Time{} // a refused start belonged to the old renderer
 	nextURL, nextRun = "", runPlan{}

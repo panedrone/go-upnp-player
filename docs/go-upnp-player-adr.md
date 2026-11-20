@@ -37,3 +37,6 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [027](adr-027-qt-window-with-miqt.md) | A Qt window (miqt) beside the web page, calling the player directly |
 | [028](adr-028-dsd-converted-to-pcm-in-the-player.md) | DSD files are converted to PCM in the player, up to 176.4 kHz |
 | [029](adr-029-dsd-every-rate-up-to-192.md) | DSD to PCM at every rate up to 192 kHz, both families |
+| [030](adr-030-no-fade-in-the-stream.md) | No fade in the stream: the renderer gets the file's own samples |
+| [031](adr-031-a-run-ends-in-silence-so-stop-arrives-live.md) | A run ends in a tail of silence, so Stop reaches a live stream |
+| [032](adr-032-a-silent-renderer-stays-listed-offline.md) | A silent renderer stays on the list as OFFLINE, and comes back stopped |
