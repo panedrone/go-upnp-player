@@ -417,34 +417,7 @@ export default function App() {
           </Card>
           <Card>
             <Card.Header className="d-flex align-items-center gap-2">
-              {/* the title and the smaller line after it sit on one text line (baseline), not on
-                  the centres of their boxes, which put the small text visibly higher */}
-              <span className="d-flex align-items-baseline gap-2 flex-grow-1 min-w-0">
-              <span>Output</span>
-              {/* what goes out and from where: a property of the output as a whole */}
-              {(current || track) && (
-                <small className="flex-grow-1 min-w-0 text-body-secondary output-info">
-                  {/* one line of parts with bold dots between them; a narrow column wraps
-                      only at a dot, never inside a part */}
-                  {[
-                    ...(current ? [`from ${current.localIp}`] : []),
-                    ...(track
-                      ? [
-                          `${track.sampleRate / 1000} kHz`,
-                          `${track.bits} bit`,
-                          track.channels === 2 ? 'stereo' : `${track.channels} ch`,
-                          track.dsdRate ? `DSD${track.dsdRate / 44100} → PCM` : track.fromCue ? 'cue → WAV' : (track.format ?? 'FLAC'),
-                        ]
-                      : []),
-                  ].map((part, i) => (
-                    <span key={i} className="text-nowrap">
-                      {i > 0 && <b className="output-dot">•</b>}
-                      {part}
-                    </span>
-                  ))}
-                </small>
-              )}
-              </span>
+              <span className="flex-grow-1">Output</span>
               {/* the header speaks only for the player itself; the device's own state sits on its row */}
               {!connected && <Badge bg={transportVariant[transport]}>{transport}</Badge>}
               {/* Scan: a search every second, for a device being rebooted, until it is turned off */}
@@ -513,6 +486,28 @@ export default function App() {
           gold dev badge and the address it listens on, so it is not taken for the installed one */}
       <footer className="status-bar border-top bg-body-tertiary text-body-secondary d-flex align-items-center gap-3">
         {/* messages from the left edge; only the update block sits at the right, by the version */}
+        {/* what is streamed and from where, only while it is heard: gone when stopped or paused */}
+        {transport === 'PLAYING' && (current || track) && (
+          <span className="status-msg output-info">
+            {/* parts with bold dots between them; a narrow bar wraps only at a dot */}
+            {[
+              ...(current ? [`from ${current.localIp}`] : []),
+              ...(track
+                ? [
+                    `${track.sampleRate / 1000} kHz`,
+                    `${track.bits} bit`,
+                    track.channels === 2 ? 'stereo' : `${track.channels} ch`,
+                    track.dsdRate ? `DSD${track.dsdRate / 44100} → PCM` : track.fromCue ? 'cue → WAV' : (track.format ?? 'FLAC'),
+                  ]
+                : []),
+            ].map((part, i) => (
+              <span key={i} className="text-nowrap">
+                {i > 0 && <b className="output-dot">•</b>}
+                {part}
+              </span>
+            ))}
+          </span>
+        )}
         {state?.waiting && (
           <span className="status-msg">
             <Spinner size="sm" className="me-2" />

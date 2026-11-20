@@ -61,6 +61,9 @@ body { overflow: hidden; font-size: 14px; }
 /* ...except the spinner, which has no text in it: an empty inline-block takes its bottom
    margin edge as a baseline, so baseline alignment hangs the circle below the name */
 .renderer-row .row-label .spinner-border { align-self: center; }
+/* ...and the badge: its text on the name's baseline leaves its bottom padding hanging below
+   the name, the pill sat 2 px low (4 px at 187% zoom); centred, it sits level with the name */
+.renderer-row .row-label .badge { align-self: center; }
 .tree-toggle { width: 12px; flex: none; display: flex; align-items: center; justify-content: center; }
 .tree-icon { flex: none; font-size: 12px; display: flex; align-items: center; }
 
@@ -125,6 +128,9 @@ body { overflow: hidden; font-size: 14px; }
    upright square-cornered handle, no gradients, one border. Bootstrap has no CSS variables for
    the thumb, so both engines are set here; the EQ's rotated ranges get the same handle lying
    across their groove. */
+/* the handle's fill: the selected tree row's colour (bg-body-secondary); the card headers' 3 %
+   tint was too faint to tell from the card */
+:root { --app-thumb-bg: var(--bs-secondary-bg); }
 input.form-range::-webkit-slider-runnable-track {
   height: 4px; border-radius: 2px; background-color: var(--bs-tertiary-bg);
   box-shadow: inset 0 0 0 1px var(--bs-border-color);
@@ -135,17 +141,17 @@ input.form-range::-moz-range-track {
 }
 input.form-range::-webkit-slider-thumb {
   box-sizing: border-box; width: 10px; height: 16px; margin-top: -6px; border-radius: 2px;
-  background-color: var(--bs-body-bg); border: 1px solid var(--bs-secondary);
+  background-color: var(--app-thumb-bg); border: 1px solid var(--bs-secondary);
 }
 input.form-range::-moz-range-thumb {
   box-sizing: border-box; width: 10px; height: 16px; border-radius: 2px;
-  background-color: var(--bs-body-bg); border: 1px solid var(--bs-secondary);
+  background-color: var(--app-thumb-bg); border: 1px solid var(--bs-secondary);
 }
 input.form-range:hover::-webkit-slider-thumb, input.form-range:active::-webkit-slider-thumb { background-color: var(--bs-secondary); }
 input.form-range:hover::-moz-range-thumb, input.form-range:active::-moz-range-thumb { background-color: var(--bs-secondary); }
-/* a disabled range (EQ off, nothing to seek): the same outlined handle, dimmed, not filled */
-input.form-range:disabled::-webkit-slider-thumb { background-color: var(--bs-body-bg); border-color: var(--bs-border-color); }
-input.form-range:disabled::-moz-range-thumb { background-color: var(--bs-body-bg); border-color: var(--bs-border-color); }
+/* a disabled range (EQ off, nothing to seek): the same handle, its border dimmed, not filled */
+input.form-range:disabled::-webkit-slider-thumb { background-color: var(--app-thumb-bg); border-color: var(--bs-border-color); }
+input.form-range:disabled::-moz-range-thumb { background-color: var(--app-thumb-bg); border-color: var(--bs-border-color); }
 input.form-range:focus::-webkit-slider-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs-secondary-rgb), .3); }
 input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs-secondary-rgb), .3); }
 /* a switch in a card header (Equalizer On, Output Scan): on the middle of the header's line, as
@@ -191,7 +197,7 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
 .renderer-row .badge { font-size: .65em; padding: .3em .45em; }
 /* the parts wrap as boxes: between inline spans with no space Firefox found no place to break,
    and the line ran under the Scan switch (2026-11-16) */
-.output-info { display: flex; flex-wrap: wrap; font-size: .75em; line-height: 1.3; }
+.output-info { display: flex; flex-wrap: wrap; }
 .output-dot { margin: 0 .35em; }
 
 /* the three top headers (search, transport, volume) in one line: one height, and the

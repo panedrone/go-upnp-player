@@ -25,7 +25,9 @@ web player.
   ×, the way this copy updates: the setup copy downloads the new setup, a `go install` copy
   rebuilds itself and restarts, the zip opens the release page. Pages open in the system browser
   through `POST /api/update/open`.
-- **Status bar.** The busy message and the error start at the left, the update offer stays at the
+- **Status bar.** At the left, while the selected device plays (not stopped, not paused), what is
+  streamed and from where (local IP, rate, bits, channels, WAV or FLAC, or e.g. "DSD128 → PCM"),
+  parts separated by bold dots; then the busy message and the error. The update offer stays at the
   right by the version. No text is cut with an ellipsis: a long one wraps and the bar grows. The
   error has a × that hides it until it changes; every × sits centred beside its text.
 - **State.** The page reads `GET /api/events` (Server-Sent Events): the state now, then one event
@@ -87,10 +89,7 @@ web player.
 - **Playlist and devices.** Only the playlist plays (a click on its row, or Play in its header). Devices are a
   list in the Output card with a Use button; Refresh and the Scan switch in its header. The selected device's row carries its transport badge after its name
   (a lively green for PLAYING, light gray for quiet states, PAUSED on dark amber with white text for PAUSED_PLAYBACK); the
-  Output header shows a badge only when the player itself is offline. The Output title line
-  also carries what is streamed and from where (local IP, rate, bits, channels, WAV or FLAC, or
-  e.g. "DSD128 → PCM"),
-  parts separated by bold dots. Row buttons appear on hover and are always visible on
+  Output header shows a badge only when the player itself is offline. Row buttons appear on hover and are always visible on
   touch screens.
 - **Waiting for the renderer.** A spinner shows after the title of the row being started, and the
   Use button turns into one, while their request runs. Those requests answer only after the renderer has really switched.
