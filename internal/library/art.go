@@ -54,9 +54,28 @@ func dirArt(dir string) string {
 	}
 	artCacheMu.Unlock()
 
+	// subfolder names as they are on disk, by lower case: "Covers" and "Scans" are found on
+	// a case-sensitive file system too
+	subs := map[string]string{}
+	if entries, err := os.ReadDir(dir); err == nil {
+		for _, e := range entries {
+			if e.IsDir() {
+				if _, ok := subs[strings.ToLower(e.Name())]; !ok {
+					subs[strings.ToLower(e.Name())] = e.Name()
+				}
+			}
+		}
+	}
 	found := ""
 	for _, sub := range coverDirs {
-		found = imageIn(filepath.Join(dir, sub), sub != "")
+		name, ok := sub, sub == ""
+		if !ok {
+			name, ok = subs[sub]
+		}
+		if !ok {
+			continue
+		}
+		found = imageIn(filepath.Join(dir, name), sub != "")
 		if found != "" {
 			break
 		}

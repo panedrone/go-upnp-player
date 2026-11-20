@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -41,8 +42,13 @@ func TestLatest(t *testing.T) {
 }
 
 func TestGoBinDir(t *testing.T) {
-	swap(t, &runGo, func(context.Context, ...string) ([]byte, error) { return []byte("\r\nC:\\Users\\u\\go\r\n"), nil })
-	if got := GoBinDir(context.Background()); got != filepath.Join(`C:\Users\u\go`, "bin") {
+	// a GOPATH as this OS writes it: C:\... on Windows would split at ':' elsewhere
+	gopath := filepath.Join(string(filepath.Separator)+"home", "u", "go")
+	if runtime.GOOS == "windows" {
+		gopath = `C:\Users\u\go`
+	}
+	swap(t, &runGo, func(context.Context, ...string) ([]byte, error) { return []byte("\r\n" + gopath + "\r\n"), nil })
+	if got := GoBinDir(context.Background()); got != filepath.Join(gopath, "bin") {
 		t.Errorf("GOPATH: %q", got)
 	}
 	swap(t, &runGo, func(context.Context, ...string) ([]byte, error) { return []byte("/opt/gobin\n/home/u/go\n"), nil })
