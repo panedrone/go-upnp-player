@@ -45,6 +45,7 @@ func InitRoutes(app *fiber.App) {
 	api.Post("/update/install", handlers.InstallUpdate)
 	api.Get("/eq", handlers.GetEQ)
 	api.Put("/eq", handlers.PutEQ)
+	api.Post("/eq/center", handlers.CenterEQ)
 	api.Get("/dsd", handlers.GetDSD)
 	api.Put("/dsd", handlers.PutDSD)
 

@@ -338,7 +338,9 @@ Details and reasons: [ADR-009](adr-009-equalizer-on-player-side.md).
 - **Bands:** 18 half-octave bands on foobar2000's grid (55 Hz … ~19.9 kHz), ±20 dB, RBJ peaking
   biquads with Q = 2.0.
 - **Overload:** no preamp. A soft limiter is linear up to −1 dBFS and rounds peaks off with tanh
-  above that.
+  above that. `POST /api/eq/center` (`services.CenterEQ`) lowers every band by the curve's average,
+  in whole decibels, so a boosted curve drives the limiter less; a band stops at −20
+  ([ADR-033](adr-033-equalizer-center.md)).
 - **Presets:** foobar2000 `.feq` files are loaded and saved in the browser.
 - **Live changes:** settings are an `atomic.Pointer`, and open streams pick them up from the next
   FLAC frame. After a change the player re-requests the stream from the current position.

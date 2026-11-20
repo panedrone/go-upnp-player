@@ -434,6 +434,19 @@ func TestEndpointsScenario(t *testing.T) {
 		if len(boosted) != len(flat) || bytes.Equal(boosted, flat) {
 			t.Fatal("the EQ must change samples and keep the length")
 		}
+		// Center: one band at +12 of 18 averages 0.67, so the curve moves down by 1, and is saved
+		var centered struct {
+			Enabled bool      `json:"enabled"`
+			Gains   []float64 `json:"gains"`
+		}
+		mustJSON(t, c.status(200, "POST", "/api/eq/center", ""), &centered)
+		if !centered.Enabled || centered.Gains[5] != 11 || centered.Gains[0] != -1 {
+			t.Fatalf("center: %+v", centered)
+		}
+		mustJSON(t, c.status(200, "GET", "/api/eq", ""), &eq)
+		if eq.Gains[5] != 11 {
+			t.Fatalf("the centred curve is not saved: %v", eq.Gains)
+		}
 		eq.Enabled = false
 		body, _ = json.Marshal(eq)
 		c.status(204, "PUT", "/api/eq", string(body))

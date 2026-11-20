@@ -184,6 +184,15 @@ export default function Equalizer({ onError }: Props) {
                 </Button>
               ))}
               <span className="ms-auto" />
+              {/* the whole curve down until its average is 0 dB: the same tone, less overload of
+                  the limiter, a few decibels quieter (ADR-033) */}
+              <Button
+                variant="link" size="sm" className="eq-preset" disabled={!eq.enabled}
+                title="Move the whole curve down so its average is 0 dB: the same tone, less overload, a little quieter"
+                onClick={() => api.centerEq().then(setEq).catch((e) => onError(errMsg(e)))}
+              >
+                Center
+              </Button>
               <Button variant="link" size="sm" className="eq-preset" disabled={!eq.enabled} title="Load a foobar2000 .feq preset" onClick={() => fileInput.current?.click()}>
                 Load…
               </Button>

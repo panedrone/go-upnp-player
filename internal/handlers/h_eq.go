@@ -29,3 +29,15 @@ func PutEQ(c fiber.Ctx) error {
 	}
 	return result(c, player.SetEQ(services.EQSettings{Enabled: in.Enabled, Gains: in.Gains}))
 }
+
+// CenterEQ — POST /api/eq/center: the curve moved down so its average is 0 dB (ADR-033);
+// answers the new settings, as GET does.
+func CenterEQ(c fiber.Ctx) error {
+	s := services.CenterEQ(config.Get().EQ)
+	err := player.SetEQ(s)
+	player.Notify()
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, err.Error())
+	}
+	return c.JSON(eqDTO{Enabled: s.Enabled, Gains: s.Gains, Bands: services.EQBands, MaxGain: services.EQMaxGain})
+}

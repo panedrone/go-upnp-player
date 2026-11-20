@@ -36,6 +36,26 @@ func (s EQSettings) Normalize() EQSettings {
 	return EQSettings{Enabled: s.Enabled, Gains: g}
 }
 
+// CenterEQ moves the whole curve down so its average over the bands is 0 dB, in whole decibels as
+// the sliders move: the shape stays, the boost above the music's level shrinks by that much
+// (ADR-033). A curve whose average is at or below 0 is returned as is: raising it would only add
+// overload. A band pushed past −EQMaxGain stops there.
+func CenterEQ(s EQSettings) EQSettings {
+	s = s.Normalize()
+	sum := 0.0
+	for _, g := range s.Gains {
+		sum += g
+	}
+	shift := math.Round(sum / float64(len(s.Gains)))
+	if shift <= 0 {
+		return s
+	}
+	for i := range s.Gains {
+		s.Gains[i] = math.Max(-EQMaxGain, s.Gains[i]-shift)
+	}
+	return s
+}
+
 // Active reports whether the equalizer actually changes the sound.
 func (s EQSettings) Active() bool {
 	if !s.Enabled {

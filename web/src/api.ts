@@ -128,6 +128,7 @@ export const api = {
   openUpdate: () => req<void>('POST', '/api/update/open'),
   installUpdate: () => req<void>('POST', '/api/update/install'),
   saveEq: (enabled: boolean, gains: number[]) => req<void>('PUT', '/api/eq', { enabled, gains }),
+  centerEq: () => req<EQ>('POST', '/api/eq/center'),
   dsd: () => req<DSDSettings>('GET', '/api/dsd'),
   saveDsd: (rate: number, gainDb: number) => req<void>('PUT', '/api/dsd', { rate, gainDb }),
 }

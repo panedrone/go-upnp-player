@@ -138,3 +138,42 @@ func TestSoftLimit(t *testing.T) {
 		t.Fatal("must be symmetric")
 	}
 }
+
+// the owner's curve of 2026-11-20: average 3.6 dB, so it moves down by 4 and keeps its shape
+// (on a loud DSD track the limiter went from 325 s of 504 to none, ADR-033)
+func TestCenterEQOwnersCurve(t *testing.T) {
+	gains := []float64{2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 6, 8, 10, 11, 11, 11}
+	want := []float64{-2, -2, -4, -4, -4, -4, -4, -4, -4, -4, -3, -1, 2, 4, 6, 7, 7, 7}
+	c := CenterEQ(EQSettings{Enabled: true, Gains: gains})
+	for i := range want {
+		if c.Gains[i] != want[i] {
+			t.Fatalf("got %v, want %v", c.Gains, want)
+		}
+	}
+	if !c.Enabled || gains[0] != 2 {
+		t.Fatal("enabled must stay, the input must not change")
+	}
+}
+
+func TestCenterEQOnlyLowers(t *testing.T) {
+	g := make([]float64, len(EQBands))
+	g[3], g[10] = -9, -9
+	c := CenterEQ(EQSettings{Enabled: true, Gains: g})
+	for i := range g {
+		if c.Gains[i] != g[i] {
+			t.Fatalf("a curve averaging below 0 must stay: %v", c.Gains)
+		}
+	}
+}
+
+func TestCenterEQStopsAtMin(t *testing.T) {
+	g := make([]float64, len(EQBands))
+	for i := range g {
+		g[i] = 20
+	}
+	g[0] = -20
+	c := CenterEQ(EQSettings{Enabled: true, Gains: g})
+	if c.Gains[0] != -EQMaxGain || c.Gains[1] != 2 {
+		t.Fatalf("%v", c.Gains)
+	}
+}

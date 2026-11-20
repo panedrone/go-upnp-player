@@ -101,8 +101,9 @@ web player.
   - button icons are drawn SVG of one size and stroke; a button without a label is a 24 px
     square that never shrinks (Quit included). Font symbols came out in different sizes and off
     centre;
-  - equalizer presets, Load… and Save… are quiet gray words, not framed buttons: the equalizer
-    is a side tool and must not pull the eye;
+  - equalizer presets, Center, Load… and Save… are quiet gray words, not framed buttons: the
+    equalizer is a side tool and must not pull the eye. Center moves the curve down to an average
+    of 0 dB ([ADR-033](adr-033-equalizer-center.md));
   - album art in the playlist is 64 px;
   - everything that is clicked or dragged shows the hand cursor: buttons, rows, switches and their
     labels, sliders, selects. A new control gets it too; a disabled one does not.
