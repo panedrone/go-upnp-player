@@ -135,6 +135,7 @@ func layoutRun(d upnp.Device, ids []string, i int, from float64) (runPlan, error
 // setRunLocked makes rp the run the renderer plays, from its start.
 func setRunLocked(rp runPlan) {
 	curRun, curRun.lead = rp, 0
+	detached = false // a stream of the current playlist, or none
 	runQ, runIDs, runStarts, runDurs, runLen, runURI = rp.q, rp.ids, rp.starts, rp.durs, rp.length, rp.uri
 	runStream = rp.stream
 	offset = rp.from

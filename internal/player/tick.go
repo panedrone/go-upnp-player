@@ -103,7 +103,7 @@ func Tick() {
 				racingIndex, racingFrom = lastIndex, lastPos
 			}
 			racingTicks++
-			racing = racingTicks >= services.RacingTicks
+			racing = racingTicks >= services.RacingTicks && !detached // no playlist track to restart
 		} else {
 			racingTicks = 0
 		}
@@ -125,7 +125,7 @@ func Tick() {
 		SinceCmd:     time.Since(lastCmd),
 		TrackURI:     pi.TrackURI,
 		NextURL:      nextURL,
-		HasNext:      nextAt < len(queue),
+		HasNext:      !detached && nextAt < len(queue), // a detached stream ends the playing
 		Duration:     pi.Duration,
 		Position:     pi.Position,
 		LastPosition: lastStream,
@@ -144,7 +144,8 @@ func Tick() {
 	// Only the player's own stream says where the playlist is. A renderer just switched to
 	// may still hold a stream of its own, and its position read as ours moved the playlist
 	// on, or started the next track over, while the player was paused.
-	if piErr == nil && len(runIDs) > 0 && wantPlaying && pi.TrackURI == runURI {
+	// A detached stream (SetQueue) is not the playlist's: it says nothing about it.
+	if piErr == nil && len(runIDs) > 0 && wantPlaying && pi.TrackURI == runURI && !detached {
 		k, pos := locateLocked(streamPos, index-runQ)
 		if qi := queueIndexLocked(k); qi != index {
 			// the stream went on into its next track; an edited playlist may not have

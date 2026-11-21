@@ -203,6 +203,13 @@ The browser's `localStorage` keeps only per-viewer conveniences:
      ([ADR-023](adr-023-the-end-of-the-playlist-switches-off.md));
    - the end of the playlist stops.
 
+   A new playlist (`PUT /api/queue`) forgets the old one with its current track: nothing of it is
+   looked up in the new playlist or shown, and nothing is sent to the renderer. The stream it plays
+   goes on in its own order (pause and resume work on it) and stops at its end, as the last run
+   does; the poll takes no track and no position from it. The new playlist plays from a click
+   on one of its tracks, or from Play after the old stream has ended or been stopped, which starts
+   its first track.
+
    After a `Seek` in the stream (a seek, Next/Prev or a click within the run) the poll takes the
    seek target as the position until the renderer reports one after it, for up to 5 s
    (`services.SeekLanded`, [ADR-017](adr-017-old-position-after-seek.md)). Seek targets and

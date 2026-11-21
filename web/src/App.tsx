@@ -167,6 +167,32 @@ export default function App() {
     refresh.current()
   }, [])
   const showErr = useCallback((m: string) => setActionErr(m), [])
+
+  // the Output card's Scan switch is a per-browser convenience kept in localStorage: on
+  // the first state after the page loads, the backend is set to the remembered value
+  const scanKey = 'go-upnp-player.autoScan'
+  const scanRestored = useRef(false)
+  const setAutoScan = (on: boolean) => {
+    try {
+      localStorage.setItem(scanKey, on ? '1' : '0')
+    } catch {
+      // no storage: the switch just is not remembered
+    }
+    void run(api.autoScanRenderers(on))
+  }
+  useEffect(() => {
+    if (!state || scanRestored.current) return
+    scanRestored.current = true
+    let saved: string | null = null
+    try {
+      saved = localStorage.getItem(scanKey)
+    } catch {
+      return
+    }
+    if (saved === null) return
+    const on = saved === '1'
+    if (on !== !!state.autoScan) void run(api.autoScanRenderers(on))
+  }, [state, run])
   const [seekDrag, seekProps] = useHeld(state, stateAskedAt, (v) => run(api.seek(v)))
   const [volDrag, volProps] = useHeld(state, stateAskedAt, (v) => run(api.volume(v)))
 
@@ -424,7 +450,7 @@ export default function App() {
               <Form.Check
                 type="switch" id="auto-scan" className="ms-auto flex-shrink-0" label="Scan"
                 title="Scan for devices every second until turned off"
-                checked={!!state?.autoScan} onChange={(e) => run(api.autoScanRenderers(e.target.checked))}
+                checked={!!state?.autoScan} onChange={(e) => setAutoScan(e.target.checked)}
               />
               <Button size="sm" variant="outline-secondary" className="head-btn flex-shrink-0" title="Scan for devices again" onClick={() => run(api.refreshRenderers())} disabled={state?.discovering}>
                 {state?.discovering ? <Spinner size="sm" className="head-spinner" /> : <RefreshIcon />}

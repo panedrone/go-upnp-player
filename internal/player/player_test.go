@@ -86,7 +86,7 @@ func resetState() {
 	frozenSince, stalled = time.Time{}, false
 	lastPollAt, lastTrackURI, racingTicks, racingIndex, racingFrom, racingFixAt = time.Time{}, "", 0, 0, 0, time.Time{}
 	pendingIndex, pendingPos, pendingSince, pendingTry, pendingTries = 0, 0, time.Time{}, time.Time{}, 0
-	offset, finishedAt, off = 0, time.Time{}, false
+	offset, finishedAt, off, detached = 0, time.Time{}, false, false
 	runQ, runIDs, runStarts, runDurs, runLen, runURI, nextRun, streamPos = 0, nil, nil, nil, 0, "", runPlan{}, 0
 	seekTo, seekAt = 0, time.Time{}
 	_ = config.Update(func(c *config.Config) { *c = config.Config{} })
@@ -390,19 +390,51 @@ func TestPlayQueue(t *testing.T) {
 	}
 }
 
-func TestSetQueueKeepsPlayingTrack(t *testing.T) {
+// A new playlist forgets the old one with its current track, even one it contains too:
+// nothing is shown as playing, and the renderer's stream plays on in its own order,
+// across its track boundaries, untouched (owner, 2026-11-21).
+func TestSetQueueForgetsPlayingTrack(t *testing.T) {
 	r := setup(t)
-	playingAt(r, []string{"a", "b"}, 1, 10)
+	playingAt(r, []string{"a", "b", "c"}, 0, 10)
+	old := r.Get().URI
 	SetQueue([]string{"c", "b", "a"}, "")
-	if index != 1 {
-		t.Fatalf("index %d, want the playing track found in the new list", index)
+	if s := Snapshot(); s.Track != nil || s.Index != -1 || s.Position != 0 {
+		t.Fatalf("snapshot track %v index %d position %v: want nothing shown", s.Track, s.Index, s.Position)
 	}
-	if r.Get().Next != runOn(t, r, 2, 0).uri {
-		t.Fatalf("next %s: the run after the playing one, in the new playlist", r.Get().Next)
+	for _, pos := range []float64{11, 238, 241, 300} { // 241: into b, the old stream's next track
+		r.With(func(s *testkit.RendererState) { s.Pos = pos })
+		Tick()
+		if st := r.Get(); st.URI != old || st.State != "PLAYING" || index != -1 {
+			t.Fatalf("at %v: uri %s state %s index %d: want the old stream playing on, untouched", pos, st.URI, st.State, index)
+		}
 	}
-	SetQueue([]string{"c"}, "")
-	if index != -1 {
-		t.Fatalf("index %d after the playing track left the list", index)
+	if n := r.Count("Stop") + r.Count("Seek") + r.Count("SetNextAVTransportURI"); n != 0 {
+		t.Fatalf("%d commands sent to the renderer", n)
+	}
+}
+
+// The old stream played out: the renderer stops, the new playlist does not start by itself.
+func TestSetQueueOldStreamEndsInStop(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"a", "b", "c"}, 0, 10)
+	SetQueue([]string{"c", "hi"}, "")
+	r.With(func(s *testkit.RendererState) { s.Pos = 240 + 180 + 200 + 2 })
+	Tick()
+	if st := r.Get(); st.State != "STOPPED" || wantPlaying || index != -1 || detached {
+		t.Fatalf("state %s wantPlaying %v index %d detached %v", st.State, wantPlaying, index, detached)
+	}
+}
+
+// A click on a track of the new playlist starts it.
+func TestSetQueueThenPlayStartsNewPlaylist(t *testing.T) {
+	r := setup(t)
+	playingAt(r, []string{"a", "b", "c"}, 0, 10)
+	SetQueue([]string{"c", "hi"}, "")
+	if err := PlayIndex(0); err != nil {
+		t.Fatal(err)
+	}
+	if st := r.Get(); st.URI != runOn(t, r, 0, 0).uri || index != 0 || detached {
+		t.Fatalf("uri %s index %d detached %v", st.URI, index, detached)
 	}
 }
 

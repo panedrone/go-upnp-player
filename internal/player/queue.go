@@ -26,43 +26,24 @@ func PlayQueue(ids []string, i int) error {
 	return err
 }
 
-// SetQueue builds the playlist without touching playback. src is the tree node it
-// was built from ("" for search results); the tree highlights it. If the playing track
-// is in the new playlist, playback continues through the new one from it; if not, it
-// plays out and the first track of the new playlist comes next.
+// SetQueue builds the playlist without touching playback (owner, 2026-11-21). src is the
+// tree node it was built from ("" for search results); the tree highlights it. The old
+// playlist is forgotten with its current track: nothing of it is looked up in the new one
+// or shown. The stream the renderer plays goes on in its own order to its end (detached)
+// and then the renderer stops; the new playlist plays once a track of it is started.
 func SetQueue(ids []string, src string) {
 	cmdMu.Lock()
 	defer cmdMu.Unlock()
 	mu.Lock()
-	cur := ""
-	if index >= 0 && index < len(queue) {
-		cur = queue[index]
-	}
-	inRun := index - runQ // the current track's place in the stream the renderer plays
 	queue = append([]string(nil), ids...)
 	queueVersion++
 	source = src
-	index = -1
-	for i, id := range queue {
-		if id == cur {
-			index = i
-			break
-		}
-	}
-	if index < 0 {
-		resumeAt = -1 // the paused track left the playlist: Play starts the new one over
-	} else {
-		runQ = index - inRun // where the stream would start in the new playlist, if it still fits
-	}
-	playingNow := wantPlaying
+	index, resumeAt = -1, -1 // Play starts the new playlist from its first track
+	position, duration = 0, 0
+	detached = len(runIDs) > 0
 	nextURL, nextRun = "", runPlan{} // a previously queued next belongs to the old playlist
 	mu.Unlock()
 	savePlaylist()
-	if playingNow {
-		if d, ok := device(); ok {
-			queueNext(d)
-		}
-	}
 }
 
 // PlayIndex jumps to a track in the current queue.

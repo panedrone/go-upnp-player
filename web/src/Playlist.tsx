@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { Badge, Button, Image, Spinner, Table } from 'react-bootstrap'
+import { useMemo, useState } from 'react'
+import { Badge, Button, Image, Modal, Spinner, Table } from 'react-bootstrap'
 import { artUrl, fmtTime, Track } from './api'
 import { InfoIcon, PlayIcon } from './icons'
 
@@ -36,6 +36,8 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay, sele
     })
     return out
   }, [tracks])
+  // the cover shown full size: the id of the track it belongs to
+  const [coverId, setCoverId] = useState<string | null>(null)
 
   if (tracks.length === 0) {
     return <div className="p-4 text-center text-body-secondary">Playlist is empty. Press → next to a folder, a cue sheet or a track in the library. Click a track here to play it; the i after its length shows its properties.</div>
@@ -49,6 +51,8 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay, sele
             <div className="album-head d-flex align-items-center px-2 py-2" title={g.key}>
               <Image
                 src={artUrl(g.items[0].t.id)} alt="" rounded loading="lazy" className="album-thumb"
+                title="Show the cover"
+                onClick={() => setCoverId(g.items[0].t.id)}
                 onError={(e) => (e.target as HTMLImageElement).classList.add('d-none')}
               />
               <div className="album-text min-w-0">
@@ -110,6 +114,12 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay, sele
           </section>
         )
       })}
+      {/* the cover at its own size, never wider or taller than the window; a click anywhere closes it */}
+      <Modal show={coverId !== null} onHide={() => setCoverId(null)} centered className="cover-modal" dialogClassName="cover-dialog" contentClassName="cover-content">
+        {coverId !== null && (
+          <img src={artUrl(coverId)} alt="" className="cover-full" onClick={() => setCoverId(null)} />
+        )}
+      </Modal>
     </div>
   )
 }

@@ -105,6 +105,9 @@ var (
 	// resumeAt: the renderer was switched while paused; the new one has not got
 	// the track yet, so the next Play starts it there at this position (-1: none)
 	resumeAt = -1.0
+	// detached: the stream the renderer plays belongs to a replaced playlist (SetQueue); it
+	// plays out in its own order, no track of the new playlist is taken from it
+	detached bool
 	// staleRun: the run the renderer holds no longer matches the library (a new DSD rate,
 	// ADR-028); the next start opens a new stream instead of restarting that one in place
 	staleRun bool
