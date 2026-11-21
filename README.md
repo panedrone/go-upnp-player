@@ -188,7 +188,3 @@ through an account without a password; use one that has one.
   - `-web` — serve the page from a folder instead of the copy built into the exe, e.g.
     `-web web/dist`: for development, a fresh `npm run build` shows on the next reload; the status
     bar then ends with a gold dev badge and the address the player listens on.
-
-## License
-
-[ISC](LICENSE).
