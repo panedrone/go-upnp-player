@@ -53,7 +53,13 @@ body { overflow: hidden; font-size: 14px; }
 .tree-row .btn.star-btn + .hover-btn { margin-left: 0; }
 /* the DSD card: one line, a label before each select */
 .dsd-line { display: flex; align-items: center; gap: 8px; font-size: .8rem; }
-.form-select.dsd-select { width: auto; height: 24px; padding: 0 1.75rem 0 .5rem; font-size: .8rem; line-height: 1; background-position: right .4rem center; }
+/* Segoe UI's digits and capitals sit about 1 px below the middle of their line: the text in the
+   selects and the labels before them is lifted by 2 px of bottom padding (Firefox, 2026-11-21) */
+.form-select.dsd-select { width: auto; height: 24px; padding: 0 1.75rem 2px .5rem; font-size: .8rem; line-height: 1; background-position: right .4rem center; }
+.dsd-line > span { padding-bottom: 2px; }
+/* the arrow of "DSD → PCM" on the middle of the capitals, which sit about 1 px below the
+   middle of their line */
+.dsd-title svg { position: relative; top: 1px; }
 .dsd-line .dsd-select + span { margin-left: 8px; }
 .row-label { display: flex; align-items: center; min-width: 0; }
 /* a device row mixes a small monospace IP, the name and a badge: one text line, not box centres */

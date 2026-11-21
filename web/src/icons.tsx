@@ -29,6 +29,15 @@ export function ToPlaylistIcon() {
   )
 }
 
+// the arrow in the DSD card's title ("DSD → PCM"): drawn, the "→" character sat low
+export function ArrowIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2.5 8h10.5M9 3.5L13.5 8 9 12.5" />
+    </svg>
+  )
+}
+
 // a folder's star: filled when it is starred, an outline otherwise
 export function StarIcon({ on }: { on: boolean }) {
   return (

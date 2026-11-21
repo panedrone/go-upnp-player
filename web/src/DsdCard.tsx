@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Collapse, Form, Spinner } from 'react-bootstrap'
 import { api, DSDSettings } from './api'
-import { ChevronIcon } from './icons'
+import { ArrowIcon, ChevronIcon } from './icons'
 
 const openKey = 'go-upnp-player.dsd-open'
 
@@ -50,9 +50,10 @@ export default function DsdCard({ onError, applying }: Props) {
   return (
     <Card>
       <Card.Header className="d-flex align-items-center gap-2">
-        <span className="d-flex align-items-baseline gap-2 me-auto">
+        <span className="d-flex align-items-center gap-2 me-auto dsd-title">
           <span>DSD</span>
-          <small className="text-body-secondary">→ PCM</small>
+          <ArrowIcon />
+          <span>PCM</span>
         </span>
         <Button
           size="sm" variant="outline-secondary" className="head-btn"
