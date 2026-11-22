@@ -56,6 +56,16 @@ export function PlayIcon() {
   )
 }
 
+// the playing row's Pause button: two bars, the size of PlayIcon
+export function PauseIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <rect x="3" y="2" width="3.6" height="12" rx=".8" />
+      <rect x="9.4" y="2" width="3.6" height="12" rx=".8" />
+    </svg>
+  )
+}
+
 // "Check for updates": a cloud with an arrow down
 export function UpdateIcon() {
   return (

@@ -64,7 +64,8 @@ web player.
   (volume is the selected device's). What plays is shown in the playlist: its row is bold and
   marked ▶ left of the track number. A click anywhere on a row plays it; under the pointer its title
   is underlined. The i button right after the title, shown on row hover like the tree's buttons, shows the
-  track's properties and leaves playback alone. Album headers show
+  track's properties and leaves playback alone. While the current track plays or is paused, its
+  row also has Pause or Resume right after the i, shown on hover like the i. Album headers show
   the total time.
 - **The years** in the playlist's album headers (page and Qt): the album's own year, then the
   release's after a slash when they differ, "1984 / 2015" for a 2015 reissue

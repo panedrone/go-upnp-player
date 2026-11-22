@@ -381,6 +381,8 @@ export default function App() {
           <div className="flex-grow-1 overflow-auto min-h-0">
             <Playlist
               tracks={queue} playingId={playingId} pendingIndex={pendingPlay} onPlay={playTrack}
+              playState={playing ? 'playing' : state?.paused && !state?.off ? 'paused' : null}
+              onPause={() => run(api.pause())} onResume={() => run(api.resume())}
               selectedId={shownId} onSelect={setSelectedId}
             />
           </div>

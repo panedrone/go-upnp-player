@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react'
 import { Badge, Button, Image, Modal, Spinner, Table } from 'react-bootstrap'
 import { artUrl, fmtTime, Track } from './api'
-import { InfoIcon, PlayIcon } from './icons'
+import { InfoIcon, PauseIcon, PlayIcon } from './icons'
 
 interface Props {
   tracks: Track[]
   playingId: string | null
+  // what the current track is doing: heard, paused, or neither (stopped, connecting, played out)
+  playState: 'playing' | 'paused' | null
+  onPause: () => void
+  onResume: () => void
   pendingIndex: number | null // the track whose start is still in progress
   onPlay: (index: number) => void
   selectedId: string | null // the row the properties panel shows
@@ -22,7 +26,7 @@ interface Group {
 }
 
 // Track list grouped by album (cue or folder).
-export default function Playlist({ tracks, playingId, pendingIndex, onPlay, selectedId, onSelect }: Props) {
+export default function Playlist({ tracks, playingId, playState, onPause, onResume, pendingIndex, onPlay, selectedId, onSelect }: Props) {
   const groups = useMemo(() => {
     const out: Group[] = []
     tracks.forEach((t, i) => {
@@ -101,6 +105,20 @@ export default function Playlist({ tracks, playingId, pendingIndex, onPlay, sele
                           >
                             <InfoIcon />
                           </Button>
+                          {/* the current track pauses and resumes right here, after its i, on hover */}
+                          {playing && playState && (
+                            <Button
+                              size="sm" variant="secondary" className="hover-btn icon-btn pause-btn"
+                              title={playState === 'playing' ? 'Pause' : 'Resume'}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (playState === 'playing') onPause()
+                                else onResume()
+                              }}
+                            >
+                              {playState === 'playing' ? <PauseIcon /> : <PlayIcon />}
+                            </Button>
+                          )}
                           {/* while the start is under way, right after the title */}
                           {pendingIndex === i && <Spinner size="sm" className="ms-2 flex-shrink-0 text-body-secondary" />}
                         </div>

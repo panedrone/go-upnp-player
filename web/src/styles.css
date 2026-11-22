@@ -106,6 +106,8 @@ body { overflow: hidden; font-size: 14px; }
 /* the ▶ glyph sits 1 px below the middle of its line (measured 2026-11-11): the line is
    lifted by 1 px, the button keeps its height */
 .track-table .btn.hover-btn { line-height: calc(1.35em - 2px); padding-bottom: 2px; }
+/* the current track's Pause/Resume after its i: on row hover, like the i */
+.track-table .btn.pause-btn { margin-left: 4px; }
 .col-dur { width: 64px; }
 
 /* track properties under the playlist: a name column, the value wraps (long MD5, tool) */
