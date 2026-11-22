@@ -22,16 +22,30 @@ const curve = (points: [number, number][]) => (hz: number) => {
   return clampDb(points[points.length - 1][1])
 }
 
-const presets: Record<string, (hz: number) => number> = {
-  Flat: () => 0,
-  Bass: (hz) => clampDb(hz < 250 ? 8 - 2.5 * Math.max(0, oct(hz, 55)) : 0),
-  Treble: (hz) => clampDb(hz > 2000 ? 2.5 * oct(hz, 2000) : 0),
-  Loudness: (hz) => clampDb(hz < 300 ? 7 - 2.5 * Math.max(0, oct(hz, 55)) : hz > 3000 ? 2 * oct(hz, 3000) : 0),
-  Vocal: (hz) => clampDb(4 - 2.5 * Math.abs(oct(hz, 1500))),
+// a preset gives the gains for the band grid
+type Preset = (bands: number[]) => number[]
+const onGrid = (f: (hz: number) => number): Preset => (bands) => bands.map(f)
+// the curve moved so its average over the bands is 0 dB, in whole decibels, up or down: the shape
+// of Center (ADR-033) built in. Bass and Treble are not centred: who picks them wants exactly
+// that boost, and centring would cut the rest of the range instead.
+const centred = (f: (hz: number) => number): Preset => (bands) => {
+  const g = bands.map(f)
+  const shift = Math.round(g.reduce((s, x) => s + x, 0) / g.length)
+  return g.map((x) => x - shift)
+}
+
+// The Qt window keeps its own copy of these curves, uncentred (internal/services/svc_eq_presets.go):
+// it is on hold and gets no changes.
+const presets: Record<string, Preset> = {
+  Flat: onGrid(() => 0),
+  Bass: onGrid((hz) => clampDb(hz < 250 ? 8 - 2.5 * Math.max(0, oct(hz, 55)) : 0)),
+  Treble: onGrid((hz) => clampDb(hz > 2000 ? 2.5 * oct(hz, 2000) : 0)),
+  Loudness: centred((hz) => clampDb(hz < 300 ? 7 - 2.5 * Math.max(0, oct(hz, 55)) : hz > 3000 ? 2 * oct(hz, 3000) : 0)),
+  Vocal: centred((hz) => clampDb(4 - 2.5 * Math.abs(oct(hz, 1500)))),
   // "smiley" (V): moderate bass, a mid dip around 1 kHz and strongly boosted
   // highs; the right wing is higher than the left (per a live listening test 2026-11-09:
   // a symmetric V gave "too much bass, too little treble")
-  Rock: curve([[55, 4], [110, 4], [250, 1], [600, -2], [1000, -3], [2000, 0], [3500, 4], [6000, 7], [10000, 9], [14000, 10]]),
+  Rock: centred(curve([[55, 4], [110, 4], [250, 1], [600, -2], [1000, -3], [2000, 0], [3500, 4], [6000, 7], [10000, 9], [14000, 10]])),
 }
 
 // foobar2000 .feq: one integer gain in dB per line, one line per band, CRLF.
@@ -178,8 +192,8 @@ export default function Equalizer({ onError }: Props) {
             {/* presets as quiet text, not a row of framed buttons: the equalizer is a side
                 tool and must not pull the eye from the library and the playlist */}
             <div className="eq-presets mt-3">
-              {Object.entries(presets).map(([name, gains]) => (
-                <Button key={name} variant="link" size="sm" className="eq-preset" disabled={!eq.enabled} onClick={() => save({ ...eq, gains: eq.bands.map(gains) })}>
+              {Object.entries(presets).map(([name, preset]) => (
+                <Button key={name} variant="link" size="sm" className="eq-preset" disabled={!eq.enabled} onClick={() => save({ ...eq, gains: preset(eq.bands) })}>
                   {name}
                 </Button>
               ))}

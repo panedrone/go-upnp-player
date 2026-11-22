@@ -8,8 +8,9 @@ import (
 )
 
 // Equalizer presets are frequency curves, not gain lists tied to one band grid: a preset is
-// the curve evaluated at every band of EQBands. The same curves as the web page's
-// (web/src/Equalizer.tsx), for the Qt window (ADR-027).
+// the curve evaluated at every band of EQBands. The web page's curves (web/src/Equalizer.tsx)
+// as they were before the page centred Loudness, Vocal and Rock, for the Qt window (ADR-027),
+// which is on hold.
 
 // EQPresetNames are the presets in the order they are offered.
 var EQPresetNames = []string{"Flat", "Bass", "Treble", "Loudness", "Vocal", "Rock"}
