@@ -102,6 +102,9 @@ web player.
   - button icons are drawn SVG of one size and stroke; a button without a label is a 24 px
     square that never shrinks (Quit included). Font symbols came out in different sizes and off
     centre;
+  - text beside a slider, a select or a button has its capitals on the middle of the line: the page
+    measures from the font in use how far they are off (`web/src/capShift.ts`, `.cap-mid`), since
+    Windows and Linux fonts are off in opposite directions;
   - equalizer presets, Center, Load… and Save… are quiet gray words, not framed buttons: the
     equalizer is a side tool and must not pull the eye. Center moves the curve down to an average
     of 0 dB ([ADR-033](adr-033-equalizer-center.md));

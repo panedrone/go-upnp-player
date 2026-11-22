@@ -350,13 +350,13 @@ export default function App() {
                 <path d="M8 0.8v2.4M8 12.8v2.4M0.8 8h2.4M12.8 8h2.4" />
               </svg>
             </Button>
-            <small className="text-body-secondary font-monospace">{fmtTime(position)}</small>
+            <small className="text-body-secondary font-monospace cap-mid">{fmtTime(position)}</small>
             <Form.Range
               className={'flex-grow-1 seek' + (state?.off ? ' off' : '')} min={0} max={Math.max(1, duration)} step={1}
               value={Math.min(position, duration)} disabled={!track || !!state?.off}
               {...seekProps}
             />
-            <small className="text-body-secondary font-monospace">{fmtTime(duration)}</small>
+            <small className="text-body-secondary font-monospace cap-mid">{fmtTime(duration)}</small>
             <ButtonGroup className="flex-shrink-0">
               <Button size="sm" variant="outline-secondary" className="head-btn" title="Previous" onClick={() => run(api.prev())}>
                 <BarIcon name="prev" />
@@ -406,9 +406,9 @@ export default function App() {
           {/* volume of the selected device, theme and Quit */}
           <Card>
             <Card.Header className="top-head d-flex align-items-center gap-2">
-              <span>Vol</span>
+              <span className="cap-mid">Vol</span>
               <Form.Range className="flex-grow-1" min={0} max={100} value={volume} title="Volume" {...volProps} />
-              <small className="text-body-secondary vol-num">{state && state.volume >= 0 ? volume : '–'}</small>
+              <small className="text-body-secondary vol-num cap-mid">{state && state.volume >= 0 ? volume : '–'}</small>
               <Button
                 size="sm" variant="outline-secondary" className="head-btn flex-shrink-0"
                 title={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}
