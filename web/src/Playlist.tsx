@@ -73,11 +73,17 @@ export default function Playlist({ tracks, playingId, playState, onPause, onResu
               <tbody>
                 {g.items.map(({ t, i }) => {
                   const playing = t.id === playingId
+                  // the current track, heard or paused: its row pauses and resumes, its title plays it again
+                  const current = playing && playState !== null
+                  const toggle = () => {
+                    if (playState === 'playing') onPause()
+                    else onResume()
+                  }
                   return (
                     <tr
                       key={t.id}
-                      className={playing ? 'table-active fw-bold' : t.id === selectedId ? 'table-active' : ''}
-                      onClick={() => onPlay(i)}
+                      className={(playing ? 'table-active fw-bold' : t.id === selectedId ? 'table-active' : '') + (current ? ' current' : '')}
+                      onClick={() => (current ? toggle() : onPlay(i))}
                     >
                       <td className="col-num text-body-secondary text-nowrap">
                         {/* the mark of the playing track, centred in the room left of the number */}
@@ -90,9 +96,16 @@ export default function Playlist({ tracks, playingId, playState, onPause, onResu
                       </td>
                       <td>
                         <div className="row-label">
-                          {/* a click anywhere on the row plays it; the i right after the title shows the
-                              track's properties */}
-                          <span className={'text-truncate track-title' + (playing ? '' : ' text-body-secondary')}>
+                          {/* a click anywhere on the row plays it (on the current track's row, only on
+                              its title; the rest pauses and resumes); the i right after the title shows
+                              the track's properties */}
+                          <span
+                            className={'text-truncate track-title' + (playing ? '' : ' text-body-secondary')}
+                            onClick={current ? (e) => {
+                              e.stopPropagation()
+                              onPlay(i)
+                            } : undefined}
+                          >
                             {t.title}
                             {t.artist && t.artist !== g.artist ? <small className="text-body-secondary"> — {t.artist}</small> : null}
                           </span>
@@ -106,14 +119,13 @@ export default function Playlist({ tracks, playingId, playState, onPause, onResu
                             <InfoIcon />
                           </Button>
                           {/* the current track pauses and resumes right here, after its i, on hover */}
-                          {playing && playState && (
+                          {current && (
                             <Button
                               size="sm" variant="secondary" className="hover-btn icon-btn pause-btn"
                               title={playState === 'playing' ? 'Pause' : 'Resume'}
                               onClick={(e) => {
                                 e.stopPropagation()
-                                if (playState === 'playing') onPause()
-                                else onResume()
+                                toggle()
                               }}
                             >
                               {playState === 'playing' ? <PauseIcon /> : <PlayIcon />}

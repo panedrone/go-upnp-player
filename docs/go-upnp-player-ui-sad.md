@@ -65,7 +65,9 @@ web player.
   marked ▶ left of the track number. A click anywhere on a row plays it; under the pointer its title
   is underlined. The i button right after the title, shown on row hover like the tree's buttons, shows the
   track's properties and leaves playback alone. While the current track plays or is paused, its
-  row also has Pause or Resume right after the i, shown on hover like the i. Album headers show
+  row also has Pause or Resume right after the i, shown on hover like the i, and a click on the
+  row past its title and i does the same; only its title plays it again, underlined under the
+  pointer itself. Album headers show
   the total time.
 - **The years** in the playlist's album headers (page and Qt): the album's own year, then the
   release's after a slash when they differ, "1984 / 2015" for a 2015 reissue
@@ -108,7 +110,8 @@ web player.
   - equalizer presets, Center, Load… and Save… are quiet gray words, not framed buttons: the
     equalizer is a side tool and must not pull the eye. Center moves the curve down to an average
     of 0 dB ([ADR-033](adr-033-equalizer-center.md)). Loudness, Vocal and Rock come centred
-    already, up or down to an average of 0 dB; Bass and Treble are the boost they name;
+    already, up or down to an average of 0 dB; Bass and Treble are the boost they name. A click on
+    a band's gain above its slider or its frequency below sets that band back to 0 dB;
   - album art in the playlist is 64 px;
   - everything that is clicked or dragged shows the hand cursor: buttons, rows, switches and their
     labels, sliders, selects. A new control gets it too; a disabled one does not.

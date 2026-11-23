@@ -170,9 +170,18 @@ export default function Equalizer({ onError }: Props) {
         <div>
           <Card.Body className={eq.enabled ? '' : 'opacity-50'}>
             <div className="eq-bands">
-              {eq.bands.map((hz, i) => (
+              {eq.bands.map((hz, i) => {
+                // a click on a band's labels (its gain above, its frequency below) sets it back to 0 dB
+                const reset = eq.enabled
+                  ? {
+                      role: 'button',
+                      title: `${hz} Hz: reset to 0 dB`,
+                      onClick: () => save({ ...eq, gains: eq.gains.map((g, j) => (j === i ? 0 : g)) }),
+                    }
+                  : {}
+                return (
                 <div className="eq-band" key={hz}>
-                  <small className="eq-gain">{eq.gains[i] === 0 ? '·' : (eq.gains[i] > 0 ? '+' : '') + eq.gains[i]}</small>
+                  <small className="eq-gain" {...reset}>{eq.gains[i] === 0 ? '·' : (eq.gains[i] > 0 ? '+' : '') + eq.gains[i]}</small>
                   {/* a horizontal range turned upright inside a box of the upright size:
                       vertical ranges (writing-mode) are not drawn by Safari before 17.4 */}
                   <div className="eq-slider-box">
@@ -185,9 +194,10 @@ export default function Equalizer({ onError }: Props) {
                       title={`${hz} Hz: ${eq.gains[i] > 0 ? '+' : ''}${eq.gains[i]} dB`}
                     />
                   </div>
-                  <small className="text-body-secondary eq-hz">{fmtBand(hz)}</small>
+                  <small className="text-body-secondary eq-hz" {...reset}>{fmtBand(hz)}</small>
                 </div>
-              ))}
+                )
+              })}
             </div>
             {/* presets as quiet text, not a row of framed buttons: the equalizer is a side
                 tool and must not pull the eye from the library and the playlist */}

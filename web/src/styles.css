@@ -102,6 +102,9 @@ body { overflow: hidden; font-size: 14px; }
 .track-table .col-num { width: 44px; padding-left: 0; }
 /* the row under the pointer: its title underlined (a click plays it); its i button shows by .hover-btn */
 .track-table tr:hover .track-title { text-decoration: underline; }
+/* the current track's row pauses and resumes; only its title plays it again, underlined under the pointer */
+.track-table tr.current:hover .track-title { text-decoration: none; }
+.track-table tr.current .track-title:hover { text-decoration: underline; }
 /* the number at the right of its cell; the room left of it holds the playing mark, centred */
 /* a line high even with no number (tracks without a TRACKNUMBER tag): the mark stays on the
    middle of the title's line, not at the top of an empty cell (2026-11-15) */
