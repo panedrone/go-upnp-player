@@ -472,27 +472,34 @@ export default function App() {
                 return (
                   <ListGroup.Item key={r.udn} className={'renderer-row d-flex align-items-center gap-2' + (sel ? ' bg-body-secondary' : '')}>
                     <div className="min-w-0 flex-grow-1">
-                      <div className="row-label">
-                        <span className="renderer-ip font-monospace text-body-secondary">{r.ip}</span>
-                        <span className={'text-truncate' + (sel ? ' fw-bold' : ' text-body-secondary')}>{r.name}</span>
-                        {/* the selected device's transport state, right after its name: it is
-                            this device that plays, stops or is being connected to */}
-                        {sel && connected && (
-                          <Badge
-                            bg={transportVariant[transport] ?? 'idle'}
-                            className={'ms-2 flex-shrink-0' + (transport === 'CONNECTING' ? ' badge-pulse' : '')}
-                          >
-                            {transportLabel[transport] ?? transport}
-                          </Badge>
-                        )}
-                        {pendingRenderer === r.udn ? (
-                          <Spinner size="sm" className="ms-2 flex-shrink-0 text-body-secondary" />
-                        ) : !sel && (
-                          <Button size="sm" variant="secondary" className="hover-btn" title="Play on this device" onClick={() => useRenderer(r.udn)}>
-                            Use
-                          </Button>
-                        )}
-                      </div>
+                      {/* IP, name, state and Use as table cells: each holds one box as tall as its
+                          capitals (.cap-box), and the table centres the boxes */}
+                      <table className="cell-gap">
+                        <tbody>
+                          <tr>
+                            <td><span className="cap-box small text-body-secondary">{r.ip}</span></td>
+                            <td><span className={'cap-box' + (sel ? ' fw-bold' : ' text-body-secondary')}>{r.name}</span></td>
+                            {/* the selected device's transport state, right after its name: it is
+                                this device that plays, stops or is being connected to */}
+                            {sel && connected && (
+                              <td>
+                                <span className={'cap-box pill small fw-bold bg-' + (transportVariant[transport] ?? 'idle') + (transport === 'CONNECTING' ? ' badge-pulse' : '')}>
+                                  {transportLabel[transport] ?? transport}
+                                </span>
+                              </td>
+                            )}
+                            {pendingRenderer === r.udn ? (
+                              <td><Spinner size="sm" className="d-block text-body-secondary" /></td>
+                            ) : !sel && (
+                              <td>
+                                <Button size="sm" variant="secondary" className="hover-btn d-block" title="Play on this device" onClick={() => useRenderer(r.udn)}>
+                                  Use
+                                </Button>
+                              </td>
+                            )}
+                          </tr>
+                        </tbody>
+                      </table>
                       <small className="text-body-secondary">{r.model || r.manufacturer}</small>
                     </div>
                   </ListGroup.Item>

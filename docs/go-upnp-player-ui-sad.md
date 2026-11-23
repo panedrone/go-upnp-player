@@ -91,7 +91,10 @@ web player.
   Foldable like the other cards.
 - **Playlist and devices.** Only the playlist plays (a click on its row, or Play in its header). Devices are a
   list in the Output card with a Use button; Refresh and the Scan switch in its header. The selected device's row carries its transport badge after its name
-  (a lively green for PLAYING, light gray for quiet states, PAUSED on dark amber with white text for PAUSED_PLAYBACK); the
+  (a lively green for PLAYING, light gray for quiet states, PAUSED on dark amber with white text for PAUSED_PLAYBACK). The
+  row's line is a table: the IP, the name, the state and Use each in a cell, each cell holding one box trimmed to its
+  capitals by the standard `text-box: trim-both cap alphabetic`, so the table centres the letters themselves in any
+  font, with no nudges; the
   Output header shows a badge only when the player itself is offline. Row buttons appear on hover and are always visible on
   touch screens.
 - **Waiting for the renderer.** A spinner shows after the title of the row being started, and the

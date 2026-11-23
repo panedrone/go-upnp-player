@@ -69,14 +69,6 @@ body { overflow: hidden; font-size: 14px; }
 .dsd-title svg { position: relative; top: calc(-1 * var(--cap-shift-sans, 0em)); }
 .dsd-line .dsd-select + span { margin-left: 8px; }
 .row-label { display: flex; align-items: center; min-width: 0; }
-/* a device row mixes a small monospace IP, the name and a badge: one text line, not box centres */
-.renderer-row .row-label { align-items: baseline; }
-/* ...except the spinner, which has no text in it: an empty inline-block takes its bottom
-   margin edge as a baseline, so baseline alignment hangs the circle below the name */
-.renderer-row .row-label .spinner-border { align-self: center; }
-/* ...and the badge: its text on the name's baseline leaves its bottom padding hanging below
-   the name, the pill sat 2 px low (4 px at 187% zoom); centred, it sits level with the name */
-.renderer-row .row-label .badge { align-self: center; }
 .tree-toggle { width: 12px; flex: none; display: flex; align-items: center; justify-content: center; }
 .tree-icon { flex: none; font-size: 12px; display: flex; align-items: center; }
 
@@ -147,9 +139,6 @@ body { overflow: hidden; font-size: 14px; }
 }
 
 
-/* renderer IP before the name: monospace so addresses line up in a column */
-/* the IP takes only its own width: a fixed 7.5em column cut device names short */
-.renderer-ip { flex: none; margin-right: .4rem; font-size: .8em; }
 
 /* sliders as in the Qt window, drawn flat like the outlined buttons: a thin groove and an
    upright square-cornered handle, no gradients, one border. Bootstrap has no CSS variables for
@@ -216,12 +205,10 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
 
 /* transport badges: a lively (not lime) green for PLAYING, a light gray for the quiet
    states (STOPPED, CONNECTING, …); stock success and secondary were hard to tell apart */
-.badge.bg-playing { background-color: #22b35e; color: #fff; }
-.badge.bg-idle { background-color: #b4bcc4; color: #1f2328; }
+.badge.bg-playing, .pill.bg-playing { background-color: #22b35e; color: #fff; }
+.badge.bg-idle, .pill.bg-idle { background-color: #b4bcc4; color: #1f2328; }
 /* PAUSED: a dark amber, Bootstrap's warning yellow left its white text unreadable */
-.badge.bg-paused { background-color: #9a6700; color: #fff; }
-/* on a device row the badge sits next to the name: a size smaller, so the name fits */
-.renderer-row .badge { font-size: .65em; padding: .3em .45em; }
+.badge.bg-paused, .pill.bg-paused { background-color: #9a6700; color: #fff; }
 /* the parts wrap as boxes: between inline spans with no space Firefox found no place to break,
    and the line ran under the Scan switch (2026-11-16) */
 .output-info { display: flex; flex-wrap: wrap; }
@@ -258,3 +245,15 @@ input.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 .2rem rgba(var(--bs
 .btn.eq-preset { padding: 0; border: 0; font-size: .8rem; color: var(--bs-secondary-color); text-decoration: none; }
 .btn.eq-preset:hover, .btn.eq-preset:focus-visible { color: var(--bs-body-color); text-decoration: underline; }
 .btn.eq-preset:disabled { color: var(--bs-secondary-color); opacity: .5; }
+
+/* a box exactly as tall as its capitals (standard CSS text-box trimming): a table cell centres
+   the letters themselves, whatever the font. Used in a device row's line */
+.cap-box { display: block; text-box: trim-both cap alphabetic; }
+/* a table's cells 8 px apart and nothing else: no vertical padding, no spacing at the edges */
+.cell-gap { border-collapse: collapse; }
+.cell-gap td { padding: 0 0 0 8px; }
+.cell-gap td:first-child { padding-left: 0; }
+.cell-gap td > .btn { margin-left: 0; }
+/* a device row's transport state: a rounded box, the same padding above and below its capitals */
+.pill { padding: .35em .6em; border-radius: var(--bs-border-radius-pill); white-space: nowrap; }
+.pill.bg-danger { color: #fff; }
