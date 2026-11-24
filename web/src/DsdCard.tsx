@@ -8,11 +8,12 @@ const openKey = 'go-upnp-player.dsd-open'
 interface Props {
   onError: (msg: string) => void
   applying: boolean // the server is still applying a change (state.dsdApplying)
+  playing: boolean // a DSD track is heard: the LED in the title is lit
 }
 
 // DSD: how .dsf/.dff files become PCM on their way to the streamer (ADR-028). The settings live
 // on the server in their own file; a change applies at once.
-export default function DsdCard({ onError, applying }: Props) {
+export default function DsdCard({ onError, applying, playing }: Props) {
   const [s, setS] = useState<DSDSettings | null>(null)
   const [saving, setSaving] = useState(0) // changes sent, not yet answered
   // whether the card body is shown: a per-browser convenience, as for the other cards
@@ -54,6 +55,8 @@ export default function DsdCard({ onError, applying }: Props) {
           <span>DSD</span>
           <ArrowIcon />
           <span>PCM</span>
+          {/* an LED: dark while no DSD is heard, green while a DSD track plays */}
+          <span className={'dsd-led' + (playing ? ' on' : '')} title={playing ? 'A DSD track is playing' : 'No DSD is playing'} />
         </span>
         <Button
           size="sm" variant="outline-secondary" className="head-btn"

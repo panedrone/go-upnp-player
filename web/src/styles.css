@@ -67,6 +67,14 @@ body { overflow: hidden; font-size: 14px; }
 /* the arrow of "DSD → PCM" on the middle of the capitals: the arrow is centred on the line,
    the capitals are --cap-shift-sans away from it */
 .dsd-title svg { position: relative; top: calc(-1 * var(--cap-shift-sans, 0em)); }
+/* the LED right of "DSD → PCM", on the middle of the capitals like the arrow: dark while no
+   DSD is heard, the PLAYING badge's green with a soft glow while a DSD track plays */
+.dsd-led {
+  width: 8px; height: 8px; border-radius: 50%; flex: none; margin-left: 2px;
+  position: relative; top: calc(-1 * var(--cap-shift-sans, 0em));
+  background: var(--bs-secondary-bg); box-shadow: inset 0 0 0 1px var(--bs-border-color);
+}
+.dsd-led.on { background: #22b35e; box-shadow: 0 0 4px 1px rgba(34, 179, 94, .6); }
 .dsd-line .dsd-select + span { margin-left: 8px; }
 .row-label { display: flex; align-items: center; min-width: 0; }
 .tree-toggle { width: 12px; flex: none; display: flex; align-items: center; justify-content: center; }

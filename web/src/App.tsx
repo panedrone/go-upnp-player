@@ -508,7 +508,7 @@ export default function App() {
             </ListGroup>
           </Card>
           <Equalizer onError={showErr} />
-          <DsdCard onError={showErr} applying={!!state?.dsdApplying} />
+          <DsdCard onError={showErr} applying={!!state?.dsdApplying} playing={transport === 'PLAYING' && !!track?.dsdRate} />
           <Settings scanning={!!state?.library.scanning} tracks={state?.library.tracks ?? 0} />
         </div>
         </Panel>
