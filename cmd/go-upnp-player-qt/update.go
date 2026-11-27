@@ -54,7 +54,7 @@ func (u *window) checkUpdate() {
 				u.showNote(`<span style="color:#dc3545">Could not check for updates: ` + html.EscapeString(err.Error()) + `</span>`)
 				return
 			}
-			o := services.OfferUpdate(player.Version, rel, services.UpdateByPage, "", "")
+			o := services.OfferUpdate(player.Version, rel, services.UpdateByPage)
 			if !o.Newer {
 				u.showNote(fmt.Sprintf("You have the latest version, %s.", html.EscapeString(o.Current)))
 				return

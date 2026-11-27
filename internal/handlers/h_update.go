@@ -44,7 +44,7 @@ func OpenUpdate(c fiber.Ctx) error {
 }
 
 // InstallUpdate handles POST /api/update/install: a go install copy rebuilds itself at the
-// offered version and restarts. The answer comes once the build is done.
+// latest version and restarts. The answer comes once the build is done.
 func InstallUpdate(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(c.Context(), 10*time.Minute)
 	defer cancel()

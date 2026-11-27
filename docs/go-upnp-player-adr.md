@@ -41,3 +41,4 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [031](adr-031-a-run-ends-in-silence-so-stop-arrives-live.md) | A run ends in a tail of silence, so Stop reaches a live stream |
 | [032](adr-032-a-silent-renderer-stays-listed-offline.md) | A silent renderer stays on the list as OFFLINE, and comes back stopped |
 | [033](adr-033-equalizer-center.md) | Center: the equalizer's curve moved down to an average of 0 dB, on request |
+| [034](adr-034-update-with-go-install-at-latest.md) | Update with go install builds @latest, and the page knows nothing of it |

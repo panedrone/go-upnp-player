@@ -41,18 +41,18 @@ func TestUpdateKindOf(t *testing.T) {
 
 func TestOfferUpdate(t *testing.T) {
 	rel := Release{Tag: "v1.1.15", PageURL: "https://page", SetupURL: "https://setup.exe"}
-	o := OfferUpdate("1.1.14", rel, UpdateBySetup, "m", "")
+	o := OfferUpdate("1.1.14", rel, UpdateBySetup)
 	if !o.Newer || o.Latest != "1.1.15" || o.URL != "https://setup.exe" {
 		t.Errorf("setup: %+v", o)
 	}
-	if o := OfferUpdate("1.1.14", Release{Tag: "v1.1.15", PageURL: "https://page"}, UpdateBySetup, "m", ""); o.URL != "https://page" {
+	if o := OfferUpdate("1.1.14", Release{Tag: "v1.1.15", PageURL: "https://page"}, UpdateBySetup); o.URL != "https://page" {
 		t.Errorf("no setup asset: %+v", o)
 	}
-	o = OfferUpdate("1.1.14", rel, UpdateByGo, "example.com/p/cmd/p", "-s -w -H=windowsgui")
-	if o.URL != "" || o.Command != `go install -ldflags "-s -w -H=windowsgui" example.com/p/cmd/p@v1.1.15` {
+	o = OfferUpdate("1.1.14", rel, UpdateByGo)
+	if !o.Newer || o.URL != "" {
 		t.Errorf("go: %+v", o)
 	}
-	if o := OfferUpdate("1.1.14", rel, UpdateByPage, "m", ""); o.URL != "https://page" || o.Command != "" {
+	if o := OfferUpdate("1.1.14", rel, UpdateByPage); o.URL != "https://page" {
 		t.Errorf("page: %+v", o)
 	}
 }

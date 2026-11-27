@@ -76,7 +76,6 @@ export interface UpdateOffer {
   newer: boolean
   kind: 'setup' | 'go' | 'page'
   url?: string
-  command?: string
 }
 
 async function req<T>(method: string, url: string, body?: unknown, signal?: AbortSignal): Promise<T> {

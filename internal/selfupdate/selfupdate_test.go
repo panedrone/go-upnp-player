@@ -72,7 +72,7 @@ func TestGoInstall(t *testing.T) {
 	swap(t, &runGo, func(context.Context, ...string) ([]byte, error) {
 		return []byte("no such version"), errors.New("exit 1")
 	})
-	if err := GoInstall(context.Background(), "v9.9.9"); err == nil || !strings.Contains(err.Error(), "no such version") {
+	if err := GoInstall(context.Background()); err == nil || !strings.Contains(err.Error(), "no such version") {
 		t.Fatalf("error %v", err)
 	}
 	if b, _ := os.ReadFile(exe); string(b) != "old" {
@@ -85,10 +85,10 @@ func TestGoInstall(t *testing.T) {
 		got = args
 		return nil, os.WriteFile(exe, []byte("new"), 0o644)
 	})
-	if err := GoInstall(context.Background(), "v1.1.15"); err != nil {
+	if err := GoInstall(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if got[0] != "install" || got[len(got)-1] != Module+"@v1.1.15" {
+	if got[0] != "install" || got[len(got)-1] != Module+"@latest" {
 		t.Fatalf("args %q", got)
 	}
 	if b, _ := os.ReadFile(exe); string(b) != "new" {

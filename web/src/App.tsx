@@ -56,8 +56,8 @@ export default function App() {
     | { kind: 'checking' }
     | { kind: 'offer'; offer: UpdateOffer }
     | { kind: 'latest'; version: string }
-    | { kind: 'installing'; version: string }
-    | { kind: 'installed'; version: string }
+    | { kind: 'installing' }
+    | { kind: 'installed' }
     | { kind: 'error'; message: string }
   const [updateNote, setUpdateNote] = useState<UpdateNote | null>(null)
   const checkUpdate = () => {
@@ -67,14 +67,14 @@ export default function App() {
       .then((o) => setUpdateNote(o.newer ? { kind: 'offer', offer: o } : { kind: 'latest', version: o.current }))
       .catch((e) => setUpdateNote({ kind: 'error', message: e instanceof Error ? e.message : String(e) }))
   }
-  const installUpdate = (version: string) => {
-    setUpdateNote({ kind: 'installing', version })
+  const installUpdate = () => {
+    setUpdateNote({ kind: 'installing' })
     // the page reloads itself once the new build answers the poll; if it has not after
     // 30 s, the restart did not take, and the user is told to restart by hand rather than
     // left with "Updating…" for ever
     api
       .installUpdate()
-      .then(() => setTimeout(() => setUpdateNote((n) => (n?.kind === 'installing' ? { kind: 'installed', version } : n)), 30000))
+      .then(() => setTimeout(() => setUpdateNote((n) => (n?.kind === 'installing' ? { kind: 'installed' } : n)), 30000))
       .catch((e) => setUpdateNote({ kind: 'error', message: e instanceof Error ? e.message : String(e) }))
   }
 
@@ -619,7 +619,7 @@ function BarIcon({ name }: { name: 'prev' | 'play' | 'pause' | 'stop' | 'next' |
 function UpdateMessage({ note, onClose, onInstall }: {
   note: { kind: string; offer?: UpdateOffer; version?: string; message?: string }
   onClose: () => void
-  onInstall: (version: string) => void
+  onInstall: () => void
 }) {
   const close = (
     <Button size="sm" variant="link" className="status-close text-body-secondary" title="Close" onClick={onClose}>×</Button>
@@ -636,9 +636,9 @@ function UpdateMessage({ note, onClose, onInstall }: {
     case 'checking':
       return <><Spinner size="sm" className="me-2" />Checking for updates…</>
     case 'installing':
-      return <><Spinner size="sm" className="me-2" />Updating to {note.version} with go install; the player restarts when it is built…</>
+      return <><Spinner size="sm" className="me-2" />Updating with go install; the player restarts when it is built…</>
     case 'installed':
-      return closable(<>go-upnp-player {note.version} is installed, but the player did not restart by itself: quit it and start it again.</>, 'status-blink')
+      return closable(<>The update is installed, but the player did not restart by itself: quit it and start it again.</>, 'status-blink')
     case 'latest':
       return closable(<>You have the latest version, {note.version}.</>, 'status-blink', onClose)
     case 'error':
@@ -649,7 +649,7 @@ function UpdateMessage({ note, onClose, onInstall }: {
     <>
       go-upnp-player {o.latest} is available.
       {o.kind === 'go' ? (
-        <Button size="sm" variant="link" className="status-link" title={o.command} onClick={() => onInstall(o.latest)}>Update with go install</Button>
+        <Button size="sm" variant="link" className="status-link" onClick={onInstall}>Update with go install</Button>
       ) : (
         <Button size="sm" variant="link" className="status-link" onClick={open}>{o.kind === 'setup' ? 'Download the setup' : 'Open the release page'}</Button>
       )}

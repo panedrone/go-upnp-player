@@ -23,7 +23,8 @@ web player.
 - **Check for updates** (the cloud button by the version in the status bar, [ADR-019](adr-019-check-for-updates-on-demand.md)):
   the player asks GitHub only on this click. A newer version is offered in the status bar, with a
   ×, the way this copy updates: the setup copy downloads the new setup, a `go install` copy
-  rebuilds itself and restarts, the zip opens the release page. Pages open in the system browser
+  rebuilds itself at the latest version and restarts (the click sends nothing: the backend
+  decides what to build, [ADR-034](adr-034-update-with-go-install-at-latest.md)), the zip opens the release page. Pages open in the system browser
   through `POST /api/update/open`.
 - **Status bar.** At the left, while the selected device plays (not stopped, not paused), what is
   streamed and from where (local IP, rate, bits, channels, WAV or FLAC, or e.g. "DSD128 → PCM"),

@@ -125,10 +125,11 @@ func LdFlags() string {
 // replacedSuffix marks the previous exe moved aside during an update.
 const replacedSuffix = ".replaced"
 
-// GoInstall builds tag with go install over the running exe. Windows keeps a running exe
-// locked against overwriting but lets it be renamed, so it is moved aside first and put
-// back if the build fails; the leftover is removed on the next start (RemoveLeftover).
-func GoInstall(ctx context.Context, tag string) error {
+// GoInstall builds the latest version with go install over the running exe (@latest, not
+// the tag the check saw: ADR-034). Windows keeps a running exe locked against overwriting
+// but lets it be renamed, so it is moved aside first and put back if the build fails; the
+// leftover is removed on the next start (RemoveLeftover).
+func GoInstall(ctx context.Context) error {
 	exe, err := executable()
 	if err != nil {
 		return err
@@ -142,7 +143,7 @@ func GoInstall(ctx context.Context, tag string) error {
 	if f := LdFlags(); f != "" {
 		args = append(args, "-ldflags", f)
 	}
-	args = append(args, Module+"@"+tag)
+	args = append(args, Module+"@latest")
 	if out, err := runGo(ctx, args...); err != nil {
 		_ = os.Rename(aside, exe)
 		msg := strings.TrimSpace(string(out))
@@ -178,11 +179,10 @@ func RemoveLeftover() {
 }
 
 // the answer to the last check: Open and Install act only on what it offered, never on
-// a URL or version sent by the page
+// a URL sent by the page
 var (
 	offerMu sync.Mutex
 	offer   services.UpdateOffer
-	offered services.Release
 )
 
 // Check asks GitHub for the latest release and tells what this copy can do about it.
@@ -195,9 +195,9 @@ func Check(ctx context.Context, current string, installed bool) (services.Update
 	if !installed {
 		goBin = GoBinDir(ctx)
 	}
-	o := services.OfferUpdate(current, rel, services.UpdateKindOf(installed, ExeDir(), goBin), Module, LdFlags())
+	o := services.OfferUpdate(current, rel, services.UpdateKindOf(installed, ExeDir(), goBin))
 	offerMu.Lock()
-	offer, offered = o, rel
+	offer = o
 	offerMu.Unlock()
 	return o, nil
 }
@@ -212,13 +212,13 @@ func OfferedURL() string {
 	return offer.URL
 }
 
-// InstallOffered runs go install for the version the last check offered.
+// InstallOffered runs go install of the latest version once the last check offered one.
 func InstallOffered(ctx context.Context) error {
 	offerMu.Lock()
-	o, tag := offer, offered.Tag
+	o := offer
 	offerMu.Unlock()
 	if !o.Newer || o.Kind != services.UpdateByGo {
 		return errors.New("no go install update was offered: check for updates first")
 	}
-	return GoInstall(ctx, tag)
+	return GoInstall(ctx)
 }

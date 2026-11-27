@@ -28,8 +28,6 @@ type UpdateOffer struct {
 	Kind    string `json:"kind"`
 	// URL the Download/Release page action opens; empty for UpdateByGo
 	URL string `json:"url,omitempty"`
-	// Command is the go install command for UpdateByGo, shown to the user
-	Command string `json:"command,omitempty"`
 }
 
 // UpdateKindOf tells how this copy was installed. installed: the setup's uninstaller lies
@@ -53,7 +51,7 @@ func sameDir(a, b string) bool {
 }
 
 // OfferUpdate builds the answer from the running version and the latest release.
-func OfferUpdate(current string, rel Release, kind, module, ldflags string) UpdateOffer {
+func OfferUpdate(current string, rel Release, kind string) UpdateOffer {
 	o := UpdateOffer{Current: current, Latest: strings.TrimPrefix(rel.Tag, "v"), Kind: kind}
 	o.Newer = NewerVersion(current, rel.Tag)
 	switch kind {
@@ -63,21 +61,11 @@ func OfferUpdate(current string, rel Release, kind, module, ldflags string) Upda
 			o.URL = rel.PageURL
 		}
 	case UpdateByGo:
-		o.Command = GoInstallCommand(module, rel.Tag, ldflags)
+		// the backend runs go install by itself (selfupdate.GoInstall): nothing to send
 	default:
 		o.URL = rel.PageURL
 	}
 	return o
-}
-
-// GoInstallCommand is the command that updates a go install copy, with the linker flags
-// the running exe was built with (the Windows build without a console needs them).
-func GoInstallCommand(module, tag, ldflags string) string {
-	cmd := "go install "
-	if ldflags != "" {
-		cmd += `-ldflags "` + ldflags + `" `
-	}
-	return cmd + module + "@" + tag
 }
 
 // NewerVersion reports whether latest ("v1.1.15" or "1.1.15") is above current.

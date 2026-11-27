@@ -1,6 +1,7 @@
 # ADR-019: Updates are checked only on a click, and each kind of copy updates its own way
 
 **Status:** Accepted 2026-11-13 (1.1.14); the Linux restart fixed in 1.1.16. Nothing open.
+The go install target (`@<tag>`) is superseded by [ADR-034](adr-034-update-with-go-install-at-latest.md) (`@latest`).
 **Overcome:** on Windows end to end (1.1.14 → 1.1.15 by the setup and by go install), on Linux
 by go install (1.1.16 → 1.1.17, the owner's VM, 2026-11-13), on macOS 12 by go install
 (1.1.29 → 1.1.30, 2026-11-15); in tests
