@@ -25,16 +25,13 @@ func TestNewerVersion(t *testing.T) {
 }
 
 func TestUpdateKindOf(t *testing.T) {
-	if k := UpdateKindOf(true, `C:\x`, `C:\x`); k != UpdateBySetup {
+	if k := UpdateKindOf(true, true); k != UpdateBySetup {
 		t.Errorf("installed: %s", k)
 	}
-	if k := UpdateKindOf(false, `C:\Users\u\go\bin`, `c:\users\u\go\bin\`); k != UpdateByGo {
-		t.Errorf("go bin, other case and a trailing slash: %s", k)
+	if k := UpdateKindOf(false, true); k != UpdateByGo {
+		t.Errorf("any other copy with Go: %s", k)
 	}
-	if k := UpdateKindOf(false, `D:\apps\player`, `C:\Users\u\go\bin`); k != UpdateByPage {
-		t.Errorf("zip: %s", k)
-	}
-	if k := UpdateKindOf(false, `D:\apps\player`, ""); k != UpdateByPage {
+	if k := UpdateKindOf(false, false); k != UpdateByPage {
 		t.Errorf("no Go: %s", k)
 	}
 }

@@ -42,3 +42,4 @@ Each ADR's status line says how far the problem is overcome and what is still op
 | [032](adr-032-a-silent-renderer-stays-listed-offline.md) | A silent renderer stays on the list as OFFLINE, and comes back stopped |
 | [033](adr-033-equalizer-center.md) | Center: the equalizer's curve moved down to an average of 0 dB, on request |
 | [034](adr-034-update-with-go-install-at-latest.md) | Update with go install builds @latest, and the page knows nothing of it |
+| [035](adr-035-any-copy-with-go-updates-in-its-own-folder.md) | Any copy with Go at hand updates itself with go install, in its own folder |

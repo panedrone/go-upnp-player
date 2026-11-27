@@ -31,9 +31,13 @@ const setupAsset = "go-upnp-player-setup.exe"
 // Replaceable in tests.
 var (
 	httpDo = (&http.Client{Timeout: 10 * time.Second}).Do
-	// runGo runs the go tool with the given arguments and returns its combined output
-	runGo = func(ctx context.Context, args ...string) ([]byte, error) {
+	// runGo runs the go tool with the given arguments (env added to this process's own)
+	// and returns its combined output
+	runGo = func(ctx context.Context, env []string, args ...string) ([]byte, error) {
 		cmd := exec.CommandContext(ctx, "go", args...)
+		if len(env) > 0 {
+			cmd.Env = append(os.Environ(), env...)
+		}
 		hideWindow(cmd)
 		return cmd.CombinedOutput()
 	}
@@ -83,7 +87,7 @@ func Latest(ctx context.Context) (services.Release, error) {
 
 // GoBinDir is where go install puts programs (GOBIN, else GOPATH\bin); empty without Go.
 func GoBinDir(ctx context.Context) string {
-	out, err := runGo(ctx, "env", "GOBIN", "GOPATH")
+	out, err := runGo(ctx, nil, "env", "GOBIN", "GOPATH")
 	if err != nil {
 		return ""
 	}
@@ -126,8 +130,9 @@ func LdFlags() string {
 const replacedSuffix = ".replaced"
 
 // GoInstall builds the latest version with go install over the running exe (@latest, not
-// the tag the check saw: ADR-034). Windows keeps a running exe locked against overwriting
-// but lets it be renamed, so it is moved aside first and put back if the build fails; the
+// the tag the check saw: ADR-034), into the exe's own folder (GOBIN set to it), wherever
+// that folder is (ADR-035). Windows keeps a running exe locked against overwriting but
+// lets it be renamed, so it is moved aside first and put back if the build fails; the
 // leftover is removed on the next start (RemoveLeftover).
 func GoInstall(ctx context.Context) error {
 	exe, err := executable()
@@ -144,7 +149,7 @@ func GoInstall(ctx context.Context) error {
 		args = append(args, "-ldflags", f)
 	}
 	args = append(args, Module+"@latest")
-	if out, err := runGo(ctx, args...); err != nil {
+	if out, err := runGo(ctx, []string{"GOBIN=" + filepath.Dir(exe)}, args...); err != nil {
 		_ = os.Rename(aside, exe)
 		msg := strings.TrimSpace(string(out))
 		if msg == "" {
@@ -191,11 +196,8 @@ func Check(ctx context.Context, current string, installed bool) (services.Update
 	if err != nil {
 		return services.UpdateOffer{}, err
 	}
-	goBin := ""
-	if !installed {
-		goBin = GoBinDir(ctx)
-	}
-	o := services.OfferUpdate(current, rel, services.UpdateKindOf(installed, ExeDir(), goBin))
+	hasGo := !installed && GoBinDir(ctx) != ""
+	o := services.OfferUpdate(current, rel, services.UpdateKindOf(installed, hasGo))
 	offerMu.Lock()
 	offer = o
 	offerMu.Unlock()

@@ -47,15 +47,19 @@ func TestGoBinDir(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		gopath = `C:\Users\u\go`
 	}
-	swap(t, &runGo, func(context.Context, ...string) ([]byte, error) { return []byte("\r\n" + gopath + "\r\n"), nil })
+	swap(t, &runGo, func(context.Context, []string, ...string) ([]byte, error) {
+		return []byte("\r\n" + gopath + "\r\n"), nil
+	})
 	if got := GoBinDir(context.Background()); got != filepath.Join(gopath, "bin") {
 		t.Errorf("GOPATH: %q", got)
 	}
-	swap(t, &runGo, func(context.Context, ...string) ([]byte, error) { return []byte("/opt/gobin\n/home/u/go\n"), nil })
+	swap(t, &runGo, func(context.Context, []string, ...string) ([]byte, error) {
+		return []byte("/opt/gobin\n/home/u/go\n"), nil
+	})
 	if got := GoBinDir(context.Background()); got != "/opt/gobin" {
 		t.Errorf("GOBIN: %q", got)
 	}
-	swap(t, &runGo, func(context.Context, ...string) ([]byte, error) { return nil, errors.New("not found") })
+	swap(t, &runGo, func(context.Context, []string, ...string) ([]byte, error) { return nil, errors.New("not found") })
 	if got := GoBinDir(context.Background()); got != "" {
 		t.Errorf("no Go: %q", got)
 	}
@@ -69,7 +73,7 @@ func TestGoInstall(t *testing.T) {
 	swap(t, &executable, func() (string, error) { return exe, nil })
 
 	// a failed build puts the running exe back
-	swap(t, &runGo, func(context.Context, ...string) ([]byte, error) {
+	swap(t, &runGo, func(context.Context, []string, ...string) ([]byte, error) {
 		return []byte("no such version"), errors.New("exit 1")
 	})
 	if err := GoInstall(context.Background()); err == nil || !strings.Contains(err.Error(), "no such version") {
@@ -80,9 +84,9 @@ func TestGoInstall(t *testing.T) {
 	}
 
 	// a build writes the new exe; the old one waits aside for the next start
-	var got []string
-	swap(t, &runGo, func(_ context.Context, args ...string) ([]byte, error) {
-		got = args
+	var got, env []string
+	swap(t, &runGo, func(_ context.Context, e []string, args ...string) ([]byte, error) {
+		got, env = args, e
 		return nil, os.WriteFile(exe, []byte("new"), 0o644)
 	})
 	if err := GoInstall(context.Background()); err != nil {
@@ -90,6 +94,9 @@ func TestGoInstall(t *testing.T) {
 	}
 	if got[0] != "install" || got[len(got)-1] != Module+"@latest" {
 		t.Fatalf("args %q", got)
+	}
+	if len(env) != 1 || env[0] != "GOBIN="+filepath.Dir(exe) {
+		t.Fatalf("the build must land in the exe's own folder: env %q", env)
 	}
 	if b, _ := os.ReadFile(exe); string(b) != "new" {
 		t.Fatal("no new exe")

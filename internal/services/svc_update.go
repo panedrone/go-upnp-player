@@ -1,7 +1,6 @@
 package services
 
 import (
-	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -9,8 +8,8 @@ import (
 // How this copy of the player is updated; the update check offers the matching action.
 const (
 	UpdateBySetup = "setup" // installed by the Windows setup: download the new setup
-	UpdateByGo    = "go"    // installed by go install: run go install again
-	UpdateByPage  = "page"  // the zip or a local build: open the release page
+	UpdateByGo    = "go"    // any other copy with Go at hand: go install into its own folder
+	UpdateByPage  = "page"  // any other copy without Go: open the release page
 )
 
 // Release is what the update check learns about the latest release.
@@ -30,24 +29,19 @@ type UpdateOffer struct {
 	URL string `json:"url,omitempty"`
 }
 
-// UpdateKindOf tells how this copy was installed. installed: the setup's uninstaller lies
-// next to the exe. A go install copy lives in the Go bin folder (GOBIN, or GOPATH\bin)
-// and Go is at hand to build the next one. Anything else (the zip, a local build) gets
-// the release page.
-func UpdateKindOf(installed bool, exeDir, goBinDir string) string {
+// UpdateKindOf tells how this copy updates. installed: the setup's uninstaller lies next to
+// the exe, and the new setup replaces it. Any other copy with Go at hand rebuilds itself with
+// go install into its own folder, wherever that is (ADR-035); without Go it gets the release
+// page.
+func UpdateKindOf(installed, hasGo bool) string {
 	switch {
 	case installed:
 		return UpdateBySetup
-	case goBinDir != "" && sameDir(exeDir, goBinDir):
+	case hasGo:
 		return UpdateByGo
 	default:
 		return UpdateByPage
 	}
-}
-
-func sameDir(a, b string) bool {
-	clean := func(p string) string { return strings.TrimRight(filepath.Clean(p), `\/`) }
-	return strings.EqualFold(clean(a), clean(b))
 }
 
 // OfferUpdate builds the answer from the running version and the latest release.
