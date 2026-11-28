@@ -42,7 +42,7 @@ quirks forced it and how far each is overcome: the ADRs in
 
 ## Install (Windows)
 
-Requirements: Windows 10/11 x64, a UPnP/DLNA renderer on the same network, a library of FLAC,
+Requirements: Windows 10/11 x64 (on Windows 11 on ARM it runs under x64 emulation), a UPnP/DLNA renderer on the same network, a library of FLAC,
 WAV or DSD files, and/or FLAC or WAV images with `.cue` sheets.
 
 1. Download `go-upnp-player-setup.exe` from
